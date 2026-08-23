@@ -3,6 +3,8 @@
 跨游戏可复用的 **QA 巡检工具**——从示例游戏汉化巡检沉淀而来。核心引擎无关，
 换一个游戏只需在界面上**新建一份 profile**，核心代码一行不改。
 
+![game-qa-kit 界面](docs/images/screenshot.png)
+
 ## 为什么这样设计
 
 多轮实战验证出的结论：
@@ -139,3 +141,7 @@ game-qa-kit/
 ```bash
 python -m unittest tests/test_core.py
 ```
+
+## 许可证
+
+[MIT](LICENSE) © 2026 galact
