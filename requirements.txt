@@ -1,2 +1,4 @@
-# Pillow 用于 PrintWindow 截图缓冲转 PNG / dHash 灰度缩放
+# PrintWindow 截图缓冲转 PNG / dHash 灰度缩放
 Pillow>=10.0.0
+# GUI（gameqakit/gui.py）；纯 CLI/MCP 使用可不装
+PyQt6>=6.5.0

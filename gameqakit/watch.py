@@ -26,10 +26,17 @@ def _log(obj) -> None:
 
 
 def watch(out_dir: Path, proc: str, state_dir: Path, interval: float = 2.0,
-          threshold: int = 4, region=None, downscale: int | None = None) -> None:
-    """循环后台抓帧，只在结构变化（dHash 汉明距离 > threshold）时落盘。Ctrl+C 停止。
-    内存恒定；静止不重复落盘；窗口最小化/未找到静默等待；游戏重启自动跟随新句柄。"""
+          threshold: int = 4, region=None, downscale: int | None = None,
+          stop_event=None, on_event=None) -> dict:
+    """循环后台抓帧，只在结构变化（dHash 汉明距离 > threshold）时落盘。
+    CLI 下 Ctrl+C 停止；GUI 传 stop_event(threading.Event) 优雅停止。
+    on_event(dict) 可选回调，供 GUI 实时显示；缺省走 stderr 日志。
+    返回汇总 {saved, polls, out}。内存恒定；静止不重复落盘；游戏重启自动跟随新句柄。"""
     import time
+
+    def emit(obj):
+        (on_event or _log)(obj)
+
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     idx_path = out_dir / "index.jsonl"
@@ -40,10 +47,10 @@ def watch(out_dir: Path, proc: str, state_dir: Path, interval: float = 2.0,
         ensure_ascii=False), encoding="utf-8")
     prev_hash = None
     saved = polls = 0
-    _log({"ok": True, "watch": "started", "out": str(out_dir), "interval": interval,
-          "threshold": threshold, "hint": "正常玩即可，只在画面变化时自动留图；Ctrl+C 停止"})
+    emit({"ok": True, "watch": "started", "out": str(out_dir), "interval": interval,
+          "threshold": threshold, "hint": "正常玩即可，只在画面变化时自动留图"})
     try:
-        while True:
+        while not (stop_event and stop_event.is_set()):
             polls += 1
             try:
                 hwnd = find_window(proc)
@@ -68,10 +75,12 @@ def watch(out_dir: Path, proc: str, state_dir: Path, interval: float = 2.0,
                 f.write(json.dumps({"t": _dt.datetime.now().isoformat(timespec="seconds"),
                                     "file": out.name, "hwnd": hwnd, "hash": f"{cur:016x}"},
                                    ensure_ascii=False) + "\n")
-            _log({"saved": saved, "file": str(out)})
+            emit({"saved": saved, "file": str(out)})
             time.sleep(interval)
     except KeyboardInterrupt:
-        _log({"ok": True, "watch": "stopped", "saved": saved, "polls": polls, "out": str(out_dir)})
+        pass
+    emit({"ok": True, "watch": "stopped", "saved": saved, "polls": polls, "out": str(out_dir)})
+    return {"saved": saved, "polls": polls, "out": str(out_dir)}
 
 
 def _active_watch_dir(state_dir: Path, watch_dir: Path) -> Path | None:
