@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from gameqakit import profile as _profile          # noqa: E402
-from gameqakit import win32, watch as _watch, saves as _saves  # noqa: E402
+from gameqakit import win32, watch as _watch, saves as _saves, icons  # noqa: E402
 
 from PyQt6.QtCore import Qt, QObject, QThread, pyqtSignal  # noqa: E402
 from PyQt6.QtGui import QPixmap  # noqa: E402
@@ -25,8 +25,11 @@ from PyQt6.QtWidgets import (  # noqa: E402
 ACCENT = "#2f6bff"
 QSS = f"""
 * {{ font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif; font-size: 13px; color: #1f2328; }}
-QMainWindow, QWidget {{ background: #ffffff; }}
+QMainWindow {{ background: #ffffff; }}
+#main {{ background: #ffffff; }}
+QLabel {{ background: transparent; }}
 #sidebar {{ background: #f5f6f8; border-right: 1px solid #e6e8eb; }}
+#navBtn {{ qproperty-iconSize: 18px; }}
 #brand {{ font-size: 17px; font-weight: 700; color: {ACCENT}; }}
 #navBtn {{ text-align: left; background: transparent; border: none; border-radius: 8px;
           padding: 8px 10px; color: #3c4149; }}
@@ -57,27 +60,32 @@ QPlainTextEdit {{ background: #fbfbfc; border: 1px solid #e6e8eb; border-radius:
 
 
 class Card(QFrame):
-    """LiveAgent 风格动作卡：图标 + 标题 + 副标题，可点击。"""
+    """LiveAgent 风格动作卡：线性图标 + 标题 + 副标题，可点击。"""
     clicked = pyqtSignal()
 
-    def __init__(self, icon, title, subtitle, primary=False):
+    def __init__(self, icon_name, title, subtitle, primary=False):
         super().__init__()
         self.primary = primary
+        self.icon_color = "#ffffff" if primary else ACCENT
         self.setObjectName("cardPrimary" if primary else "card")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         lay = QHBoxLayout(self)
         lay.setContentsMargins(14, 12, 14, 12)
         lay.setSpacing(12)
-        self.ic = QLabel(icon); self.ic.setObjectName("cardIcon")
-        lay.addWidget(self.ic)
+        self.ic = QLabel(); self.ic.setFixedWidth(26)
+        self.ic.setPixmap(icons.pixmap(icon_name, self.icon_color, 22))
+        lay.addWidget(self.ic, alignment=Qt.AlignmentFlag.AlignVCenter)
         col = QVBoxLayout(); col.setSpacing(2)
         self.t = QLabel(title); self.t.setObjectName("cardTitleOn" if primary else "cardTitle")
         self.s = QLabel(subtitle); self.s.setObjectName("cardSubOn" if primary else "cardSub")
         col.addWidget(self.t); col.addWidget(self.s)
         lay.addLayout(col); lay.addStretch(1)
 
-    def set_text(self, icon, title, subtitle):
-        self.ic.setText(icon); self.t.setText(title); self.s.setText(subtitle)
+    def set_icon(self, name):
+        self.ic.setPixmap(icons.pixmap(name, self.icon_color, 22))
+
+    def set_text(self, title, subtitle):
+        self.t.setText(title); self.s.setText(subtitle)
 
     def mousePressEvent(self, e):
         if e.button() == Qt.MouseButton.LeftButton:
@@ -126,8 +134,9 @@ class App(QMainWindow):
         self._refresh_profiles()
 
     # ---------------- UI ----------------
-    def _nav(self, text, slot):
-        b = QPushButton(text); b.setObjectName("navBtn"); b.clicked.connect(slot)
+    def _nav(self, icon_name, text, slot):
+        b = QPushButton("  " + text); b.setObjectName("navBtn")
+        b.setIcon(icons.icon(icon_name, "#5b6470", 18)); b.clicked.connect(slot)
         return b
 
     def _build(self):
@@ -137,7 +146,10 @@ class App(QMainWindow):
         # ---- 侧栏 ----
         side = QFrame(); side.setObjectName("sidebar"); side.setFixedWidth(220)
         sl = QVBoxLayout(side); sl.setContentsMargins(16, 16, 16, 16); sl.setSpacing(10)
-        sl.addWidget(QLabel("🕊  game-qa-kit", objectName="brand"))
+        brand = QHBoxLayout(); brand.setSpacing(8)
+        bi = QLabel(); bi.setPixmap(icons.pixmap("eye", ACCENT, 20))
+        brand.addWidget(bi); brand.addWidget(QLabel("game-qa-kit", objectName="brand")); brand.addStretch(1)
+        sl.addLayout(brand)
         sl.addSpacing(6)
         sl.addWidget(QLabel("游戏 PROFILE", objectName="sectionLabel"))
         self.cb_profile = QComboBox(); sl.addWidget(self.cb_profile)
@@ -145,18 +157,19 @@ class App(QMainWindow):
         sl.addWidget(b_load)
         sl.addSpacing(10)
         sl.addWidget(QLabel("操作", objectName="sectionLabel"))
-        sl.addWidget(self._nav("🔎  检测窗口", lambda: self._run(self._check_window)))
-        sl.addWidget(self._nav("🖼  截图", lambda: self._run(self._capture)))
-        sl.addWidget(self._nav("📄  汇总复核日志", lambda: self._run(self._report)))
-        sl.addWidget(self._nav("💾  列出快照", lambda: self._run(self._list_saves)))
-        sl.addWidget(self._nav("📂  打开数据目录", self._open_data))
+        sl.addWidget(self._nav("search", "检测窗口", lambda: self._run(self._check_window)))
+        sl.addWidget(self._nav("image", "截图", lambda: self._run(self._capture)))
+        sl.addWidget(self._nav("file", "汇总复核日志", lambda: self._run(self._report)))
+        sl.addWidget(self._nav("database", "列出快照", lambda: self._run(self._list_saves)))
+        sl.addWidget(self._nav("folder", "打开数据目录", self._open_data))
         sl.addStretch(1)
         self.lb_status = QLabel("未加载 profile", objectName="status")
         self.lb_status.setWordWrap(True); sl.addWidget(self.lb_status)
         root.addWidget(side)
 
         # ---- 主区 ----
-        main = QWidget(); ml = QVBoxLayout(main); ml.setContentsMargins(24, 22, 24, 20); ml.setSpacing(16)
+        main = QWidget(); main.setObjectName("main")
+        ml = QVBoxLayout(main); ml.setContentsMargins(24, 22, 24, 20); ml.setSpacing(16)
         head = QHBoxLayout()
         hbox = QVBoxLayout(); hbox.setSpacing(2)
         hbox.addWidget(QLabel("盯屏巡检", objectName="h1"))
@@ -169,13 +182,13 @@ class App(QMainWindow):
 
         # 动作卡
         grid = QGridLayout(); grid.setSpacing(12)
-        self.card_watch = Card("▶", "开始盯屏", "自动留证，画面变化才截图", primary=True)
+        self.card_watch = Card("play", "开始盯屏", "自动留证，画面变化才截图", primary=True)
         self.card_watch.clicked.connect(self._toggle_watch)
-        self.card_mark = Card("★", "标记疑点", "即刻截当前画面并写备注")
+        self.card_mark = Card("star", "标记疑点", "即刻截当前画面并写备注")
         self.card_mark.clicked.connect(lambda: self._run(self._mark))
-        self.card_shot = Card("🖼", "截图", "抓一张当前画面")
+        self.card_shot = Card("image", "截图", "抓一张当前画面")
         self.card_shot.clicked.connect(lambda: self._run(self._capture))
-        self.card_report = Card("📄", "汇总复核日志", "标记帧在前，全部帧时间线在后")
+        self.card_report = Card("file", "汇总复核日志", "标记帧在前，全部帧时间线在后")
         self.card_report.clicked.connect(lambda: self._run(self._report))
         for i, c in enumerate((self.card_watch, self.card_mark, self.card_shot, self.card_report)):
             grid.addWidget(c, i // 2, i % 2)
@@ -233,12 +246,15 @@ class App(QMainWindow):
         self.cb_profile.clear(); self.cb_profile.addItems(_profile.list_profiles())
 
     def _load_profile(self):
-        name = self.cb_profile.currentText()
-        if not name:
-            return
-        self.profile = _profile.load_profile(name)
-        self.lb_status.setText(f"已加载 {name}\nproc={self.profile.proc}")
-        self._log(f"加载 profile：{name}")
+        try:
+            name = self.cb_profile.currentText()
+            if not name:
+                return
+            self.profile = _profile.load_profile(name)
+            self.lb_status.setText(f"已加载 {name}\nproc={self.profile.proc}")
+            self._log(f"加载 profile：{name}")
+        except Exception as e:  # noqa: BLE001
+            self._log(f"加载失败：{e}")
 
     def _check_window(self):
         p = self._need_profile()
@@ -253,22 +269,25 @@ class App(QMainWindow):
     def _set_watch_state(self, running):
         if running:
             self.lb_watch.setText("● 运行中"); self.lb_watch.setStyleSheet("background:#e7f6ec;color:#2f9e52;")
-            self.card_watch.set_text("■", "停止盯屏", "点此结束本次盯屏会话")
+            self.card_watch.set_icon("stop"); self.card_watch.set_text("停止盯屏", "点此结束本次盯屏会话")
         else:
             self.lb_watch.setText("● 未运行"); self.lb_watch.setStyleSheet("background:#fdecea;color:#c0504d;")
-            self.card_watch.set_text("▶", "开始盯屏", "自动留证，画面变化才截图")
+            self.card_watch.set_icon("play"); self.card_watch.set_text("开始盯屏", "自动留证，画面变化才截图")
 
     def _toggle_watch(self):
-        if self.watch_thread and self.watch_thread.isRunning():
-            self.watch_thread.stop_event.set()
-            self._log("正在停止盯屏…")
-            return
-        p = self._need_profile()
-        out = p.watch_dir / datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.watch_thread = WatchThread(
-            p, out, float(self.e_interval.text() or 2.0),
-            int(self.e_threshold.text() or 4), self._parse_region(), self.sig)
-        self.watch_thread.start()
+        try:
+            if self.watch_thread and self.watch_thread.isRunning():
+                self.watch_thread.stop_event.set()
+                self._log("正在停止盯屏…")
+                return
+            p = self._need_profile()
+            out = p.watch_dir / datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.watch_thread = WatchThread(
+                p, out, float(self.e_interval.text() or 2.0),
+                int(self.e_threshold.text() or 4), self._parse_region(), self.sig)
+            self.watch_thread.start()
+        except Exception as e:  # noqa: BLE001
+            self._log(f"无法开始盯屏：{e}")
 
     def _mark(self):
         p = self._need_profile()
@@ -316,6 +335,11 @@ class App(QMainWindow):
 
 
 def main():
+    # 全局异常钩子：防止任何槽函数未捕获异常触发 Qt abort 导致闪退
+    def _hook(exc_type, exc, tb):
+        import traceback
+        traceback.print_exception(exc_type, exc, tb)
+    sys.excepthook = _hook
     app = QApplication(sys.argv)
     App().show()
     sys.exit(app.exec())
