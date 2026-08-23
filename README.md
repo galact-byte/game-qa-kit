@@ -39,6 +39,16 @@ game-qa-kit/
 pip install -r requirements.txt   # 仅 Pillow
 ```
 
+## 图形界面（推荐，最直观）
+
+```bash
+# 双击 start.bat，或：
+python launch.py
+```
+
+PyQt6 深色控制台：选 profile → ▶ 开始盯屏 → 你正常手玩（画面变化自动留图）→ 看到疑点点
+「★ 标记当前画面」→ 停止后「汇总复核日志」。右侧实时日志、左侧最近截图预览。
+
 ## 推荐工作流（人玩 + 盯屏 + 异步复核）
 
 ```bash
