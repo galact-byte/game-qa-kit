@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from gameqakit import profile as _profile          # noqa: E402
 from gameqakit import win32, watch as _watch, saves as _saves, icons  # noqa: E402
 
-from PyQt6.QtCore import Qt, QObject, QThread, pyqtSignal  # noqa: E402
+from PyQt6.QtCore import Qt, QObject, QSize, QThread, pyqtSignal  # noqa: E402
 from PyQt6.QtGui import QPixmap  # noqa: E402
 from PyQt6.QtWidgets import (  # noqa: E402
     QApplication, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel,
@@ -29,7 +29,6 @@ QMainWindow {{ background: #ffffff; }}
 #main {{ background: #ffffff; }}
 QLabel {{ background: transparent; }}
 #sidebar {{ background: #f5f6f8; border-right: 1px solid #e6e8eb; }}
-#navBtn {{ qproperty-iconSize: 18px; }}
 #brand {{ font-size: 17px; font-weight: 700; color: {ACCENT}; }}
 #navBtn {{ text-align: left; background: transparent; border: none; border-radius: 8px;
           padding: 8px 10px; color: #3c4149; }}
@@ -40,6 +39,10 @@ QLabel {{ background: transparent; }}
 #sub {{ color: #97a0ab; }}
 QComboBox, QLineEdit {{ background: #ffffff; border: 1px solid #dfe3e8; border-radius: 8px; padding: 6px 8px; }}
 QComboBox:focus, QLineEdit:focus {{ border: 1px solid {ACCENT}; }}
+QComboBox::drop-down {{ border: none; width: 26px; subcontrol-origin: padding; subcontrol-position: center right; }}
+QComboBox::down-arrow {{ width: 12px; height: 12px; }}
+QComboBox QAbstractItemView {{ background: #ffffff; border: 1px solid #dfe3e8; border-radius: 8px;
+    padding: 4px; outline: none; selection-background-color: #f0f4ff; selection-color: #1f2328; }}
 #card {{ background: #ffffff; border: 1px solid #e6e8eb; border-radius: 12px; }}
 #card:hover {{ border: 1px solid {ACCENT}; background: #f5f8ff; }}
 #cardPrimary {{ background: {ACCENT}; border: 1px solid {ACCENT}; border-radius: 12px; }}
@@ -111,7 +114,7 @@ class WatchThread(QThread):
         try:
             _watch.watch(self.out, self.p.proc, self.p.state_dir, interval=self.interval,
                          threshold=self.threshold, region=self.region,
-                         stop_event=self.stop_event,
+                         stop_event=self.stop_event, title_substr=self.p.title_substr,
                          on_event=lambda o: self.sig.log.emit(str(o)))
         except Exception as e:  # noqa: BLE001
             self.sig.log.emit(f"盯屏错误：{e}")
@@ -136,7 +139,8 @@ class App(QMainWindow):
     # ---------------- UI ----------------
     def _nav(self, icon_name, text, slot):
         b = QPushButton("  " + text); b.setObjectName("navBtn")
-        b.setIcon(icons.icon(icon_name, "#5b6470", 18)); b.clicked.connect(slot)
+        b.setIcon(icons.icon(icon_name, "#5b6470", 18)); b.setIconSize(QSize(18, 18))
+        b.clicked.connect(slot)
         return b
 
     def _build(self):
@@ -218,7 +222,9 @@ class App(QMainWindow):
         ml.addLayout(body, 1)
 
         root.addWidget(main, 1)
-        self.setStyleSheet(QSS)
+        # 自定义下拉箭头(避免默认带边框方块) + 弹出列表圆角
+        chevron = icons.save_png("chevron", "#8a9099", 24)
+        self.setStyleSheet(QSS + f'\nQComboBox::down-arrow {{ image: url("{chevron}"); }}\n')
 
     # ---------------- 基础设施 ----------------
     def _log(self, msg):
@@ -291,7 +297,8 @@ class App(QMainWindow):
 
     def _mark(self):
         p = self._need_profile()
-        r = _watch.mark(self.e_note.text().strip(), p.proc, p.state_dir, p.watch_dir)
+        r = _watch.mark(self.e_note.text().strip(), p.proc, p.state_dir, p.watch_dir,
+                        title_substr=p.title_substr)
         self.sig.log.emit(f"已标记：{r['marked']}")
         self.sig.thumb.emit(r["marked"])
 

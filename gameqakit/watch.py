@@ -27,7 +27,7 @@ def _log(obj) -> None:
 
 def watch(out_dir: Path, proc: str, state_dir: Path, interval: float = 2.0,
           threshold: int = 4, region=None, downscale: int | None = None,
-          stop_event=None, on_event=None) -> dict:
+          stop_event=None, on_event=None, title_substr: str | None = None) -> dict:
     """循环后台抓帧，只在结构变化（dHash 汉明距离 > threshold）时落盘。
     CLI 下 Ctrl+C 停止；GUI 传 stop_event(threading.Event) 优雅停止。
     on_event(dict) 可选回调，供 GUI 实时显示；缺省走 stderr 日志。
@@ -53,7 +53,7 @@ def watch(out_dir: Path, proc: str, state_dir: Path, interval: float = 2.0,
         while not (stop_event and stop_event.is_set()):
             polls += 1
             try:
-                hwnd = find_window(proc)
+                hwnd = find_window(proc, title_substr)
                 img = grab_image(hwnd)
             except Exception:
                 time.sleep(max(interval, 1.0))
@@ -100,11 +100,12 @@ def _active_watch_dir(state_dir: Path, watch_dir: Path) -> Path | None:
     return None
 
 
-def mark(note: str, proc: str, state_dir: Path, watch_dir: Path) -> dict:
+def mark(note: str, proc: str, state_dir: Path, watch_dir: Path,
+         title_substr: str | None = None) -> dict:
     """玩时看到可疑画面随手标：即刻截当前帧+写备注到本次盯屏会话。复核时优先看标记帧。"""
     d = _active_watch_dir(state_dir, watch_dir) or (Path(watch_dir) / _ts())
     d.mkdir(parents=True, exist_ok=True)
-    hwnd = find_window(proc)
+    hwnd = find_window(proc, title_substr)
     out = d / f"mark_{_ts()}.png"
     w, h = capture(hwnd, out)
     rec = {"t": _dt.datetime.now().isoformat(timespec="seconds"),

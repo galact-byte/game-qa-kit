@@ -68,10 +68,11 @@ def main(argv=None):
         from datetime import datetime
         out = Path(args.out) if args.out else p.watch_dir / datetime.now().strftime("%Y%m%d_%H%M%S")
         _watch.watch(out, p.proc, p.state_dir, interval=args.interval, threshold=args.threshold,
-                     region=_parse_region(args.region),
+                     region=_parse_region(args.region), title_substr=p.title_substr,
                      downscale=args.downscale if args.downscale > 1 else None)
     elif args.cmd == "mark":
-        print(json.dumps(_watch.mark(args.note, p.proc, p.state_dir, p.watch_dir), ensure_ascii=False))
+        print(json.dumps(_watch.mark(args.note, p.proc, p.state_dir, p.watch_dir,
+                                     title_substr=p.title_substr), ensure_ascii=False))
     elif args.cmd == "report":
         print(json.dumps(_watch.watch_report(p.state_dir, p.watch_dir), ensure_ascii=False))
     elif args.cmd == "capture":

@@ -17,6 +17,7 @@ _STROKE = {
     "file": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
     "database": '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
     "folder": '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+    "chevron": '<polyline points="6 9 12 15 18 9"/>',
 }
 # 填充类图标（fill=color, stroke=none）
 _FILL = {
@@ -47,3 +48,15 @@ def pixmap(name: str, color: str = "#5b6470", size: int = 20) -> QPixmap:
 
 def icon(name: str, color: str = "#5b6470", size: int = 18) -> QIcon:
     return QIcon(pixmap(name, color, size))
+
+
+def save_png(name: str, color: str = "#5b6470", size: int = 24) -> str:
+    """把图标渲染为 PNG 落盘到临时目录，返回正斜杠路径供 QSS url() 使用。"""
+    import tempfile
+    from pathlib import Path
+    d = Path(tempfile.gettempdir()) / "gameqakit_icons"
+    d.mkdir(parents=True, exist_ok=True)
+    fp = d / f"{name}_{color.lstrip('#')}_{size}.png"
+    if not fp.exists():
+        pixmap(name, color, size).save(str(fp), "PNG")
+    return str(fp).replace("\\", "/")
