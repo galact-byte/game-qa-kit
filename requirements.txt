@@ -1,0 +1,2 @@
+# Pillow 用于 PrintWindow 截图缓冲转 PNG / dHash 灰度缩放
+Pillow>=10.0.0

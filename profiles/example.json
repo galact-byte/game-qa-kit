@@ -1,0 +1,14 @@
+{
+  "name": "example",
+  "proc": "Game",
+  "title_substr": null,
+  "client_size": [1280, 720],
+  "savedata_dir": null,
+  "save_globs": ["*.sav"],
+  "data_dir": null,
+  "regions": {
+    "bottom_dialog": [0, 560, 1280, 160],
+    "top_bar": [0, 0, 1280, 40]
+  },
+  "notes": "通用示例：把 proc 改成游戏进程名（不含 .exe）；需要存档快照时再填 savedata_dir 与 save_globs。"
+}

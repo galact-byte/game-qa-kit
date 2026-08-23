@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+# QA 运行期数据（截图/盯屏/存档快照）默认落在 profile.data_dir，不入库
+/data/
+*.png
+!profiles/*.png
