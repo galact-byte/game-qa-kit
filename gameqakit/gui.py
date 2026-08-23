@@ -19,8 +19,9 @@ from gameqakit import win32, watch as _watch, saves as _saves, icons  # noqa: E4
 from PyQt6.QtCore import Qt, QObject, QSize, QThread, pyqtSignal  # noqa: E402
 from PyQt6.QtGui import QPixmap  # noqa: E402
 from PyQt6.QtWidgets import (  # noqa: E402
-    QApplication, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel,
-    QLineEdit, QMainWindow, QPlainTextEdit, QPushButton, QVBoxLayout, QWidget)
+    QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
+    QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox,
+    QPlainTextEdit, QPushButton, QVBoxLayout, QWidget)
 
 ACCENT = "#2f6bff"
 QSS = f"""
@@ -35,6 +36,7 @@ QLabel {{ background: transparent; }}
 #navBtn:hover {{ background: #e9edf5; }}
 #sectionLabel {{ color: #97a0ab; font-size: 11px; font-weight: 600; }}
 #status {{ color: #97a0ab; font-size: 12px; }}
+#hint {{ color: #97a0ab; font-size: 11px; }}
 #h1 {{ font-size: 22px; font-weight: 700; }}
 #sub {{ color: #97a0ab; }}
 QComboBox, QLineEdit {{ background: #ffffff; border: 1px solid #dfe3e8; border-radius: 8px; padding: 6px 8px; }}
@@ -122,6 +124,71 @@ class WatchThread(QThread):
             self.sig.watch_state.emit(False)
 
 
+class ProfileDialog(QDialog):
+    """新建/编辑一个游戏 profile。"""
+
+    def __init__(self, parent=None, existing=None):
+        super().__init__(parent)
+        self.setWindowTitle("编辑 Profile" if existing else "新建 Profile")
+        self.setMinimumWidth(480)
+        self.setStyleSheet(QSS)
+        form = QFormLayout(self); form.setSpacing(8)
+        intro = QLabel("Profile = 一个游戏的配置。换游戏只需新建一份：\n"
+                       "填进程名（不含 .exe）、存档目录/文件模式，可选截图区域。")
+        intro.setObjectName("hint"); intro.setWordWrap(True); form.addRow(intro)
+        self.e_name = QLineEdit(); self.e_proc = QLineEdit(); self.e_title = QLineEdit()
+        self.e_save = QLineEdit(); self.e_globs = QLineEdit(); self.e_data = QLineEdit()
+        self.e_title.setPlaceholderText("可空，留空更安全（只按进程名匹配）")
+        self.e_proc.setPlaceholderText("如 Game")
+        self.e_globs.setPlaceholderText("如 data*.dat, *.var（逗号分隔，改档才需）")
+        self.e_data.setPlaceholderText("可空，缺省 ~/.gameqakit/<名称>")
+        if existing:
+            self.e_name.setText(existing.name); self.e_name.setEnabled(False)
+            self.e_proc.setText(existing.proc); self.e_title.setText(existing.title_substr or "")
+            self.e_save.setText(existing.savedata_dir or "")
+            self.e_globs.setText(", ".join(existing.save_globs))
+            self.e_data.setText(existing.data_dir or "")
+            self._regions = existing.regions
+        else:
+            self._regions = {}
+        form.addRow("名称 *", self.e_name)
+        form.addRow("进程名 *", self.e_proc)
+        form.addRow("窗口标题子串", self.e_title)
+        form.addRow("存档目录", self._with_browse(self.e_save))
+        form.addRow("存档文件模式", self.e_globs)
+        form.addRow("QA 数据目录", self._with_browse(self.e_data))
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        bb.accepted.connect(self._on_ok); bb.rejected.connect(self.reject)
+        form.addRow(bb)
+
+    def _with_browse(self, edit):
+        w = QWidget(); h = QHBoxLayout(w); h.setContentsMargins(0, 0, 0, 0); h.setSpacing(6)
+        h.addWidget(edit, 1)
+        b = QPushButton("浏览"); b.setObjectName("ghost")
+        b.clicked.connect(lambda: self._browse(edit)); h.addWidget(b)
+        return w
+
+    def _browse(self, edit):
+        d = QFileDialog.getExistingDirectory(self, "选择目录", edit.text() or "")
+        if d:
+            edit.setText(d)
+
+    def _on_ok(self):
+        if not self.e_name.text().strip() or not self.e_proc.text().strip():
+            QMessageBox.warning(self, "缺少必填", "名称和进程名不能为空")
+            return
+        self.accept()
+
+    def result_profile(self):
+        globs = [g.strip() for g in self.e_globs.text().split(",") if g.strip()]
+        return _profile.GameProfile(
+            name=self.e_name.text().strip(), proc=self.e_proc.text().strip(),
+            title_substr=self.e_title.text().strip() or None,
+            savedata_dir=self.e_save.text().strip() or None,
+            save_globs=globs, data_dir=self.e_data.text().strip() or None,
+            regions=self._regions)
+
+
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -156,14 +223,16 @@ class App(QMainWindow):
         sl.addLayout(brand)
         sl.addSpacing(6)
         sl.addWidget(QLabel("游戏 PROFILE", objectName="sectionLabel"))
+        hint = QLabel("一个游戏的配置：进程名 / 存档 / 截图区。换游戏换一份。")
+        hint.setObjectName("hint"); hint.setWordWrap(True); sl.addWidget(hint)
         self.cb_profile = QComboBox(); sl.addWidget(self.cb_profile)
-        b_load = QPushButton("加载"); b_load.setObjectName("ghost"); b_load.clicked.connect(self._load_profile)
-        sl.addWidget(b_load)
+        prow = QHBoxLayout(); prow.setSpacing(6)
+        for text, slot in [("加载", self._load_profile), ("新建", self._new_profile), ("编辑", self._edit_profile)]:
+            b = QPushButton(text); b.setObjectName("ghost"); b.clicked.connect(slot); prow.addWidget(b)
+        sl.addLayout(prow)
         sl.addSpacing(10)
-        sl.addWidget(QLabel("操作", objectName="sectionLabel"))
+        sl.addWidget(QLabel("工具", objectName="sectionLabel"))
         sl.addWidget(self._nav("search", "检测窗口", lambda: self._run(self._check_window)))
-        sl.addWidget(self._nav("image", "截图", lambda: self._run(self._capture)))
-        sl.addWidget(self._nav("file", "汇总复核日志", lambda: self._run(self._report)))
         sl.addWidget(self._nav("database", "列出快照", lambda: self._run(self._list_saves)))
         sl.addWidget(self._nav("folder", "打开数据目录", self._open_data))
         sl.addStretch(1)
@@ -257,10 +326,46 @@ class App(QMainWindow):
             if not name:
                 return
             self.profile = _profile.load_profile(name)
-            self.lb_status.setText(f"已加载 {name}\nproc={self.profile.proc}")
-            self._log(f"加载 profile：{name}")
+            sd = self.profile.savedata_dir or "(未设，不能改档)"
+            self.lb_status.setText(f"已加载：{name}\n进程：{self.profile.proc}\n存档：{sd}")
+            self._log(f"加载 profile：{name}（proc={self.profile.proc}）")
         except Exception as e:  # noqa: BLE001
             self._log(f"加载失败：{e}")
+
+    def _new_profile(self):
+        dlg = ProfileDialog(self)
+        if dlg.exec():
+            try:
+                p = dlg.result_profile()
+                _profile.save_profile(p)
+                self._refresh_profiles()
+                self.cb_profile.setCurrentText(p.name)
+                self._load_profile()
+                self._log(f"已创建 profile：{p.name}")
+            except Exception as e:  # noqa: BLE001
+                self._log(f"创建失败：{e}")
+
+    def _edit_profile(self):
+        name = self.cb_profile.currentText()
+        if not name:
+            self._log("请先选中一个 profile 再编辑")
+            return
+        try:
+            cur = _profile.load_profile(name)
+        except Exception as e:  # noqa: BLE001
+            self._log(f"读取失败：{e}")
+            return
+        dlg = ProfileDialog(self, existing=cur)
+        if dlg.exec():
+            try:
+                p = dlg.result_profile()
+                _profile.save_profile(p)
+                self._refresh_profiles()
+                self.cb_profile.setCurrentText(p.name)
+                self._load_profile()
+                self._log(f"已保存 profile：{p.name}")
+            except Exception as e:  # noqa: BLE001
+                self._log(f"保存失败：{e}")
 
     def _check_window(self):
         p = self._need_profile()

@@ -99,3 +99,15 @@ def list_profiles() -> list[str]:
     if not _PROFILES_DIR.exists():
         return []
     return [p.stem for p in sorted(_PROFILES_DIR.glob("*.json"))]
+
+
+def save_profile(p: GameProfile) -> Path:
+    """把 profile 写到 profiles/<name>.json（新建或覆盖），返回路径。"""
+    _PROFILES_DIR.mkdir(parents=True, exist_ok=True)
+    fp = _PROFILES_DIR / f"{p.name}.json"
+    fp.write_text(json.dumps(p.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    return fp
+
+
+def profiles_dir() -> Path:
+    return _PROFILES_DIR
