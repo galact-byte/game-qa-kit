@@ -1,9 +1,30 @@
+# ---- Python ----
 __pycache__/
 *.py[cod]
 *.egg-info/
+build/
+dist/
 .venv/
 venv/
-# QA 运行期数据（截图/盯屏/存档快照）默认落在 profile.data_dir，不入库
+.env
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ---- QA 运行期产物（默认落在 profile.data_dir，通常在项目外；
+#      若把 data_dir 设到了项目内，这些目录也不入库） ----
 /data/
+/shots/
+/watch/
+/state/
 *.png
-!profiles/*.png
+*.jpg
+# 但保留仓库文档/示例图（如 docs/ 下的说明图）
+!docs/**
+
+# 说明：profiles/*.json 是版本控制的（每游戏配置示例）。
+# 注意其中可能含机器相关的绝对路径（savedata_dir/data_dir），私有仓库可接受；
+# 若要公开，请把真实路径改成占位再提交。
