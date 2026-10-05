@@ -7,7 +7,7 @@
 
 注册到 ~/.pi/agent/mcp.json：
   "gameqakit": {"command": "python", "args": ["<绝对路径>/mcp_server.py"],
-                "env": {"GAMEQAKIT_PROFILE": "example"}}
+                "env": {"GAMEQAKIT_PROFILE": "<profile 名>"}}
 """
 from __future__ import annotations
 

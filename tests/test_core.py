@@ -133,11 +133,14 @@ class SaveSnapshotTests(unittest.TestCase):
 
 
 class ProfileTests(unittest.TestCase):
-    def test_example_profile_loads(self):
+    def test_example_profile_loads_without_machine_paths(self):
         p = profile.load_profile("example")
         self.assertEqual(p.proc, "Game")
-        self.assertIn("data*.dat", p.save_globs)
+        self.assertIn("*.sav", p.save_globs)
         self.assertTrue(str(p.saves_dir).endswith("saves"))
+        # 公开示例不能带本机绝对路径
+        self.assertIsNone(p.savedata_dir)
+        self.assertIsNone(p.data_dir)
 
     def test_derived_dirs_under_data_path(self):
         p = profile.GameProfile(name="x", proc="x", data_dir="/tmp/x")

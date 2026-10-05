@@ -1,6 +1,6 @@
 # game-qa-kit
 
-跨游戏可复用的 **QA 巡检工具**——从示例游戏汉化巡检沉淀而来。核心引擎无关，
+跨游戏可复用的 **QA 巡检工具**——从真实的游戏汉化巡检中沉淀而来。核心引擎无关，
 换一个游戏只需在界面上**新建一份 profile**，核心代码一行不改。
 
 ![game-qa-kit 界面](docs/images/screenshot.png)
@@ -23,7 +23,7 @@
 
 1. 安装依赖：`pip install -r requirements.txt`（Pillow + PyQt6）
 2. **双击 `start.bat`**（或 `python launch.py`）打开控制台
-3. 左上角选择 `example`（或点「新建」建一份你自己游戏的 profile）→ 点「加载」
+3. 左上角点「新建」建一份你自己游戏的 profile（也可先选示例 `example` 再「编辑」）→ 点「加载」
 4. 打开游戏，回到控制台点蓝色卡片「▶ 开始盯屏」
 5. **切回游戏正常手玩**——画面变化时工具自动留图，你什么都不用管
 6. 看到可疑画面：在「标记备注」写一句，点「★ 标记疑点」（会立刻截当前画面）
@@ -56,8 +56,8 @@
 > 若填得太泛（如游戏名恰好出现在资源管理器/编辑器标题里），会**静默截错窗口**。
 > 进程名通常唯一稳定，**优先只靠 `proc`，把 `title_substr` 留空**。
 >
-> `regions` 坐标依赖窗口客户区大小；换了窗口尺寸/分辨率需要重设（示例游戏实测客户区
-> 为 1500×900，示例里的 1200×720 区域仅供参考）。
+> `regions` 坐标依赖窗口客户区大小；换了窗口尺寸/分辨率需要重设（示例里的 1280×720
+> 区域仅供参考，请按实际客户区重设）。
 
 ---
 
@@ -83,10 +83,10 @@
 CLI（盯屏循环适合命令行常驻）：
 
 ```bash
-python -m gameqakit.cli watch  --profile example      # 开始盯屏（Ctrl+C 停）
-python -m gameqakit.cli mark   --profile example -m "阶段条疑似日文"
-python -m gameqakit.cli report --profile example
-python -m gameqakit.cli capture --profile example -o shot.png [-r x,y,w,h]
+python -m gameqakit.cli watch  --profile <profile 名>      # 开始盯屏（Ctrl+C 停）
+python -m gameqakit.cli mark   --profile <profile 名> -m "阶段条疑似日文"
+python -m gameqakit.cli report --profile <profile 名>
+python -m gameqakit.cli capture --profile <profile 名> -o shot.png [-r x,y,w,h]
 python -m gameqakit.cli profiles
 ```
 
@@ -97,7 +97,7 @@ python -m gameqakit.cli profiles
   "gameqakit": {
     "command": "python",
     "args": ["<仓库路径>/gameqakit/mcp_server.py"],
-    "env": { "GAMEQAKIT_PROFILE": "example" }
+    "env": { "GAMEQAKIT_PROFILE": "<profile 名>" }
   }
 }
 ```
@@ -124,7 +124,7 @@ game-qa-kit/
 │   ├── gui.py        # PyQt6 控制台（LiveAgent 风浅色 UI）
 │   ├── cli.py        # 命令行入口
 │   └── mcp_server.py # MCP 封装（按激活 profile 暴露）
-├── profiles/example.json          # 示例游戏示例 profile
+├── profiles/example.json       # 通用示例 profile
 └── tests/test_core.py          # 离线核心测试（无需游戏）
 ```
 

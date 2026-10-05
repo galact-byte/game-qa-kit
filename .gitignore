@@ -28,3 +28,7 @@ Thumbs.db
 # 说明：profiles/*.json 是版本控制的（每游戏配置示例）。
 # 注意其中可能含机器相关的绝对路径（savedata_dir/data_dir），私有仓库可接受；
 # 若要公开，请把真实路径改成占位再提交。
+
+# 公开仓库只提交通用示例 profile；各游戏的个人 profile（含本机路径）只留本地
+/profiles/*.json
+!/profiles/example.json
