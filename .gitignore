@@ -32,3 +32,9 @@ Thumbs.db
 # 公开仓库只提交通用示例 profile；各游戏的个人 profile（含本机路径）只留本地
 /profiles/*.json
 !/profiles/example.json
+
+# 仅本地的 AI 配置
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.omc/

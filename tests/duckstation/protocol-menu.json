@@ -1,0 +1,9 @@
+[
+  {"name":"after-start", "action":"press", "button":"shift", "frames":6},
+  {"name":"title-wait-one", "action":"wait", "frames":120},
+  {"name":"title-wait-two", "action":"wait", "frames":120},
+  {"name":"after-circle", "action":"confirm", "frames":6},
+  {"name":"submenu-ready", "action":"wait", "frames":60},
+  {"name":"after-down", "action":"move", "direction":"down", "frames":1},
+  {"name":"after-up", "action":"move", "direction":"up", "frames":1}
+]

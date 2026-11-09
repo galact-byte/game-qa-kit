@@ -178,9 +178,9 @@ def _region_digest(hwnd: int, region) -> str:
 
 def click(cx: int, cy: int, proc: str, hold_ms: int = 90, verify_region=None,
           origin=None, guard_ms: int = 1200, force: bool = False,
-          restore_topmost: bool = True) -> dict:
+          restore_topmost: bool = True, hwnd: int | None = None) -> dict:
     """点击游戏客户区坐标（capture 像素坐标系）。origin=(ox,oy) 支持裁剪图相对坐标。"""
-    hwnd = find_window(proc)
+    hwnd = find_window(proc) if hwnd is None else hwnd
     w, h = client_size(hwnd)
     if origin is not None:
         cx = int(cx) + int(origin[0])
@@ -234,8 +234,8 @@ def click(cx: int, cy: int, proc: str, hold_ms: int = 90, verify_region=None,
 
 
 def press_key(vk: int, proc: str, verify_region=None, guard_ms: int = 1200,
-              force: bool = False, restore_topmost: bool = True) -> dict:
-    hwnd = find_window(proc)
+              force: bool = False, restore_topmost: bool = True, hwnd: int | None = None) -> dict:
+    hwnd = find_window(proc) if hwnd is None else hwnd
     w, h = client_size(hwnd)
     if not force and user_active(guard_ms):
         raise RuntimeError(

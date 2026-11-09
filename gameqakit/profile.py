@@ -30,6 +30,8 @@ class GameProfile:
     data_dir: str | None = None                 # QA 数据根（快照/截图/盯屏/state）
     regions: dict[str, list[int]] = field(default_factory=dict)  # 命名截图区域 [x,y,w,h]
     notes: str = ""
+    exe_path: str | None = None                 # 可选精确程序路径，避免同名 Game.exe 串窗
+    target_pid: int | None = field(default=None, repr=False)  # 仅本次选择，不写入配置
 
     # ---- 派生目录 ----
     @property
@@ -62,12 +64,12 @@ class GameProfile:
     def to_dict(self) -> dict:
         return {k: getattr(self, k) for k in (
             "name", "proc", "title_substr", "client_size", "savedata_dir",
-            "save_globs", "data_dir", "regions", "notes")}
+            "save_globs", "data_dir", "regions", "notes", "exe_path")}
 
 
 def from_dict(d: dict) -> GameProfile:
     known = {"name", "proc", "title_substr", "client_size", "savedata_dir",
-             "save_globs", "data_dir", "regions", "notes"}
+             "save_globs", "data_dir", "regions", "notes", "exe_path"}
     return GameProfile(**{k: v for k, v in d.items() if k in known})
 
 

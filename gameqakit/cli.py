@@ -42,6 +42,8 @@ def main(argv=None):
     pw.add_argument("--threshold", "-d", type=int, default=4)
     pw.add_argument("--region", "-r", help="只盯矩形 x,y,w,h")
     pw.add_argument("--downscale", type=int, default=1)
+    pw.add_argument("--analysis", choices=("off", "rules", "ocr"), default="rules",
+                    help="off 仅留图；rules 窗口标题筛选；ocr 加本地 OCR（可选依赖）")
     pw.add_argument("--out", "-o", help="输出目录；缺省自动建 watch/<时间戳>")
 
     pm = sub.add_parser("mark", help="标记当前画面（截图+备注到本次盯屏会话）")
@@ -66,18 +68,20 @@ def main(argv=None):
     if args.cmd == "watch":
         from pathlib import Path
         from datetime import datetime
-        out = Path(args.out) if args.out else p.watch_dir / datetime.now().strftime("%Y%m%d_%H%M%S")
+        out = Path(args.out) if args.out else p.watch_dir / datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         _watch.watch(out, p.proc, p.state_dir, interval=args.interval, threshold=args.threshold,
                      region=_parse_region(args.region), title_substr=p.title_substr,
-                     downscale=args.downscale if args.downscale > 1 else None)
+                     downscale=args.downscale, analysis_mode=args.analysis,
+                     exe_path=p.exe_path, target_pid=p.target_pid)
     elif args.cmd == "mark":
         print(json.dumps(_watch.mark(args.note, p.proc, p.state_dir, p.watch_dir,
-                                     title_substr=p.title_substr), ensure_ascii=False))
+                                     title_substr=p.title_substr, exe_path=p.exe_path,
+                                     target_pid=win32.profile_target(p)["pid"]), ensure_ascii=False))
     elif args.cmd == "report":
         print(json.dumps(_watch.watch_report(p.state_dir, p.watch_dir), ensure_ascii=False))
     elif args.cmd == "capture":
         from pathlib import Path
-        hwnd = win32.find_window(p.proc, p.title_substr)
+        hwnd = win32.find_profile_window(p)
         w, h = win32.capture(hwnd, Path(args.out), region=_parse_region(args.region))
         print(json.dumps({"ok": True, "out": args.out, "size": [w, h]}, ensure_ascii=False))
     return 0

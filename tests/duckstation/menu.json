@@ -1,0 +1,6 @@
+[
+  {"name":"after-start", "button":6, "wait":4},
+  {"name":"after-circle", "button":1, "wait":1},
+  {"name":"after-down", "button":12, "wait":1},
+  {"name":"after-up", "button":11, "wait":1}
+]

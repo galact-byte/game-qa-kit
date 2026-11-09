@@ -102,7 +102,9 @@ class SaveSnapshotTests(unittest.TestCase):
     """存档快照/恢复的完整性契约。"""
 
     def _make(self):
-        tmp = Path(tempfile.mkdtemp())
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        tmp = Path(temporary.name)
         savedata = tmp / "savedata"
         savedata.mkdir()
         (savedata / "data0.dat").write_bytes(b"slot0")

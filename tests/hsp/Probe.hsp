@@ -1,0 +1,35 @@
+#regcmd "_hsp3cmdinit@4", "GameQaHsp.dll"
+screen 0,640,480
+title "HSP control protocol probe"
+x=40 : y=240 : menu=0 : hits=0 : previous=0 : nativehits=0
+pos 15,390 : objsize 130,30 : button gosub "Native button",*native_clicked
+repeat
+    getkey right,39
+    stick keys,15,1
+    if right : x+=2
+    if keys&1 : x-=2
+    if keys&2 : y-=1
+    if keys&8 : y+=1
+    getkey enter,13 : if enter : menu=1
+    getkey esc,27 : if esc : menu=0
+    getkey left,1
+    mx=mousex : my=mousey
+    if left & previous=0 & mx>=380 & mx<=460 & my>=280 & my<=340 : hits+=1
+    previous=left
+    redraw 0
+    color 235,235,235 : boxf
+    color 25,40,70
+    pos 15,15 : mes "update="+cnt+" getkey="+right+" stick="+keys
+    pos 15,40 : mes "x="+x+" y="+y+" mouse="+mx+","+my
+    pos 15,65 : mes "menu="+menu
+    color 0,100,200 : boxf x,y,x+25,y+25
+    color 180,60,40 : boxf 380,280,460,340
+    color 25,40,70 : pos 380,350 : mes "clicks="+hits+" native="+nativehits
+    redraw 1
+    result="{\"x\":"+x+",\"y\":"+y+",\"menu\":"+menu+",\"clicks\":"+hits+",\"native\":"+nativehits+",\"mx\":"+mx+",\"my\":"+my+"}"
+    notesel result : notesave "observed.json"
+    await 30
+loop
+*native_clicked
+nativehits+=1
+return

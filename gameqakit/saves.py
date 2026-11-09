@@ -125,12 +125,15 @@ def is_game_running(proc: str) -> bool:
         return False
 
 
-def kill_game(proc: str) -> dict:
+def kill_game(proc: str, pid: int | None = None) -> dict:
     """可靠终止游戏进程（subprocess 列参，避开 Git Bash 对 $ 变量的提前展开坑）。"""
     name = proc if proc.lower().endswith(".exe") else proc + ".exe"
-    was = is_game_running(proc)
-    r = subprocess.run(["taskkill", "/F", "/IM", name], capture_output=True, text=True)
-    return {"ok": True, "process": name, "was_running": was,
+    if pid is not None and (type(pid) is not int or pid <= 0):
+        raise ValueError("目标 PID 必须是正整数")
+    was = True if pid is not None else is_game_running(proc)
+    target = ["/PID", str(pid)] if pid is not None else ["/IM", name]
+    r = subprocess.run(["taskkill", "/F", *target], capture_output=True, text=True)
+    return {"ok": True, "process": name, "pid": pid, "was_running": was,
             "killed": bool(was and r.returncode == 0), "returncode": r.returncode,
             "stdout": (r.stdout or "").strip(), "stderr": (r.stderr or "").strip(),
             "reminder": "改档流程：先游戏内存档→kill_game→确认磁盘快照→重启 exe→游戏内 AUTO LOAD→截图核对"}
