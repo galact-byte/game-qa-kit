@@ -99,6 +99,39 @@ class WolfIpcTests(unittest.TestCase):
             self.assertTrue(client.status()['connected'])
             self.assertEqual(client.pause()['state'], 'pause_requested')
 
+    def test_pause_generation_survives_transient_mailbox_contention(self):
+        import threading
+        from unittest.mock import patch
+        from gameqakit.control import BridgeClient
+        self.mailbox.write('pause', '[bridge]\nsession_id=' + self.session + '\nid=human-stop\n')
+        entered, release = threading.Event(), threading.Event()
+        lock = self.mailbox.locks[2]
+        def reader_holding_lock():
+            self.mailbox.kernel.WaitForSingleObject(lock, 0)
+            entered.set()
+            try:
+                release.wait(2)
+            finally:
+                self.mailbox.kernel.ReleaseMutex(lock)
+        worker = threading.Thread(target=reader_holding_lock)
+        worker.start()
+        original_read = self.mailbox.read
+        def contended_read(name):
+            value = original_read(name)
+            release.set()
+            worker.join(1)
+            return value
+        try:
+            self.assertTrue(entered.wait(1))
+            client = BridgeClient(self.root, exe_path=str(self.exe))
+            client._ipc = self.mailbox
+            meta = {'control_transport': 'wolf-shm-v1', 'session_id': self.session}
+            with patch.object(self.mailbox, 'read', side_effect=contended_read):
+                self.assertEqual(client._pause_id(meta), 'human-stop')
+        finally:
+            release.set()
+            worker.join(2)
+
     def test_unknown_transport_is_rejected_without_file_fallback(self):
         from gameqakit.control import BridgeClient, write_connection
         directory = self.root / self.session

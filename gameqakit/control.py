@@ -168,7 +168,7 @@ class BridgeClient:
         meta = meta if meta is not None else self._connection()
         if meta.get('control_transport') == 'wolf-shm-v1':
             parser = configparser.ConfigParser(interpolation=None)
-            parser.read_string(self._mailbox(meta).read('pause'))
+            parser.read_string(self._live_text('pause', meta))
             value = dict(parser['bridge']) if parser.has_section('bridge') else {}
         elif meta.get('command_format') == 'ini':
             parser = configparser.ConfigParser(interpolation=None)
