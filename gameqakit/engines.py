@@ -50,7 +50,7 @@ def inspect_game(path):
         return found('unity_unknown_backend', ['UnityPlayer.dll', data_dirs[0].name])
     for marker in ('Data.wolf', 'Data/BasicData/Game.dat'):
         if (root / marker).is_file():
-            return found('wolf_candidate', [marker])
+            return found('wolf_candidate', [marker], 'wolf')
     bytecode = root / 'start.ax'
     if bytecode.is_file():
         with bytecode.open('rb') as stream:

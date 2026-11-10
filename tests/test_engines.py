@@ -51,15 +51,22 @@ class EngineTests(unittest.TestCase):
         self.touch('Demo_Data/il2cpp_data/Metadata/global-metadata.dat')
         self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unity_il2cpp')
 
-    def test_wolf_and_srpg_are_candidates_not_claimed_adapters(self):
-        for marker, want in [('Data.wolf', 'wolf_candidate'), ('Runtime.rts', 'srpgstudio_candidate')]:
-            with self.subTest(engine=want):
+    def test_wolf_candidate_exposes_adapter_without_claiming_binary_support(self):
+        for marker in ('Data.wolf', 'Data/BasicData/Game.dat'):
+            with self.subTest(marker=marker):
                 path = self.touch(marker)
                 result = self.engines.inspect_game(self.root)
-                self.assertEqual(result['engine'], want)
-                self.assertIsNone(result['adapter'])
+                self.assertEqual(result['engine'], 'wolf_candidate')
+                self.assertEqual(result['adapter'], 'wolf')
                 self.assertFalse(result['control_verified'])
                 path.unlink()
+
+    def test_srpg_remains_an_unverified_candidate(self):
+        self.touch('Runtime.rts')
+        result = self.engines.inspect_game(self.root)
+        self.assertEqual(result['engine'], 'srpgstudio_candidate')
+        self.assertIsNone(result['adapter'])
+        self.assertFalse(result['control_verified'])
 
     def test_hsp_bytecode_signature_is_required_and_not_control_verification(self):
         marker = self.touch('start.ax', b'not hsp')

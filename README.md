@@ -41,6 +41,7 @@ python -m pip install -r requirements.txt
 - [AI / MCP 接入](docs/MCP.md)
 - [开发与验证](docs/DEVELOPMENT.md)
 - [暂定迭代路线](docs/ROADMAP.md)
+- [已测 Wolf RPG 实验控制桥](plugins/wolf/README.md)
 - [修改记录](CHANGES.md)
 
 ## 许可证
