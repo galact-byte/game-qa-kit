@@ -1,5 +1,5 @@
 #include "../../plugins/wolf/Wire.hpp"
-#include "../../plugins/wolf/WriteGuard.hpp"
+#include "../../plugins/wolf/StartupGuard.hpp"
 #include <cassert>
 #include <iostream>
 #include <limits>
@@ -20,7 +20,40 @@ DWORD WINAPI small_stack_guard(void*) {
     OBJECT_ATTRIBUTES object{};object.Length=sizeof(object);object.ObjectName=&name;
     return wolf_guard::permit(&object)?0:1;
 }
-int main() {
+int wmain(int argc,wchar_t** argv) {
+    if(argc==3 && std::wstring(argv[1])==L"--startup-fixture") {
+        const auto file=CreateFileW(argv[2],GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,0,nullptr);
+        if(file!=INVALID_HANDLE_VALUE) {CloseHandle(file);return 2;}
+        HKEY key=nullptr;
+        const auto status=RegCreateKeyExW(HKEY_CURRENT_USER,L"Software\\GameQAKitStartupGuardFixture",0,nullptr,0,KEY_WRITE,nullptr,&key,nullptr);
+        if(status==ERROR_SUCCESS) {RegCloseKey(key);RegDeleteKeyW(HKEY_CURRENT_USER,L"Software\\GameQAKitStartupGuardFixture");return 3;}
+        return 0;
+    }
+    {
+        wchar_t executable[32768];assert(GetModuleFileNameW(nullptr,executable,32768));
+        auto marker=wolf::fs::path(executable).parent_path()/L"startup-forbidden.txt";
+        assert(!wolf::fs::exists(marker));
+        std::wstring command=L"\""+std::wstring(executable)+L"\" --startup-fixture \""+marker.wstring()+L"\"";
+        STARTUPINFOW startup{};startup.cb=sizeof(startup);PROCESS_INFORMATION child{};
+        assert(CreateProcessW(executable,command.data(),nullptr,nullptr,FALSE,CREATE_SUSPENDED|DEBUG_ONLY_THIS_PROCESS,nullptr,nullptr,&startup,&child));
+        assert(ResumeThread(child.hThread)==1);
+        wolf::StartupGuard guard(child.hProcess);guard.run(child.dwThreadId,true);guard.save(marker.parent_path());
+        assert(WaitForSingleObject(child.hProcess,5000)==WAIT_OBJECT_0);
+        DWORD result=99;assert(GetExitCodeProcess(child.hProcess,&result));
+        CloseHandle(child.hThread);CloseHandle(child.hProcess);
+        if(result!=0 || wolf::fs::exists(marker)) {std::cerr<<"startup writes were not denied: exit="<<result<<" marker="<<wolf::fs::exists(marker)<<"\n";return 1;}
+    }
+    const auto fixture=wolf::environment(L"WOLF_TEST_ORIGINAL_EXE");
+    if(!fixture.empty()) {
+        bool accepted=false;
+        try {
+            const auto profile=wolf::validate_image(fixture);
+            accepted=profile.input_call==0xcb114 && profile.input_function==0x2edf0 &&
+                     profile.tail_call==0xcb1b9 && profile.tail_function==0x322a0 &&
+                     profile.keyboard_device==0x757454;
+        } catch(const std::exception&) {}
+        if(!accepted) { std::cerr<<"known original image rejected\n";return 1; }
+    }
     wolf_guard::root=L"E:\\DevData\\wolf-test";
     HANDLE thread=CreateThread(nullptr,65536,small_stack_guard,nullptr,STACK_SIZE_PARAM_IS_A_RESERVATION,nullptr);
     assert(thread && WaitForSingleObject(thread,5000)==WAIT_OBJECT_0);

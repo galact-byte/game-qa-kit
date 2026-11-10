@@ -45,6 +45,8 @@ def main():
     parser.add_argument('--workspace', type=Path, required=True)
     parser.add_argument('--dll', type=Path, required=True)
     parser.add_argument('--injector', type=Path, required=True)
+    parser.add_argument('--locale-dir', type=Path, help='已核验的本机 Locale Emulator 目录，显式启用 CP932')
+    parser.add_argument('--locale-host', type=Path, help='WolfLocaleHost.exe 路径')
     parser.add_argument('--steps', type=Path)
     parser.add_argument('--safety', action='store_true')
     parser.add_argument('--mcp', action='store_true')
@@ -69,21 +71,33 @@ def main():
     trace = []
     tracer = None
     try:
-        with DesktopProcess([str(runtime / 'Game.exe')], cwd=runtime,
-                            env={'GAMEQAKIT_BRIDGE_DIR': str(bridge), 'GAMEQAKIT_SESSION_ID': session}) as process:
+        if args.locale_dir:
+            from plugins.wolf.launch import LocaleProcess
+            context = LocaleProcess(runtime / 'Game.exe', bridge=bridge, session=session, dll=dll,
+                                    injector=injector, locale_dir=args.locale_dir, host_exe=args.locale_host)
+        else:
+            context = DesktopProcess([str(runtime / 'Game.exe')], cwd=runtime,
+                                     env={'GAMEQAKIT_BRIDGE_DIR': str(bridge), 'GAMEQAKIT_SESSION_ID': session})
+        with context as process:
             result['pid'], result['desktop'] = process.pid, process.desktop_name
-            meta = {'protocol': 1, 'session_id': session, 'pid': process.pid,
-                    'owner_pid': os.getpid(), 'desktop': process.desktop_name,
-                    'exe_path': process.argv[0], 'command_format': 'ini'}
-            write_connection(bridge, meta)
-            loaded = subprocess.run([str(injector), str(process.pid), str(dll), str(bridge)],
-                                    capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=8)
-            result['injector'] = {'returncode': loaded.returncode, 'stdout': loaded.stdout, 'stderr': loaded.stderr}
-            assert loaded.returncode == 0, result['injector']
+            if args.locale_dir:
+                result['locale_host_pid'] = process.host.pid
+            else:
+                meta = {'protocol': 1, 'session_id': session, 'pid': process.pid,
+                        'owner_pid': os.getpid(), 'desktop': process.desktop_name,
+                        'exe_path': process.argv[0], 'command_format': 'ini', 'control_transport': 'wolf-shm-v1'}
+                write_connection(bridge, meta)
+                loaded = subprocess.run([str(injector), str(process.pid), str(dll), str(bridge)],
+                                        capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=8)
+                result['injector'] = {'returncode': loaded.returncode, 'stdout': loaded.stdout, 'stderr': loaded.stderr}
+                assert loaded.returncode == 0, result['injector']
             stage_path = bridge / 'plugin-stage.txt'
             stage = wait(lambda: read_text(stage_path), 5, process)
             result['plugin_stage'] = stage
             assert stage == 'ready', stage
+            result['locale'] = json.loads((bridge / 'locale-status.json').read_text(encoding='utf-8'))
+            if args.locale_dir:
+                assert result['locale']['ansi'] == 932, result['locale']
             process.run()
             client = BridgeClient(bridge, pid=process.pid, exe_path=process.argv[0])
             initial = wait(lambda: (s if (s := client.status()).get('connected') and s.get('input_ready') else None), 15, process)

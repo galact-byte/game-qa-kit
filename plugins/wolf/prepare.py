@@ -7,12 +7,16 @@ import shutil
 import struct
 
 SUPPORTED_SHA256 = '90800e5dff9fa992a1fa78be5b2d5158baf2e9cc9603a45d964358e919f6868a'
+SUPPORTED_IMAGES = {SUPPORTED_SHA256,
+                    '2b811e3db991f45113087f979e3f375da7e46769a01f6e554584ed7c100b2f27'}
+EXCLUDED = ['Save', 'SaveData', 'Save_MTool', 'Tool', 'MTool_*']
 
 
 def validate_image(path):
     path = Path(path)
     data = path.read_bytes()
-    if hashlib.sha256(data).hexdigest() != SUPPORTED_SHA256:
+    digest = hashlib.sha256(data).hexdigest()
+    if digest not in SUPPORTED_IMAGES:
         raise ValueError('不支持的 Wolf EXE：必须重新验证完整构建，不能关闭哈希校验')
     if len(data) < 64 or data[:2] != b'MZ':
         raise ValueError('无效 PE 文件')
@@ -21,7 +25,7 @@ def validate_image(path):
         raise ValueError('无效 PE 文件')
     if struct.unpack_from('<H', data, offset + 4)[0] != 0x14c:
         raise ValueError('仅支持 Windows x86 Wolf 构建')
-    return SUPPORTED_SHA256
+    return digest
 
 
 def prepare(source, workspace):
@@ -35,18 +39,18 @@ def prepare(source, workspace):
     for path in (source, *source.rglob('*')):
         if path.is_symlink() or path.is_junction():
             raise ValueError('源目录含链接，无法保证副本的数据边界')
-    validate_image(source / 'Game.exe')
+    digest = validate_image(source / 'Game.exe')
     workspace.mkdir(parents=True, exist_ok=False)
     runtime = workspace / 'runtime'
-    shutil.copytree(source, runtime, ignore=shutil.ignore_patterns('Save', 'SaveData'))
+    shutil.copytree(source, runtime, ignore=shutil.ignore_patterns(*EXCLUDED))
     record = {'source': str(source), 'runtime': str(runtime),
-              'exe_sha256': SUPPORTED_SHA256, 'copied_user_saves': False,
-              'excluded': ['Save', 'SaveData'], 'source_modified': False}
+              'exe_sha256': digest, 'copied_user_saves': False,
+              'excluded': EXCLUDED, 'source_modified': False}
     (workspace / 'preparation.json').write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding='utf-8')
     (workspace / '测试数据记录.md').write_text(
         '# Wolf 测试副本记录\n\n'
         f'- 原目录（只读）：`{source}`\n- 本次副本：`{runtime}`\n'
-        '- 改动：仅复制游戏资源；不带原 Save／SaveData，不改原档。\n'
+        '- 改动：仅复制游戏资源；不带原 Save／SaveData／Save_MTool、Tool 与 MTool_*，不改原档。\n'
         '- 存档／槽：测试副本自建，不使用原目录任何槽。\n'
         '- 改前备份：原目录即只读基线；无需覆盖原文件。\n'
         '- 还原：退出本次 Job 后回收 runtime；原目录不需还原。\n', encoding='utf-8')

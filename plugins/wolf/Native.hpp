@@ -52,9 +52,18 @@ inline std::string hash(const fs::path& path) {
     if(!valid) throw std::runtime_error("image_hash_failed");
     std::ostringstream out;for(auto c:digest) out<<std::hex<<std::setw(2)<<std::setfill('0')<<static_cast<int>(c);return out.str();
 }
-inline void validate_image(const fs::path& path) {
-    if(hash(path)!="90800e5dff9fa992a1fa78be5b2d5158baf2e9cc9603a45d964358e919f6868a")
-        throw std::runtime_error("unsupported_wolf_binary");
+struct Profile {
+    uintptr_t input_call,input_function,tail_call,tail_function;
+    uintptr_t keyboard_device=0x741e48;
+    unsigned codepage=0;
+};
+inline Profile validate_image(const fs::path& path) {
+    const auto digest=hash(path);
+    if(digest=="90800e5dff9fa992a1fa78be5b2d5158baf2e9cc9603a45d964358e919f6868a")
+        return {0xec852,0x9def0,0xec8f7,0xa04d0};
+    if(digest=="2b811e3db991f45113087f979e3f375da7e46769a01f6e554584ed7c100b2f27")
+        return {0xcb114,0x2edf0,0xcb1b9,0x322a0,0x757454,932};
+    throw std::runtime_error("unsupported_wolf_binary");
 }
 inline void replace(void* address,const void* data,size_t size) {
     DWORD previous=0;

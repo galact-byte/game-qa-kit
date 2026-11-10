@@ -8,6 +8,8 @@ import json
 import math
 from pathlib import Path
 import re
+import threading
+from contextlib import contextmanager
 import time
 import uuid
 
@@ -40,7 +42,7 @@ def _same_path(left, right):
     return str(Path(left).resolve()).casefold() == str(Path(right).resolve()).casefold()
 
 
-def _write_ini(path, value):
+def _ini_text(value):
     flat = {}
     def flatten(prefix, item):
         if isinstance(item, dict):
@@ -53,7 +55,11 @@ def _write_ini(path, value):
     parser['bridge'] = flat
     output = io.StringIO()
     parser.write(output)
-    write_text(path, output.getvalue())
+    return output.getvalue()
+
+
+def _write_ini(path, value):
+    write_text(path, _ini_text(value))
 
 
 def write_connection(directory, meta):
@@ -68,10 +74,28 @@ class BridgeClient:
         self.directory = Path(directory)
         self.pid = pid
         self.exe_path = exe_path
+        self._ipc = None
+        self._ipc_meta = None
+        self._requests = {}
+        self._inflight = None
+
+    def _mailbox(self, meta):
+        if self._ipc is None:
+            from .wolf_ipc import WolfMailbox
+            self._ipc = WolfMailbox(meta['pid'], meta['session_id'])
+        return self._ipc
+
+    def _live_text(self, name, meta):
+        deadline = time.monotonic() + .1
+        while True:
+            value = self._mailbox(meta).read(name)
+            if value or time.monotonic() >= deadline:
+                return value
+            time.sleep(.002)
 
     def _connection(self):
         from .win32 import _pid_path
-        meta = _read(self.directory / 'connection.json')
+        meta = self._ipc_meta or _read(self.directory / 'connection.json')
         if (meta.get('protocol') != 1 or not isinstance(meta.get('session_id'), str)
                 or not meta['session_id'] or type(meta.get('pid')) is not int or meta['pid'] <= 0
                 or not isinstance(meta.get('exe_path'), str) or not meta['exe_path']):
@@ -82,13 +106,24 @@ class BridgeClient:
             raise RuntimeError('请先绑定精确程序路径；插件路径与 profile 必须一致')
         if meta.get('command_format', 'json') not in ('json', 'ini'):
             raise RuntimeError('不支持的控制传输格式')
+        transport = meta.get('control_transport', 'files-v1')
+        if transport not in ('files-v1', 'wolf-shm-v1'):
+            raise RuntimeError('不支持的控制通道；不会静默回退')
+        if transport == 'wolf-shm-v1' and meta.get('command_format') != 'ini':
+            raise RuntimeError('Wolf 共享内存要求 INI 命令格式')
         actual = _pid_path(meta['pid'])
         if not actual or not _same_path(actual, meta['exe_path']):
             raise RuntimeError('目标进程已退出或路径不匹配')
+        if transport == 'wolf-shm-v1':
+            self._mailbox(meta)
+            self._ipc_meta = meta
         return meta
 
     def _state(self, meta):
-        state = _read(self.directory / 'status.json')
+        state = (json.loads(self._live_text('status', meta) or '{}') if self._ipc_meta
+                 else _read(self.directory / 'status.json'))
+        if not isinstance(state, dict):
+            raise RuntimeError('插件状态必须是对象')
         if (state.get('protocol') != 1 or state.get('session_id') != meta['session_id']
                 or state.get('pid') != meta['pid']
                 or not isinstance(state.get('exe_path'), str)
@@ -113,15 +148,29 @@ class BridgeClient:
             return {'connected': False, 'paused': True, 'error': str(exc)}
 
     def _wire_write(self, name, value, meta=None):
-        meta = meta if meta is not None else _read(self.directory / 'connection.json')
+        meta = meta if meta is not None else self._connection()
+        if meta.get('control_transport') == 'wolf-shm-v1':
+            deadline = time.monotonic() + .1
+            while True:
+                try:
+                    self._mailbox(meta).write(name, _ini_text(value))
+                    return
+                except RuntimeError as exc:
+                    if str(exc) != 'ipc_writer_busy' or time.monotonic() >= deadline:
+                        raise
+                    time.sleep(.002)
         if meta.get('command_format') == 'ini':
             _write_ini(self.directory / (name + '.ini'), value)
         else:
             write_json(self.directory / (name + '.json'), value)
 
     def _pause_id(self, meta=None):
-        meta = meta if meta is not None else _read(self.directory / 'connection.json')
-        if meta.get('command_format') == 'ini':
+        meta = meta if meta is not None else self._connection()
+        if meta.get('control_transport') == 'wolf-shm-v1':
+            parser = configparser.ConfigParser(interpolation=None)
+            parser.read_string(self._mailbox(meta).read('pause'))
+            value = dict(parser['bridge']) if parser.has_section('bridge') else {}
+        elif meta.get('command_format') == 'ini':
             parser = configparser.ConfigParser(interpolation=None)
             path = self.directory / 'pause.ini'
             if path.exists():
@@ -159,6 +208,28 @@ class BridgeClient:
 
     def resume(self, *, command_id=None, timeout=5.0):
         return self._submit({'action': 'resume', 'frames': 1}, command_id, timeout)
+
+    @contextmanager
+    def _renewing(self, meta, deadline):
+        stop = threading.Event()
+        failures = []
+        def renew():
+            try:
+                while not stop.wait(.1) and time.monotonic() < deadline:
+                    self._wire_write('lease', {'session_id': meta['session_id'],
+                                             'expires_at': time.time() + 1.5}, meta)
+            except Exception as exc:
+                failures.append(exc)
+        worker = None
+        if self._ipc_meta:
+            worker = threading.Thread(target=renew, name='wolf-lease', daemon=True)
+            worker.start()
+        try:
+            yield failures
+        finally:
+            stop.set()
+            if worker:
+                worker.join()
 
     def _submit(self, payload, command_id, timeout):
         command_id = _command_id(command_id)
@@ -203,33 +274,57 @@ class BridgeClient:
                        'payload': payload, 'after_frame': state['frame'],
                        'pause_id': self._pause_id(meta), 'created_at': time.time()}
             write_json(stored, request)
-            self._wire_write('lease', {'session_id': meta['session_id'], 'expires_at': time.time() + 1.5}, meta)
-            self._wire_write('request', request, meta)
+            if self._ipc_meta:
+                self._requests[command_id] = request
             deadline = time.monotonic() + timeout
+            self._inflight = command_id
             try:
-                while time.monotonic() < deadline:
-                    self._wire_write('lease', {'session_id': meta['session_id'], 'expires_at': time.time() + 1.5}, meta)
-                    result = self.result(command_id)
-                    if result.get('status') != 'pending':
-                        if not result.get('ok'):
-                            raise RuntimeError(result.get('error', '插件拒绝或未完成动作'))
-                        return result
-                    time.sleep(0.02)
+                self._wire_write('lease', {'session_id': meta['session_id'], 'expires_at': time.time() + 1.5}, meta)
+                with self._renewing(meta, deadline) as failures:
+                    self._wire_write('request', request, meta)
+                    while time.monotonic() < deadline:
+                        if failures:
+                            raise RuntimeError('控制续租失败') from failures[0]
+                        if not self._ipc_meta:
+                            self._wire_write('lease', {'session_id': meta['session_id'], 'expires_at': time.time() + 1.5}, meta)
+                        result = self.result(command_id)
+                        if result.get('status') != 'pending':
+                            if not result.get('ok'):
+                                raise RuntimeError(result.get('error', '插件拒绝或未完成动作'))
+                            if failures or time.monotonic() >= deadline:
+                                break
+                            return result
+                        time.sleep(0.02)
                 raise TimeoutError(f'命令 {command_id} 结果未知；已请求暂停，请查询结果，禁止盲目重发')
             except Exception:
                 self._request_pause(meta)
                 raise
+            finally:
+                self._inflight = None
+                self._requests.pop(command_id, None)
 
     def result(self, command_id):
         command_id = _command_id(command_id)
-        request_path = self.directory / 'requests' / (command_id + '.json')
-        if not request_path.exists():
-            return {'id': command_id, 'status': 'unknown', 'ok': False}
-        request = _read(request_path)
-        result_path = self.directory / 'results' / (command_id + '.json')
-        if not result_path.exists():
-            return {'id': command_id, 'status': 'pending', 'ok': False}
-        result = _read(result_path)
+        request = self._requests.get(command_id) if self._ipc_meta else None
+        if request is None:
+            request_path = self.directory / 'requests' / (command_id + '.json')
+            if not request_path.exists():
+                return {'id': command_id, 'status': 'unknown', 'ok': False}
+            request = _read(request_path)
+        result = None
+        if self._ipc_meta:
+            live = json.loads(self._mailbox(self._ipc_meta).read('result') or '{}')
+            if not isinstance(live, dict):
+                raise RuntimeError('回执必须是对象')
+            if live.get('id') == command_id:
+                result = live
+            elif self._inflight == command_id:
+                return {'id': command_id, 'status': 'pending', 'ok': False}
+        if result is None:
+            result_path = self.directory / 'results' / (command_id + '.json')
+            if not result_path.exists():
+                return {'id': command_id, 'status': 'pending', 'ok': False}
+            result = _read(result_path)
         if (result.get('protocol') != 1 or result.get('session_id') != request.get('session_id')
                 or result.get('id') != command_id):
             raise RuntimeError('回执不属于本次命令和会话')

@@ -4,6 +4,7 @@
 #include "Native.hpp"
 #include "WriteGuard.hpp"
 #include "Wire.hpp"
+#include "Realtime.hpp"
 #include <algorithm>
 #include <atomic>
 #include <memory>
@@ -14,8 +15,9 @@ namespace fs=std::filesystem;
 using wolf::now;using wolf::utf8;
 fs::path directory,executable;
 std::string session,executable_utf8,generation;
-uintptr_t base=0,input_function=0,tail_function=0,tail_resume=0;
+uintptr_t base=0,input_function=0,tail_function=0,tail_resume=0,keyboard_address=0;
 std::unique_ptr<gameqa::Core> core;
+std::unique_ptr<wolf::Realtime> realtime;
 std::mutex mutex;
 std::atomic<unsigned> completed{0};
 std::atomic<unsigned long long> polls{0},held_polls{0};
@@ -39,7 +41,8 @@ void write(const fs::path& name,const std::string& text) {
     throw std::runtime_error("bridge_replace_failed");
 }
 void guard() {
-    const auto lease=read("lease"),pause=read("pause");
+    const auto lease=gameqa::ini(realtime->read(wolf::Realtime::Lease));
+    const auto pause=gameqa::ini(realtime->read(wolf::Realtime::Pause));
     expiry=gameqa::lease_expiry(expiry,session,lease);
     if(gameqa::get(pause,"session_id")==session) generation=gameqa::get(pause,"id");
     core->tick(completed.load(),now(),expiry,generation);
@@ -61,7 +64,7 @@ HRESULT WINAPI get_state(void* device,DWORD size,void* buffer) {
 }
 void install_device() {
     if(ready) return;
-    keyboard=*reinterpret_cast<void**>(base+0x741e48);
+    keyboard=*reinterpret_cast<void**>(keyboard_address);
     if(!keyboard) throw std::runtime_error("keyboard_device_unavailable");
     auto table=*static_cast<void***>(keyboard);
     if(!table || !table[9]) throw std::runtime_error("keyboard_state_method_unavailable");
@@ -130,8 +133,9 @@ void patch_call(uintptr_t address,void* hook) {
     std::memcpy(bytes+1,&offset,4);wolf::replace(reinterpret_cast<void*>(address),bytes,5);
 }
 void receipt() {
-    if(!core->receipt.ready) return;
-    const auto& r=core->receipt;const auto& q=r.request;using gameqa::quote;
+    gameqa::Receipt r;
+    { std::lock_guard<std::mutex> lock(mutex);if(!core->receipt.ready) return;r=core->receipt; }
+    const auto& q=r.request;using gameqa::quote;
     std::ostringstream out;out<<"{\"protocol\":1,\"session_id\":"<<quote(session)<<",\"id\":"<<quote(q.id)
         <<",\"ok\":"<<(r.ok?"true":"false")<<",\"consumed\":"<<(r.consumed?"true":"false")
         <<",\"frame\":"<<r.frame<<",\"completed_at\":"<<std::setprecision(16)<<now()
@@ -139,12 +143,16 @@ void receipt() {
         <<",\"action\":"<<quote(q.action)<<",\"requested_frames\":"<<q.frames;
     if(r.ok) out<<",\"screenshot\":"<<quote(r.screenshot)<<",\"capture_frame\":"<<r.frame;
     else out<<",\"error\":"<<quote(r.error);
-    out<<"}";write(fs::path("results")/(q.id+".json"),out.str());core->acknowledge();
+    out<<"}";write(fs::path("results")/(q.id+".json"),out.str());
+    if(realtime->write(wolf::Realtime::Result,out.str())) {
+        std::lock_guard<std::mutex> lock(mutex);core->acknowledge();
+    }
 }
-void status() {
+std::string status_text() {
     using gameqa::quote;std::ostringstream out;
     out<<"{\"protocol\":1,\"session_id\":"<<quote(session)<<",\"pid\":"<<GetCurrentProcessId()
        <<",\"exe_path\":"<<quote(executable_utf8)<<",\"engine\":\"wolf\",\"command_format\":\"ini\""
+       <<",\"control_transport\":\"wolf-shm-v1\""
        <<",\"frame\":"<<core->frame<<",\"updated_at\":"<<std::setprecision(16)<<now()
        <<",\"capabilities\":[\"move\",\"confirm\",\"cancel\",\"press\",\"release\",\"wait\"],\"max_input_frames\":120"
        <<",\"buttons\":[\"up\",\"down\",\"left\",\"right\",\"ok\",\"cancel\"]"
@@ -154,7 +162,31 @@ void status() {
        <<",\"busy\":"<<(core->active?"true":"false")<<",\"input_polls\":"<<polls.load()<<",\"held_polls\":"<<held_polls.load()
        <<",\"expiry\":"<<expiry<<",\"capture_pending\":"<<(core->capture_pending?"true":"false")
        <<",\"denied_writes\":"<<wolf_guard::denied.load()<<",\"denied_registry_writes\":"<<wolf_guard::registry_denied.load()<<"}";
-    write("status.json",out.str());
+    return out.str();
+}
+void status() {
+    std::string snapshot;
+    { std::lock_guard<std::mutex> lock(mutex);snapshot=status_text(); }
+    // Publishing a heartbeat must not hold up game input or its pause/lease checks.
+    try { write("status.json",snapshot); }
+    catch(const std::exception& e) {
+        { std::lock_guard<std::mutex> lock(mutex);core->fail(e.what()); }
+        try {receipt();} catch(...) {}
+    }
+}
+void control_cycle() {
+    std::lock_guard<std::mutex> lock(mutex);
+    try {
+        const auto request=gameqa::ini(realtime->read(wolf::Realtime::Request));
+        guard();
+        if(ready && at_boundary && !core->active && !core->receipt.ready &&
+           gameqa::get(request,"session_id")==session && gameqa::get(request,"protocol")=="1")
+            core->accept(gameqa::parse_command(request),now(),expiry);
+        realtime->write(wolf::Realtime::Status,status_text());
+    } catch(const std::exception& e) { core->fail(e.what()); }
+}
+DWORD WINAPI control_run(void*) {
+    for(;;) { control_cycle();Sleep(2); }
 }
 BOOL CALLBACK collect(HWND window,LPARAM data) {
     DWORD pid=0;GetWindowThreadProcessId(window,&pid);RECT area{},previous{};
@@ -166,14 +198,17 @@ BOOL CALLBACK collect(HWND window,LPARAM data) {
     return TRUE;
 }
 std::string capture(const std::string& id) {
-    struct DpiScope {
-        DPI_AWARENESS_CONTEXT previous=SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_UNAWARE);
-        DpiScope() { if(!previous) throw std::runtime_error("capture_dpi_context_failed"); }
-        ~DpiScope() { SetThreadDpiAwarenessContext(previous); }
-    } dpi;
     HWND window=nullptr;EnumThreadWindows(game_thread,collect,reinterpret_cast<LPARAM>(&window));
+    if(!window || IsIconic(window)) throw std::runtime_error("capture_window_unavailable");
+    struct DpiScope {
+        DPI_AWARENESS_CONTEXT previous;
+        explicit DpiScope(HWND target):previous(SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(target))) {
+            if(!previous) throw std::runtime_error("capture_dpi_context_failed");
+        }
+        ~DpiScope() { SetThreadDpiAwarenessContext(previous); }
+    } dpi(window);
     RECT area{};
-    if(!window || IsIconic(window) || !GetClientRect(window,&area)) throw std::runtime_error("capture_window_unavailable");
+    if(!GetClientRect(window,&area)) throw std::runtime_error("capture_window_unavailable");
     const int width=area.right,height=area.bottom;
     if(width<=0 || height<=0 || static_cast<uint64_t>(width)*height>16777216) throw std::runtime_error("capture_dimensions_invalid");
     HDC screen=GetDC(window),memory=CreateCompatibleDC(screen);
@@ -230,40 +265,47 @@ DWORD WINAPI run(void*) {
         if(expected.compare(0,10,L"gameqakit-") || gameqa::get(binding,"desktop")!=utf8(expected) ||
            !GetUserObjectInformationW(GetThreadDesktop(GetCurrentThreadId()),UOI_NAME,desktop,sizeof(desktop),&needed) || expected!=desktop ||
            !IsProcessInJob(GetCurrentProcess(),nullptr,&job) || !job) throw std::runtime_error("owned_isolated_desktop_required");
-        wolf::validate_image(executable);base=reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
-        input_function=base+0x9def0;tail_function=base+0xa04d0;tail_resume=base+0xec8fc;
-        validate_call(base+0xec852,input_function);validate_call(base+0xec8f7,tail_function);
+        const auto profile=wolf::validate_image(executable);base=reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
+        if(profile.codepage && GetACP()!=profile.codepage) throw std::runtime_error("wolf_locale_codepage_mismatch");
+        write("locale-status.json","{\"ansi\":"+std::to_string(GetACP())+",\"oem\":"+std::to_string(GetOEMCP())+",\"thread_locale\":"+std::to_string(GetThreadLocale())+"}");
+        keyboard_address=base+profile.keyboard_device;
+        input_function=base+profile.input_function;tail_function=base+profile.tail_function;tail_resume=base+profile.tail_call+5;
+        validate_call(base+profile.input_call,input_function);validate_call(base+profile.tail_call,tail_function);
         fs::create_directories(directory/L"results");fs::create_directories(directory/L"screenshots");
         core.reset(new gameqa::Core(session));
+        realtime.reset(new wolf::Realtime(GetCurrentProcessId(),session));
         wolf_guard::install(directory.parent_path());
         Gdiplus::GdiplusStartupInput startup;
         if(Gdiplus::GdiplusStartup(&imaging,&startup,nullptr)!=Gdiplus::Ok) throw std::runtime_error("imaging_unavailable");
-        patch_call(base+0xec852,reinterpret_cast<void*>(&input_hook));patch_call(base+0xec8f7,reinterpret_cast<void*>(&tail_hook));
+        patch_call(base+profile.input_call,reinterpret_cast<void*>(&input_hook));patch_call(base+profile.tail_call,reinterpret_cast<void*>(&tail_hook));
         write("plugin-stage.txt","ready");
+        HANDLE controller=CreateThread(nullptr,0,control_run,nullptr,0,nullptr);
+        if(!controller) throw std::runtime_error("control_thread_failed");
+        CloseHandle(controller);
         unsigned audits=0;
         for(;;) {
             std::string capture_id;
             {
                 std::lock_guard<std::mutex> lock(mutex);
-                try {
-                    // The request precedes the lease read, including during explicit recovery.
-                    const auto request=read("request");guard();receipt();
-                    if(ready && at_boundary && !core->active && !core->receipt.ready &&
-                       gameqa::get(request,"session_id")==session && gameqa::get(request,"protocol")=="1")
-                        core->accept(gameqa::parse_command(request),now(),expiry);
-                    if(at_boundary && core->capture_pending) capture_id=core->command_id();
-                    receipt();status();
-                } catch(const std::exception& e) { core->fail(e.what());try {receipt();status();} catch(...) {} }
+                if(at_boundary && core->capture_pending) capture_id=core->command_id();
             }
+            try {receipt();} catch(const std::exception& e) {
+                std::lock_guard<std::mutex> lock(mutex);core->fail(e.what());
+            }
+            status();
             if(!capture_id.empty()) {
                 try {
                     const auto path=capture(capture_id);
-                    std::lock_guard<std::mutex> lock(mutex);guard();
-                    if(core->command_id()==capture_id) core->captured(path,now());
-                    receipt();status();
+                    {
+                        std::lock_guard<std::mutex> lock(mutex);guard();
+                        if(core->command_id()==capture_id) core->captured(path,now());
+                    }
+                    receipt();
                 } catch(const std::exception& e) {
-                    std::lock_guard<std::mutex> lock(mutex);core->fail(e.what());try {receipt();status();} catch(...) {}
+                    { std::lock_guard<std::mutex> lock(mutex);core->fail(e.what()); }
+                    try {receipt();} catch(...) {}
                 }
+                status();
             }
             if(++audits%10==0) try {audit_guard();} catch(...) {}
             Sleep(10);

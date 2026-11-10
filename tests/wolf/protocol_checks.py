@@ -40,6 +40,7 @@ def safety_checks(client, process, wait):
     evidence['twelve_frames'] = {'before': previous, 'receipt': exact, 'after': client.status()}
 
     before = client.status()
+    original_pause = client._pause_id(meta)
     client._wire_write('pause', {'session_id': 'previous-session', 'id': 'late-pause'}, meta)
     client._wire_write('request', {'protocol': 1, 'session_id': 'previous-session', 'id': 'late-command',
                                  'pause_id': '', 'after_frame': before['frame'], 'created_at': time.time(),
@@ -49,6 +50,8 @@ def safety_checks(client, process, wait):
     assert after['connected'] and not after['paused'] and after['held'] == []
     assert after['frame'] == before['frame'] and not (directory / 'results/late-command.json').exists()
     evidence['foreign_session'] = {'before': before, 'after': after}
+    # Preserve an existing manual-review generation before sending valid commands again.
+    client._wire_write('pause', {'session_id': meta['session_id'], 'id': original_pause}, meta)
     client.action('wait', frames=1, command_id='after-foreign')
 
     interrupted = {}
