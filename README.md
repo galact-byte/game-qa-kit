@@ -56,7 +56,7 @@ python -m pip install -r requirements.txt
 接入步骤见[后台控制说明](docs/BACKGROUND-CONTROL.md)，完整边界见[引擎覆盖表](docs/ENGINE-COVERAGE.md)。
 基础适配按后台运行、输入隔离、新画面、真实操作与暂停释放收口；战斗、存读档、全流程等按具体任务追加验证。
 独立 Win32 Desktop 是当前已验后端，不是产品的必选技术，也不隔离文件系统或存档。
-轻量替代方案及限制见[后台控制方案调研](docs/BACKGROUND-ALTERNATIVES.md)：Proto Input 受控 C++ 原型已在自有窗口通过软件输入、后台截图、暂停与断线释放等 9 项自动检查；实体键鼠并发与真实游戏仍未验，尚未接入生产桥。目标是 AI 与用户键鼠互不干扰，不限定 Python 或其他框架。本机 Windows 家庭版不支持 Sandbox。
+轻量替代方案及限制见[后台控制方案调研](docs/BACKGROUND-ALTERNATIVES.md)：Proto Input 受控 C++ 原型已在自有窗口通过软件输入、后台截图、暂停与断线释放等 9 项自动检查；实体键鼠并发入口已备好，自动冒烟及截图失败／关窗退出检查通过；人工并发与真实游戏仍未验，尚未接入生产桥。目标是 AI 与用户键鼠互不干扰，不限定 Python 或其他框架。本机 Windows 家庭版不支持 Sandbox。
 
 ## 进一步了解
 
