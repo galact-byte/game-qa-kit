@@ -36,10 +36,32 @@ python -m pip install -r requirements.txt
 - 盯屏不主动抢焦点；旧 MCP 点击/按键仍可能抢前台。实验后台控制需接入对应插件，兼容范围见 [后台控制说明](docs/BACKGROUND-CONTROL.md)。
 - 工具不自动下载 YOLO、OCR 模型或安装额外依赖。
 
+## AI 后台操作（实验）
+
+人工盯屏可按上面的步骤直接使用。AI 后台操作需先在测试副本接入对应引擎桥，
+再通过统一 MCP 连接和发送动作。当前还没有将任意游戏一键转为后台控制的入口。
+
+| 引擎／环境 | 已验范围摘要 |
+|---|---|
+| RPG Maker MV／MZ | SDK 工程的真实移动、菜单和暂停 |
+| RPG Maker VX Ace | SDK 与指定商业副本的读档、位移、菜单和暂停 |
+| Unity | Mono 旧 Input、新 Input System、IL2CPP／新输入及 Mono／Rewired 分别适配；已验范围因后端和样本而异，见[覆盖表](docs/ENGINE-COVERAGE.md) |
+| Wolf RPG | 两个固定构建；官方范例移动、菜单和战斗，商业构建移动、菜单、存读档及短时重复操作 |
+| HSP3 | 官方空白工程输入与点击；八星帝外置字节码的标题／读取菜单 |
+| DuckStation／PS1 | 一个固定模拟器构建；指定游戏移动、存读档和首战 |
+
+**常见引擎尚未全部适配。** XP／VX 等目前只有识别；Godot、Unreal、Ren'Py 等尚无已验控制通路。
+已列引擎也仅覆盖登记的构建和样本，不代表任意游戏兼容或已通过全流程、长期稳定性测试。
+
+接入步骤见[后台控制说明](docs/BACKGROUND-CONTROL.md)，完整边界见[引擎覆盖表](docs/ENGINE-COVERAGE.md)。
+基础适配按后台运行、输入隔离、新画面、真实操作与暂停释放收口；战斗、存读档、全流程等按具体任务追加验证。
+独立 Win32 Desktop 不隔离文件系统或存档，虚拟机／Sandbox 兜底仍处于环境核查阶段。
+
 ## 进一步了解
 
 - [AI / MCP 接入](docs/MCP.md)
 - [开发与验证](docs/DEVELOPMENT.md)
+- [引擎覆盖与未验范围](docs/ENGINE-COVERAGE.md)
 - [暂定迭代路线](docs/ROADMAP.md)
 - [已测 Wolf RPG 实验控制桥](plugins/wolf/README.md)
 - [修改记录](CHANGES.md)
