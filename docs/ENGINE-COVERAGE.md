@@ -13,7 +13,8 @@
 | Wolf RPG | 两个固定 EXE 哈希，原生桥；官方范例移动／菜单与战斗闭环；商业构建新游戏、移动／菜单、第 1 槽保存和跨进程读取，以及 30 轮移动／菜单重复测试 | 未测哈希拒绝；官方存读档、商业战斗、全流程及长期稳定性仍未验；见 [Wolf 记录](../plugins/wolf/README.md) |
 | HSP3 | 官方 HSP 3.7 空白工程 getkey／stick、菜单／点击；八星帝外置字节码标题和读取菜单 | 原内嵌 EXE 不自动接入，商业玩法未验；见 [HSP 说明](../plugins/hsp/README.md) |
 | DuckStation／PS1 | 一个固定 Windows x64 构建；原生帧计时、数字手柄，指定游戏移动、存读档和首战 | 这是模拟器适配；不是所有 PS1 模拟器通用。音频、换盘、其他构建未验；见 [说明](../plugins/duckstation/README.md) |
-| RPG Maker XP／VX、2000／2003、SRPG Studio 候选 | 仅按文件证据识别，无已验证的控制适配器 | XP／VX 当前缺本机可验运行样本；取得样本后先核查保存边界，再验证后台输入和取图 |
+| SRPG Studio／x86 DirectInput 原型 | 一个固定商业 EXE 哈希 `8e123a4c07cfbc9143c266faf87bb66ef3600ab1254ee6d294fbaf685bb502a7`；隔离副本后台标题菜单 → 环境设置 → 返回标题，正常键盘输入与连续画面已验 | 一次性本地原型，未接入生产适配器或 MCP；游戏实体并发、鼠标、存档、玩法与其他构建未验；见 [原型实证](BACKGROUND-ALTERNATIVES.md#x86-directinput-与真实游戏原型实证) |
+| RPG Maker XP／VX、2000／2003 | 仅按文件证据识别，无已验证的控制适配器 | XP／VX 当前缺本机可验运行样本；取得样本后先核查保存边界，再验证后台输入和取图 |
 | Godot、Unreal、Ren'Py、TyranoScript、KiriKiri 等其他引擎 | 当前仓库没有已验控制通路 | 不继承汉化工具的支持清单，不宣称已适配 |
 
 ## 下一步的进入条件

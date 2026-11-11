@@ -56,7 +56,7 @@ python -m pip install -r requirements.txt
 接入步骤见[后台控制说明](docs/BACKGROUND-CONTROL.md)，完整边界见[引擎覆盖表](docs/ENGINE-COVERAGE.md)。
 基础适配按后台运行、输入隔离、新画面、真实操作与暂停释放收口；战斗、存读档、全流程等按具体任务追加验证。
 独立 Win32 Desktop 是当前已验后端，不是产品的必选技术，也不隔离文件系统或存档。
-轻量替代方案及限制见[后台控制方案调研](docs/BACKGROUND-ALTERNATIVES.md)：Proto Input 受控 C++ 原型已在自有窗口通过软件输入、后台截图、暂停与断线释放等 9 项自动检查；实体键鼠与后台软件动作已在自有 x64 窗口完成 30 轮并发检查，实测范围内未发现串扰；真实游戏仍未验，尚未接入生产桥。目标是 AI 与用户键鼠互不干扰，不限定 Python 或其他框架。本机 Windows 家庭版不支持 Sandbox。
+轻量替代方案及限制见[后台控制方案调研](docs/BACKGROUND-ALTERNATIVES.md)：Proto Input 受控 C++ 原型已在自有 x64 窗口通过 9 项自动检查与 30 轮有限实体键鼠并发检查；扩展的 x86 DirectInput 原型通过 10 项自有程序检查，并在一个固定 SRPG Studio 商业构建的隔离副本上完成后台「标题 → 环境设置 → 返回标题」，逐图确认输入生效。真实游戏的实体并发、鼠标与玩法未验，尚未接入生产桥或 MCP。目标是 AI 与用户键鼠互不干扰，不限定 Python 或其他框架。本机 Windows 家庭版不支持 Sandbox。
 
 ## 进一步了解
 
