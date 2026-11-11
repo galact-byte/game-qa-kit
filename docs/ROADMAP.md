@@ -148,11 +148,13 @@ Unity 需区分旧输入与新 Input System、Mono 与 IL2CPP。RPG Maker 需区
 
 用户提出把游戏统一放在模拟/隔离环境中，让 AI 使用该环境自己的鼠标、键盘和桌面，环境保持运行并挂在主机后台。可评估独立机器、虚拟机、Windows Sandbox；这是一种输入/画面适配后端，不应让上层命令随环境变化。
 
-必须先核对所指 Python “virtual desktop” 包的实际能力。切换 Windows 虚拟桌面的库、后台 Win32 Desktop、真正拥有独立输入环境的虚拟机不是同一回事，不能只看名字承诺键鼠隔离。
+必须先核对所指 Python “virtual desktop” 包的实际能力。已核实 `pyvda.VirtualDesktop` 用于任务视图桌面管理，单独使用不提供独立键鼠。`CreateDesktopW` 是当前已验后端，不是产品必须采用的技术；可替换方案需重新通过后台运行、新画面、输入不互扰与暂停释放验收，并适配现有桥的桌面身份检查。方案及一手来源见[轻量后台控制调研](BACKGROUND-ALTERNATIVES.md)。
 
 GPU、后台渲染、性能、反作弊、授权、存档持久化和异常退出恢复必须逐项验证。Sandbox 的环境/数据生命周期也要先确认。不提前保证可用，不擅自安装软件或修改系统安全设置。普通多显示器仍共用输入焦点，不是隔离方案。
 
-本机只读预检已确认存在 VMware Workstation 17.5.2 及其管理程序；已注册的四份虚拟机配置均为 Linux，未发现已注册的 Windows 测试虚拟机。Windows Sandbox 入口和 Hyper-V 管理命令当前不可用；不能从系统显示 hypervisor 存在就推断已有可用的 Windows 游戏隔离环境。证据留在 `<隔离预检目录>/environment.json`、`vmware-paths.json`、`registered-vms.json`。下一步优先复用已有 VMware，但需先取得专用 Windows 测试虚拟机或确认创建方案、系统介质及 E 盘容量；没有启动或改动现有虚拟机，GPU、后台截图和输入能力仍未验。
+本机只读预检确认当前为 Windows 11 家庭版，Sandbox 入口不可用；微软明确该版本不支持 Windows Sandbox。已有 VMware 及四份 Linux 虚拟机记录只作为环境事实，不再作为默认推进方向，不创建 Windows 虚拟机。证据留在 `<隔离预检目录>/environment.json`、`vmware-paths.json`、`registered-vms.json`。
+
+下一步先只读核查 Proto Input／Nucleus 当前维护实现能否接收软件动作：公开 API 已有进程内键鼠／手柄 hook 和设备分配，但未确认可供 AI 写入任意键鼠状态的入口。pywinauto／UIA 适用于部分消息窗口或标准控件，vgamepad 受手柄支持与驱动限制；Sandboxie 的独立桌面仍是 desktop object，不自动提供第二套硬件输入。候选均未算新增兼容支持。已有桌面生命周期 6 项回归通过；自有窗口探针仅确认键盘消息与截图变化，点击未被消费，失败记录独立保留。接口与数据边界确认后再决定小样本实验，不先做架构替换。
 
 ## YOLO 的启用门槛
 
