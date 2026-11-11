@@ -278,3 +278,24 @@ test('invalid plugin commands are rejected independently of host validation', t 
     assert.equal(f.result('invalid').ok, false);
     assert.equal(f.stats.right, 0);
 });
+
+test('v1 MV/MZ reject millisecond fields without producing input', t => {
+    for (const version of ['MV', 'MZ']) {
+        const f = fixture(t, version);
+        f.send('resume', 'resume'); f.step(5);
+        f.send('time', 'move', { direction: 'right', duration_ms: 100 }); f.step(5);
+        assert.equal(f.result('time').ok, false);
+        assert.equal(f.stats.right, 0);
+        assert.deepEqual(f.status().held, []);
+        f.send('mixed', 'move', { direction: 'right', frames: 1, duration_ms: 100 }); f.step(5);
+        assert.equal(f.result('mixed').ok, false);
+        assert.equal(f.stats.right, 0);
+        f.send('v2', 'move', { direction: 'right', frames: 1 });
+        const requestPath = path.join(f.root, 'request.json');
+        const request = JSON.parse(fs.readFileSync(requestPath, 'utf8'));
+        request.protocol = 2;
+        fs.writeFileSync(requestPath, JSON.stringify(request));
+        f.step(5);
+        assert.equal(f.stats.right, 0);
+    }
+});

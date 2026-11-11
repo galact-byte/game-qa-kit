@@ -117,7 +117,8 @@
         if (!paused && !leaseValid()) fail('lease_expired');
     }
     function validPayload(payload) {
-        if (!payload || !Number.isInteger(payload.frames) || payload.frames < 1 || payload.frames > 120) return false;
+        if (!payload || Object.prototype.hasOwnProperty.call(payload, 'duration_ms') ||
+            !Number.isInteger(payload.frames) || payload.frames < 1 || payload.frames > 120) return false;
         const fields = {
             resume: ['action', 'frames'], move: ['action', 'frames', 'direction'],
             confirm: ['action', 'frames'], cancel: ['action', 'frames'], wait: ['action', 'frames'],

@@ -150,6 +150,11 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
         if File.file?(File.join(@root,'results',id+'.json')); @last_request=id; return; end
         action=request['payload.action']; frames=request['payload.frames'].to_i
         valid=['move','confirm','cancel','wait','release','resume'].include?(action) && request['payload.frames'] =~ /\A\d+\z/ && frames.between?(1,120)
+        fields=['payload.action','payload.frames']
+        fields << 'payload.direction' if action=='move'
+        fields << 'payload.button' if action=='release'
+        valid &&= request.keys.grep(/\Apayload\./).all? {|key|fields.include?(key)}
+        valid &&= !request['payload.button'] || KEYS.has_key?(request['payload.button'])
         valid &&= action=='wait' || action=='release' || action=='resume' || frames==1
         valid &&= ['up','down','left','right'].include?(request['payload.direction']) if action=='move'
         valid &&= request['after_frame'] =~ /\A\d+\z/ && request['after_frame'].to_i<=@frame

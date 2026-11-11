@@ -187,6 +187,28 @@ def main():
                 report['unsupported_hold_rejected'] = True
             else:
                 raise RuntimeError('实验插件不得声称支持未验证的长按重复语义')
+            # Publish a malformed request directly to verify the plugin boundary too.
+            from gameqakit.control import _write_ini
+            for identifier, extra in [('v2-time', {'protocol': 2}),
+                                      ('mixed-time', {'payload.duration_ms': 100})]:
+                before_state = client.status()
+                raw = {'protocol': 1, 'session_id': session, 'id': identifier,
+                       'payload.action': 'move', 'payload.direction': 'right', 'payload.frames': 1,
+                       'pause_id': client._pause_id(), 'after_frame': before_state['frame'], **extra}
+                _write_ini(bridge / 'lease.ini', {'session_id': session, 'expires_at': time.time() + 1.5})
+                _write_ini(bridge / 'request.ini', raw)
+                deadline = time.monotonic() + .5
+                while time.monotonic() < deadline:
+                    if (bridge / 'results' / (identifier + '.json')).exists():
+                        break
+                    time.sleep(.02)
+                bad = bridge / 'results' / (identifier + '.json')
+                if bad.exists() and json.loads(bad.read_text(encoding='utf-8')).get('ok'):
+                    raise AssertionError('v1 Ruby bridge accepted incompatible time request')
+                after_state = client.status()
+                if after_state.get('held') or after_state.get('player', {}).get('x') != before_state.get('player', {}).get('x'):
+                    raise AssertionError('incompatible time request produced input')
+                report[identifier + '_rejected_without_input'] = True
             client.pause()
             deadline = time.monotonic() + 2
             while time.monotonic() < deadline:

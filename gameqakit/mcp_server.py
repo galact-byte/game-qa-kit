@@ -210,7 +210,7 @@ def t_control_status(a):
 
 
 def t_control_action(a):
-    options = {key: a[key] for key in ("frames", "direction", "button", "x", "y") if key in a}
+    options = {key: a[key] for key in ("frames", "duration_ms", "direction", "button", "x", "y") if key in a}
     return _bridge(a).action(a["action"], command_id=a.get("command_id"), timeout=a.get("timeout", 5), **options)
 
 
@@ -238,16 +238,18 @@ TOOLS = {
     "profile": ("显示当前激活 profile、程序路径、会话目标 PID 与可用 profile 列表。", _obj({}), t_profile),
     "processes": ("只读列出有可见窗口的程序名、PID、窗口标题、程序路径和尺寸，供选择游戏目标；不截图、不控制。", _obj({}), t_processes),
     "engine_inspect": ("只读按目录证据识别引擎；识别不代表已支持控制，不修改游戏。", _obj({"path": {"type": "string"}}), t_engine_inspect),
-    "control_status": ("查询已安装插件的身份、逻辑帧、场景、实际能力与暂停状态；不发送输入，无插件不降级。", _obj(BRIDGE_FIELDS), t_control_status),
-    "control_action": ("统一后台动作，按插件能力执行并返回消费状态、新帧、场景与截图；不使用系统键鼠。"
-                       "需 confirm=true。超时先查 command_id，禁止换编号盲目重发。press 也是限帧按键，不是无限长按。",
+    "control_status": ("查询插件身份、实际能力与暂停语义；v1 返回游戏帧，v2 返回观察序号与毫秒时间依据。不发送输入，无插件不降级。", _obj(BRIDGE_FIELDS), t_control_status),
+    "control_action": ("统一后台动作，按插件能力执行并返回消费状态、执行依据与新截图；不使用系统键鼠。"
+                       "需 confirm=true。超时先查 command_id，禁止换编号盲目重发。v1 用 frames；v2 必须显式传 duration_ms，二者互斥且不换算。press 是有界按键。",
                        _obj({**CONFIRM, **COMMAND_FIELDS, "action": {"type": "string", "enum": ["move", "confirm", "cancel", "wait", "press", "release", "click"]},
                              "frames": {"type": "integer", "minimum": 1, "maximum": 120},
+                             "duration_ms": {"type": "integer", "minimum": 1, "maximum": 1000,
+                                             "description": "仅时间后端；与 frames 互斥，以 control_status 的能力上限为准"},
                              "direction": {"type": "string", "enum": ["up", "down", "left", "right"]},
                              "button": {"type": "string"}, "x": {"type": "integer"}, "y": {"type": "integer"}}, ["action"]), t_control_action),
     "control_result": ("按命令编号查询回执，不重发动作；historical=true 的旧会话证据不能指导当前操作。",
                        _obj({**BRIDGE_FIELDS, "command_id": {"type": "string"}, "include_image": {"type": "boolean"}}, ["command_id"]), t_control_result),
-    "control_pause": ("优先请求暂停 AI 并释放按键，不等待普通动作锁；control_status 确认 paused 且 held 为空才算接管完成。", _obj(BRIDGE_FIELDS), t_control_pause),
+    "control_pause": ("优先请求取消 AI 动作并松键，不等待普通动作锁；status 确认 paused 且 held 为空才算输入暂停。pause_scope=input 时游戏继续运行；同进程手玩接管仍不可用。", _obj(BRIDGE_FIELDS), t_control_pause),
     "control_resume": ("明确恢复已确认的插件控制；不会恢复暂停前的旧队列。需 confirm=true。", _obj({**CONFIRM, **COMMAND_FIELDS}), t_control_resume),
     "win": ("游戏窗口信息（hwnd/客户区/是否被遮挡）。" + PROFILE_NOTE, _obj({}), t_win),
     "capture": ("后台截图（不抢前台）。region 传 [x,y,w,h] 或 profile 里的命名区域字符串；dedupe=true 提示是否与上帧重复。",

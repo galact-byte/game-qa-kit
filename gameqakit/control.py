@@ -96,7 +96,7 @@ class BridgeClient:
     def _connection(self):
         from .win32 import _pid_path
         meta = self._ipc_meta or _read(self.directory / 'connection.json')
-        if (meta.get('protocol') != 1 or not isinstance(meta.get('session_id'), str)
+        if (type(meta.get('protocol')) is not int or meta['protocol'] not in (1, 2) or not isinstance(meta.get('session_id'), str)
                 or not meta['session_id'] or type(meta.get('pid')) is not int or meta['pid'] <= 0
                 or not isinstance(meta.get('exe_path'), str) or not meta['exe_path']):
             raise RuntimeError('控制连接信息无效或协议不兼容')
@@ -109,6 +109,8 @@ class BridgeClient:
         transport = meta.get('control_transport', 'files-v1')
         if transport not in ('files-v1', 'wolf-shm-v1'):
             raise RuntimeError('不支持的控制通道；不会静默回退')
+        if meta['protocol'] == 2 and (transport != 'files-v1' or meta.get('command_format', 'json') != 'json'):
+            raise RuntimeError('时间协议首版仅使用 JSON 文件通道')
         if transport == 'wolf-shm-v1' and meta.get('command_format') != 'ini':
             raise RuntimeError('Wolf 共享内存要求 INI 命令格式')
         actual = _pid_path(meta['pid'])
@@ -124,7 +126,7 @@ class BridgeClient:
                  else _read(self.directory / 'status.json'))
         if not isinstance(state, dict):
             raise RuntimeError('插件状态必须是对象')
-        if (state.get('protocol') != 1 or state.get('session_id') != meta['session_id']
+        if (type(state.get('protocol')) is not int or state['protocol'] != meta['protocol'] or state.get('session_id') != meta['session_id']
                 or state.get('pid') != meta['pid']
                 or not isinstance(state.get('exe_path'), str)
                 or not _same_path(state['exe_path'], meta['exe_path'])):
@@ -133,11 +135,15 @@ class BridgeClient:
         if (type(updated) not in (int, float) or not math.isfinite(updated)
                 or not -1 <= time.time() - updated <= 2):
             raise RuntimeError('插件心跳过期，停止自动操作')
-        if (type(state.get('frame')) is not int or state['frame'] < 0
-                or type(state.get('paused')) is not bool
+        if (type(state.get('paused')) is not bool
                 or not isinstance(state.get('capabilities'), list)
                 or not all(isinstance(item, str) for item in state['capabilities'])):
-            raise RuntimeError('插件状态缺少有效逻辑帧、模式或能力声明')
+            raise RuntimeError('插件状态缺少有效模式或能力声明')
+        if meta['protocol'] == 2:
+            from .control_time import validate_state
+            validate_state(state)
+        elif type(state.get('frame')) is not int or state['frame'] < 0:
+            raise RuntimeError('插件状态缺少有效逻辑帧')
         return state
 
     def status(self):
@@ -191,8 +197,13 @@ class BridgeClient:
         return self._request_pause(self._connection())
 
     def action(self, action, *, command_id=None, timeout=5.0, **options):
-        if action not in _ACTION_FIELDS or set(options) - _ACTION_FIELDS[action]:
+        if action not in _ACTION_FIELDS or set(options) - (_ACTION_FIELDS[action] | {'duration_ms'}):
             raise ValueError('未知动作或不适用于此动作的参数')
+        meta = self._connection()
+        if meta['protocol'] == 2:
+            return self._submit({'action': action, **options}, command_id, timeout)
+        if 'duration_ms' in options:
+            raise ValueError('帧协议不接受 duration_ms，不自动换算')
         frames = options.pop('frames', 1)
         if type(frames) is not int or not 1 <= frames <= 120:
             raise ValueError('frames 必须是 1..120 的整数')
@@ -207,7 +218,10 @@ class BridgeClient:
         return self._submit({'action': action, **options, 'frames': frames}, command_id, timeout)
 
     def resume(self, *, command_id=None, timeout=5.0):
-        return self._submit({'action': 'resume', 'frames': 1}, command_id, timeout)
+        payload = {'action': 'resume'}
+        if self._connection()['protocol'] == 1:
+            payload['frames'] = 1
+        return self._submit(payload, command_id, timeout)
 
     @contextmanager
     def _renewing(self, meta, deadline):
@@ -247,6 +261,11 @@ class BridgeClient:
                     raise RuntimeError(f'命令 {command_id} 尚未确认，请查询结果，不重复发送')
                 return result
             state = self._state(meta)
+            if meta['protocol'] == 2:
+                from .control_time import validate_payload
+                validate_payload(payload, state)
+            elif 'duration_ms' in payload or 'frames' not in payload:
+                raise ValueError('帧协议需要 frames，不接受时间动作')
             if payload['action'] != 'resume':
                 if state['paused']:
                     raise RuntimeError('控制已暂停，请明确恢复后再发动作')
@@ -259,19 +278,22 @@ class BridgeClient:
                         raise RuntimeError('当前插件未声明此按钮能力')
                 if payload['action'] not in ('wait', 'release') and state.get('input_ready') is False:
                     raise RuntimeError('当前界面正在转场或尚未就绪，请先等待，不盲目发输入')
-            maximum = state.get('max_input_frames', 120)
-            if type(maximum) is not int or not 1 <= maximum <= 120:
-                raise RuntimeError('插件的按键限帧声明无效')
-            if payload['action'] not in ('wait', 'resume', 'release') and payload['frames'] > maximum:
-                raise ValueError(f'当前插件输入最多持续 {maximum} 帧；不会擅自缩短或模拟桌面输入')
+            if meta['protocol'] == 1:
+                maximum = state.get('max_input_frames', 120)
+                if type(maximum) is not int or not 1 <= maximum <= 120:
+                    raise RuntimeError('插件的按键限帧声明无效')
+                if payload['action'] not in ('wait', 'resume', 'release') and payload['frames'] > maximum:
+                    raise ValueError(f'当前插件输入最多持续 {maximum} 帧；不会擅自缩短或模拟桌面输入')
             if payload['action'] == 'click':
                 screen = state.get('screen', [])
                 if (not isinstance(screen, list) or len(screen) != 2
                         or any(type(v) is not int or v <= 0 for v in screen)
                         or payload['x'] >= screen[0] or payload['y'] >= screen[1]):
                     raise ValueError('点击坐标超出插件声明的游戏画面')
-            request = {'protocol': 1, 'session_id': meta['session_id'], 'id': command_id,
-                       'payload': payload, 'after_frame': state['frame'],
+            observation = ({'after_observation_seq': state['observation_seq']} if meta['protocol'] == 2
+                           else {'after_frame': state['frame']})
+            request = {'protocol': meta['protocol'], 'session_id': meta['session_id'], 'id': command_id,
+                       'payload': payload, **observation,
                        'pause_id': self._pause_id(meta), 'created_at': time.time()}
             write_json(stored, request)
             if self._ipc_meta:
@@ -325,12 +347,15 @@ class BridgeClient:
             if not result_path.exists():
                 return {'id': command_id, 'status': 'pending', 'ok': False}
             result = _read(result_path)
-        if (result.get('protocol') != 1 or result.get('session_id') != request.get('session_id')
+        if (type(result.get('protocol')) is not int or result['protocol'] != request.get('protocol') or result.get('session_id') != request.get('session_id')
                 or result.get('id') != command_id):
             raise RuntimeError('回执不属于本次命令和会话')
         if result.get('ok') is not True:
             return {**result, 'status': 'failed'}
-        if (result.get('consumed') is not True or type(result.get('frame')) is not int
+        if request['protocol'] == 2:
+            from .control_time import validate_result
+            validate_result(result, request)
+        elif (result.get('consumed') is not True or type(result.get('frame')) is not int
                 or type(result.get('capture_frame')) is not int
                 or result['frame'] <= request['after_frame']
                 or result['capture_frame'] < result['frame']):
@@ -368,5 +393,8 @@ class BridgeClient:
         current = self.status()
         historical = (not current.get('connected') or current.get('session_id') != request['session_id']
                       or self._pause_id() != request.get('pause_id', ''))
+        digest = hashlib.sha256(shot.read_bytes()).hexdigest()
+        if request['protocol'] == 2 and result.get('screenshot_sha256') != digest:
+            raise RuntimeError('时间动作截图摘要不匹配')
         return {**result, 'status': 'done', 'screenshot': str(shot), 'historical': historical,
-                'screenshot_sha256': hashlib.sha256(shot.read_bytes()).hexdigest()}
+                'screenshot_sha256': digest}
