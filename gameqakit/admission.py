@@ -60,6 +60,12 @@ def inspect(path, *, artifacts=None):
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
         if not result['blockers']:
             result['profile_id'] = result['engine'] + '-sdk-fixed'
+    elif result['engine'] == 'rpgmaker_vxace':
+        from plugins.rgss3 import prepare as rgss
+        result['blockers'] = rgss.inspect(Path(result['root']), artifacts)
+        result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+        if not result['blockers']:
+            result['profile_id'] = 'rpgmaker-vxace-sdk-rgss301-fixed'
     elif result.get('profile_id') != 'srpgstudio-x86-fixed':
         result['launch_readiness'] = 'not_migrated'
         block('recipe_unavailable', '已识别引擎，但这个构建尚无已核查的产品启动流程。',
@@ -123,6 +129,19 @@ def make_plan(source, destination, *, artifacts):
                                 '初始暂停、松键并取得有效引擎首图；不自动输入',
                                 '结束自有进程并核对原工程、运行时和原浏览器数据；保留新增进度'])
         return {**payload, 'fingerprint': fingerprint(payload)}
+    if result['engine'] == 'rpgmaker_vxace':
+        from plugins.rgss3 import prepare as rgss
+        validate_destination(artifacts, destination)
+        payload = dict(schema_version=1, backend='rgss3', engine=result['engine'], source=str(source),
+                       destination=str(destination), artifacts=str(artifacts),
+                       source_digests=fingerprint(rgss.source_digests(source)),
+                       artifact_digests=fingerprint(rgss.artifact_digests(artifacts)),
+                       data_policy='blank-sdk-progress-private-rgss301', desktop='private',
+                       changes=['只修改副本：固定 VX Ace SDK 与已登记 RGSS301，不带原存档',
+                                '仅副本配置改用 RGSS301；在已核查 Main 入口前加载现有 RGSS3 控制桥',
+                                '初始暂停、松键并取得有效引擎首图；不自动输入，不宣称停止仿真',
+                                '结束自有进程并核对原工程与 DLL；新存档留在 QA 副本中'])
+        return {**payload, 'fingerprint': fingerprint(payload)}
     keys = ('game.exe', 'game.ini', 'data.dts', 'runtime.rts', 'system.dat', 'environment.evs')
     payload = dict(schema_version=1, backend='native_input', source=str(source),
                    destination=str(destination), artifacts=str(artifacts),
@@ -138,7 +157,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'rpgmaker_js'):
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'rpgmaker_js', 'rgss3'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:

@@ -26,9 +26,9 @@ class AdmissionTests(unittest.TestCase):
         self.assertTrue(result['manual_observation'])
 
     def test_known_engine_without_recipe_is_explicitly_blocked(self):
-        (self.source / 'Game.ini').write_text('[Game]\nLibrary=RGSS301.dll\n', encoding='utf-8')
+        (self.source / 'Game.ini').write_text('[Game]\nLibrary=RGSS103.dll\n', encoding='utf-8')
         result = admission.inspect(self.source)
-        self.assertEqual(result['engine'], 'rpgmaker_vxace')
+        self.assertEqual(result['engine'], 'rpgmaker_xp')
         self.assertEqual(result['launch_readiness'], 'not_migrated')
         self.assertIn('recipe_unavailable', [x['code'] for x in result['blockers']])
 

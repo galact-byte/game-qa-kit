@@ -19,6 +19,9 @@ def session_for(plan):
     if plan.get('backend') == 'rpgmaker_js':
         from plugins.rpgmaker_js.session import RpgMakerSession
         return RpgMakerSession(plan)
+    if plan['backend'] == 'rgss3':
+        from plugins.rgss3.session import RgssSession
+        return RgssSession(plan)
     raise ValueError('unsupported_backend')
 
 

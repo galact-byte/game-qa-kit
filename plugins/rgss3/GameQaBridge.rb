@@ -59,6 +59,7 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
         ['results','screenshots'].each {|name|Dir.mkdir(File.join(@root,name)) unless File.directory?(File.join(@root,name))}
         @paused=true; @held={}; @current=nil; @last_request=''; @accepted_pause=''; @observed_pause=''; @last_status=0
         @error=nil; @ready=false; @frame=0
+        @observation_seq=0; @observation_error=nil; @last_observation=0
         status(true)
         true
       end
@@ -108,6 +109,11 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
                'capabilities'=>@isolated && @ready ? ['move','confirm','cancel','wait','release'] : [],'max_input_frames'=>1,
                'buttons'=>KEYS.keys,'screen'=>[Graphics.width,Graphics.height],'held'=>@held.keys,'input_isolation'=>@isolated ? 'private_desktop' : 'unverified',
                'command_id'=>@current ? @current['request']['id'] : nil,'error'=>@error}.merge(view)
+        if ENV['GAMEQAKIT_OBSERVATION']=='1'
+          value.merge!({'observation_seq'=>@observation_seq,
+                        'observation_screenshot'=>@observation_seq>0 ? 'screenshots/observation.png' : nil,
+                        'observation_error'=>@observation_error})
+        end
         @last_status=Time.now.to_f if write('status.json',value)
       end
       def release
@@ -226,10 +232,52 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
       ensure
         bitmap.dispose if bitmap
       end
+      def png_chunk(type,data)
+        [data.bytesize].pack('N')+type+data+[Zlib.crc32(type+data)].pack('N')
+      end
+      def capture_png(id)
+        bitmap=Graphics.snap_to_bitmap
+        width=bitmap.width; height=bitmap.height
+        raise 'invalid_observation_size' if width<=2 || height<=2 || width*height>16777216
+        rows=[]
+        height.times do |y|
+          pixels=[0]
+          width.times do |x|
+            color=bitmap.get_pixel(x,y)
+            pixels << color.red.to_i << color.green.to_i << color.blue.to_i
+          end
+          rows << pixels.pack('C*')
+        end
+        body=[137,80,78,71,13,10,26,10].pack('C*')+
+             png_chunk('IHDR',[width,height,8,2,0,0,0].pack('NNCCCCC'))+
+             png_chunk('IDAT',Zlib::Deflate.deflate(rows.join)) + png_chunk('IEND','')
+        relative='screenshots/'+id+'.png'; target=File.join(@root,relative)
+        File.open(target+'.part','wb') {|f|f.write(body)}
+        File.rename(target+'.part',target)
+        relative
+      ensure
+        bitmap.dispose if bitmap
+      end
+      def observe
+        return unless ENV['GAMEQAKIT_OBSERVATION']=='1' && ready?
+        return if Time.now.to_f-@last_observation<0.2
+        capture_png('observation')
+        if @observation_seq==0
+          target=File.join(@root,'screenshots/startup.png')
+          File.open(target+'.part','wb') {|f|f.write(File.open(File.join(@root,'screenshots/observation.png'),'rb') {|r|r.read})}
+          File.rename(target+'.part',target)
+        end
+        @observation_seq+=1
+        @last_observation=Time.now.to_f
+      rescue StandardError => error
+        @observation_error=error.message
+        raise
+      end
       def after_render
         @frame+=1
         @ready=true
         guard
+        observe
         if @current
           if @current['phase']=='input'
             @current['remaining']-=1

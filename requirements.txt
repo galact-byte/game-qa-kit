@@ -2,3 +2,5 @@
 Pillow>=10.0.0
 # GUI（gameqakit/gui.py）；纯 CLI/MCP 使用可不装
 PyQt6>=6.5.0
+# 固定 VX Ace SDK 副本的脚本表准备，不用于游戏运行时
+rubymarshal>=1.2.10
