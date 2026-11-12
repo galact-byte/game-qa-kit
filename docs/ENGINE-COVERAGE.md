@@ -4,7 +4,7 @@
 
 | 引擎／运行环境 | 当前控制实现与已验范围 | 后续缺口与依据 |
 |---|---|---|
-| RPG Maker MV／MZ | 共用 JavaScript 桥；SDK 工程真实移动、菜单与协议安全检查 | 自定义插件、商业游戏仍逐款验收；见 [后台控制实证](BACKGROUND-CONTROL.md) |
+| RPG Maker MV／MZ | 共用 JavaScript 桥；SDK 工程真实移动、菜单与协议安全检查；固定 MV 1.6.1／MZ 1.8.0 SDK 工程已迁入受管入口，真实 MCP 和 Qt 验证暂停首图、开始、右移、菜单、当前预览与回收 | 仅登记工程及完整 NW.js；自定义插件、商业游戏仍逐款验收；见 [受管插件说明](../plugins/rpgmaker_js/README.md)及[后台控制实证](BACKGROUND-CONTROL.md) |
 | RPG Maker VX Ace／RGSS3 | 独立 Ruby 桥；SDK 和定制商业副本的正常读档、真实位移、菜单及暂停 | 不能直接用于 RGSS1／2；见 [后台控制实证](BACKGROUND-CONTROL.md) |
 | Unity Mono／旧 Input | BepInEx 5；空白场景移动／菜单／UI，商业样本标题和对话 | 商业玩法及其他版本另验；见 [Unity 矩阵](../plugins/unity/README.md) |
 | Unity Mono／新 Input System | 虚拟键鼠与设备隔离；Unity 6 空白场景真实位移、菜单和 UI | 商业样本及自定义设备另验 |

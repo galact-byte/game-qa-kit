@@ -16,6 +16,9 @@ def session_for(plan):
     if plan.get('backend') == 'unity_mono_legacy':
         from plugins.unity.session import UnitySession
         return UnitySession(plan)
+    if plan.get('backend') == 'rpgmaker_js':
+        from plugins.rpgmaker_js.session import RpgMakerSession
+        return RpgMakerSession(plan)
     raise ValueError('unsupported_backend')
 
 

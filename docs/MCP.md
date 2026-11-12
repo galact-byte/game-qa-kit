@@ -24,7 +24,7 @@
 
 ## 游戏接入与受管启动
 
-主程序“AI 后台接入”和 `game_inspect`、`game_prepare`、`game_start`、`game_status`、`game_bind`、`game_unbind`、`game_stop` 共用会话层；完整流程与参数见[游戏接入说明](GAME-ADMISSION.md)。初次就绪暂停输入，不自动绑定或操作游戏。当前新入口仅能启动已登记的固定原生构建，其余后端仍按既有通路使用。
+主程序“AI 后台接入”和 `game_inspect`、`game_prepare`、`game_start`、`game_status`、`game_bind`、`game_unbind`、`game_stop` 共用会话层；完整流程与参数见[游戏接入说明](GAME-ADMISSION.md)。初次就绪暂停输入，不自动绑定或操作游戏。当前新入口覆盖已登记的固定原生构建、《Taimashi》Unity Mono／旧 Input 构建及 MV 1.6.1／MZ 1.8.0 SDK 空白工程；其余后端仍按既有通路使用。MV／MZ 的组件目录为已登记的完整 NW.js，准备摘要与工程／运行时清单指纹绑定，原工程和原进度不改写。
 
 GUI／CLI／MCP 创建者须保持运行；只有创建者可回收自有树。另一 MCP 可显式绑定查询、暂停及取得单一动作权，但不能停止别的创建者的进程。绑定后旧桌面输入和存档等旁路被阻断，解绑／失效不回退旧 profile。不要把下文人工观察 worker 的独立生命周期与受管游戏 worker 混为一谈。
 

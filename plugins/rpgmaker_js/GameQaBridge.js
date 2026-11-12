@@ -32,6 +32,9 @@
     let rendererHooked = false;
     let lastStatus = 0;
     let lastError = null;
+    const observation = process.env.GAMEQAKIT_OBSERVATION === '1';
+    let observationSeq = 0;
+    let lastObservation = 0;
 
     function write(name, value, binary) {
         const target = path.join(root, name);
@@ -59,7 +62,8 @@
         const busy = !!started && !changing && typeof scene.isBusy === 'function' && scene.isBusy();
         const moving = scene && typeof scene.isMenuCalled === 'function' &&
             typeof $gamePlayer !== 'undefined' && $gamePlayer && $gamePlayer.isMoving();
-        const ready = !!started && !changing && !busy && !moving && (windows.length === 0 || windows.some(w =>
+        const ready = !!started && !changing && !busy && !moving &&
+            (typeof scene.isReady !== 'function' || scene.isReady()) && (windows.length === 0 || windows.some(w =>
             typeof w.isOpenAndActive === 'function' ? w.isOpenAndActive() : typeof w.isOpen === 'function' ? w.isOpen() : true));
         const player = typeof $gamePlayer !== 'undefined' && $gamePlayer ? {
             x: $gamePlayer.x, y: $gamePlayer.y, direction: $gamePlayer.direction(),
@@ -70,6 +74,12 @@
                 index: typeof w.index === 'function' ? w.index() : null,
                 symbol: typeof w.currentSymbol === 'function' ? w.currentSymbol() : null })) };
     }
+    function observationPaths() {
+        const store = typeof StorageManager === 'undefined' ? null : StorageManager;
+        const directory = store && (store.fileDirectoryPath || store.localFileDirectoryPath);
+        return { runtime_data_path: typeof nw !== 'undefined' && nw.App ? nw.App.dataPath : null,
+            save_directory: typeof directory === 'function' ? directory.call(store) : null };
+    }
     function status(force) {
         if (!force && Date.now() - lastStatus < 200) return;
         if (write('status.json', {
@@ -79,7 +89,10 @@
             buttons: buttons.slice(),
             screen: [Graphics.width || 0, Graphics.height || 0],
             ...viewState(),
-            held: Object.keys(held), command_id: current ? current.request.id : null, error: lastError
+            held: Object.keys(held), command_id: current ? current.request.id : null, error: lastError,
+            ...(observation ? { observation_seq: observationSeq,
+                observation_screenshot: observationSeq ? 'screenshots/observation.png' : null,
+                ...observationPaths() } : {})
         })) lastStatus = Date.now();
     }
     function fail(error, request) {
@@ -171,7 +184,23 @@
             current.phase = 'capture';
         }
     }
+    function observeRender() {
+        if (!observation || Date.now() - lastObservation < 200) return;
+        // The fixed SDK admission recipe starts at its naturally initialized title.
+        const view = viewState();
+        if (observationSeq === 0 && (view.scene !== 'Scene_Title' || !view.input_ready)) return;
+        const data = Graphics._canvas.toDataURL('image/png');
+        if (!data.startsWith('data:image/png;base64,')) throw new Error('invalid_canvas_capture');
+        const bytes = Buffer.from(data.slice(22), 'base64');
+        if (!write('screenshots/observation.png', bytes, true)) return;
+        if (observationSeq === 0 && !write('screenshots/startup.png', bytes, true)) return;
+        observationSeq++;
+        lastObservation = Date.now();
+        status(true);
+    }
     function afterRender() {
+        try { observeRender(); }
+        catch (error) { fail(error); return; }
         if (!current || current.phase !== 'capture') return;
         const request = current.request;
         try {
@@ -193,9 +222,15 @@
         const renderer = Graphics._renderer || (Graphics._app && Graphics._app.renderer);
         if (!renderer || typeof renderer.render !== 'function') return;
         const original = renderer.render;
+        let presentedScene = null;
         renderer.render = function () {
             const result = original.apply(this, arguments);
-            if (arguments[0] === SceneManager._scene) afterRender();
+            // Offscreen snapshots do not present the game canvas.
+            if (!arguments[1] && arguments[0] === SceneManager._scene) {
+                // A newly created scene may initialize its textures on its first presentation.
+                if (presentedScene === arguments[0]) afterRender();
+                presentedScene = arguments[0];
+            }
             return result;
         };
         rendererHooked = true;

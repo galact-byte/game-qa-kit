@@ -7,7 +7,7 @@ const vm = require('node:vm');
 
 const pluginPath = path.resolve(__dirname, '../plugins/rpgmaker_js/GameQaBridge.js');
 
-function fixture(t, version = 'MZ', enabled = true) {
+function fixture(t, version = 'MZ', enabled = true, observation = false, filesystem = fs) {
     assert.ok(fs.existsSync(pluginPath), '缺少 RPG Maker 家族控制插件');
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gameqa-js-'));
     t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -66,11 +66,16 @@ function fixture(t, version = 'MZ', enabled = true) {
     fs.writeFileSync(path.join(root, 'connection.json'), JSON.stringify(meta));
     const originalUpdate = input.update;
     const context = {
-        require, Buffer, console, Input: input, TouchInput: touch, Graphics: graphics, SceneManager: manager,
+        require(name) { return name === 'fs' ? filesystem : require(name); },
+        Buffer, console, Input: input, TouchInput: touch, Graphics: graphics, SceneManager: manager,
         $gamePlayer: { x: 0, y: 0, direction() { return 6; }, isMoving() { return moving; } },
         $gameMap: { mapId() { return 1; } },
         Utils: { RPGMAKER_NAME: version },
-        process: { env: enabled ? { GAMEQAKIT_BRIDGE_DIR: root, GAMEQAKIT_SESSION_ID: 'unit-session' } : {}, execPath: process.execPath, pid: process.pid },
+        nw: { App: { dataPath: path.join(root, 'runtime-data') } },
+        StorageManager: version === 'MV' ? { localFileDirectoryPath() { return path.join(root, 'app/save'); } } :
+            { fileDirectoryPath() { return path.join(root, 'app/save'); } },
+        process: { env: enabled ? { GAMEQAKIT_BRIDGE_DIR: root, GAMEQAKIT_SESSION_ID: 'unit-session',
+            GAMEQAKIT_OBSERVATION: observation ? '1' : '' } : {}, execPath: process.execPath, pid: process.pid },
         Date: class extends Date { static now() { return now; } },
         setInterval(callback) { timer = callback; return 1; }, clearInterval() {},
         window: { addEventListener() {}, top: { document: { hasFocus() { return false; } } } }
@@ -99,6 +104,121 @@ function fixture(t, version = 'MZ', enabled = true) {
         setMoving(value) { moving = value; },
         advance(ms) { now += ms; if (timer) timer(); } };
 }
+
+for (const version of ['MV', 'MZ']) {
+    test(version + ': admission observes paused title and refreshes without issuing input', t => {
+        const f = fixture(t, version, true, true);
+        f.context.SceneManager._scene.constructor = { name: 'Scene_Title' };
+        f.step();
+        assert.equal(f.status().observation_seq, 0);
+        f.step();
+        assert.equal(f.status().observation_seq, 1);
+        assert.equal(f.status().observation_screenshot, 'screenshots/observation.png');
+        assert.equal(f.status().runtime_data_path, path.join(f.root, 'runtime-data'));
+        assert.equal(f.status().save_directory, path.join(f.root, 'app/save'));
+        assert.equal(fs.readFileSync(path.join(f.root, 'screenshots/startup.png'), 'utf8'), 'unit-render');
+        f.context.Graphics._canvas.toDataURL = () => 'data:image/png;base64,' + Buffer.from('second-render').toString('base64');
+        f.advance(250); f.step();
+        assert.equal(f.status().observation_seq, 2);
+        assert.equal(fs.readFileSync(path.join(f.root, 'screenshots/observation.png'), 'utf8'), 'second-render');
+        assert.equal(fs.readFileSync(path.join(f.root, 'screenshots/startup.png'), 'utf8'), 'unit-render');
+        assert.equal(f.status().paused, true);
+        assert.deepEqual(f.status().held, []);
+        assert.equal(fs.existsSync(path.join(f.root, 'request.json')), false);
+        assert.equal(fs.existsSync(path.join(f.root, 'lease.json')), false);
+        assert.deepEqual(fs.readdirSync(path.join(f.root, 'results')), []);
+    });
+
+    test(version + ': offscreen render textures do not publish observations or action receipts', t => {
+        const f = fixture(t, version, true, true);
+        const manager = f.context.SceneManager;
+        manager._scene.constructor = { name: 'Scene_Title' };
+        const renderer = f.context.Graphics._renderer || f.context.Graphics._app.renderer;
+        renderer.render(manager._scene, {});
+        assert.equal(f.status().observation_seq, 0);
+        renderer.render(manager._scene);
+        assert.equal(f.status().observation_seq, 0);
+        renderer.render(manager._scene);
+        assert.equal(f.status().observation_seq, 1);
+        f.send('resume', 'resume');
+        for (let i = 0; i < 3; i++) { manager.updateInputData(); manager.updateScene(); }
+        renderer.render(manager._scene, {});
+        assert.equal(fs.existsSync(path.join(f.root, 'results/resume.json')), false);
+        renderer.render(manager._scene);
+        assert.equal(f.result('resume').ok, true);
+    });
+
+    test(version + ': scene resources must be ready before publishing an action capture', t => {
+        const f = fixture(t, version);
+        const scene = f.context.SceneManager._scene;
+        scene.isReady = () => false;
+        f.send('resume', 'resume');
+        f.step(4);
+        f.advance(500);
+        assert.equal(f.status().input_ready, false);
+        assert.equal(fs.existsSync(path.join(f.root, 'results/resume.json')), false);
+        scene.isReady = () => true;
+        f.step();
+        assert.equal(f.result('resume').ok, true);
+        assert.equal(f.result('resume').input_ready, true);
+    });
+
+    test(version + ': a new scene must present before its observation and action capture are published', t => {
+        const f = fixture(t, version, true, true);
+        const manager = f.context.SceneManager;
+        manager._scene.constructor = { name: 'Scene_Title' };
+        f.send('resume', 'resume'); f.step(5);
+        f.send('change', 'confirm'); f.step();
+        const scene = Object.create(manager._scene);
+        scene.constructor = { name: 'Scene_Map' };
+        manager._scene = scene;
+        for (let i = 0; i < 3; i++) { manager.updateInputData(); manager.updateScene(); }
+        f.advance(250);
+        const sequence = f.status().observation_seq;
+        const renderer = f.context.Graphics._renderer || f.context.Graphics._app.renderer;
+        renderer.render(scene);
+        assert.equal(f.status().observation_seq, sequence);
+        assert.equal(fs.existsSync(path.join(f.root, 'results/change.json')), false);
+        renderer.render(scene);
+        assert.equal(f.result('change').ok, true);
+        assert.equal(f.status().observation_seq, sequence + 1);
+    });
+
+    test(version + ': admission does not publish boot or busy title as its first image', t => {
+        const f = fixture(t, version, true, true);
+        f.context.SceneManager._scene.constructor = { name: 'Scene_Boot' };
+        f.step();
+        assert.equal(f.status().observation_seq, 0);
+        assert.equal(fs.existsSync(path.join(f.root, 'screenshots/startup.png')), false);
+        f.context.SceneManager._scene.constructor = { name: 'Scene_Title' };
+        f.setBusy(true); f.advance(250); f.step();
+        assert.equal(fs.existsSync(path.join(f.root, 'screenshots/startup.png')), false);
+        f.setBusy(false); f.advance(250); f.step();
+        assert.equal(f.status().observation_seq, 1);
+        assert.equal(f.status().paused, true);
+    });
+}
+
+test('admission does not announce a fresh image when Windows refuses publication', t => {
+    const filesystem = Object.create(fs);
+    let blocked = true;
+    filesystem.renameSync = function (temporary, target) {
+        if (blocked && target.endsWith('observation.png')) {
+            const error = new Error('sharing violation'); error.code = 'EPERM'; throw error;
+        }
+        return fs.renameSync(temporary, target);
+    };
+    const f = fixture(t, 'MV', true, true, filesystem);
+    f.context.SceneManager._scene.constructor = { name: 'Scene_Title' };
+    f.step(2);
+    assert.equal(f.status().observation_seq, 0);
+    assert.equal(fs.existsSync(path.join(f.root, 'screenshots/observation.png')), false);
+    blocked = false;
+    f.advance(250); f.step();
+    assert.equal(f.status().observation_seq, 1);
+    assert.equal(f.status().paused, true);
+    assert.deepEqual(f.status().held, []);
+});
 
 for (const version of ['MV', 'MZ']) {
     test(version + ': bounded input, real update and render receipt use one protocol', t => {

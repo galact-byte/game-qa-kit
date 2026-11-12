@@ -173,6 +173,26 @@ class AdmissionGuiTests(unittest.TestCase):
         self.assertEqual(self.dialog.preview.pixmap().toImage().pixelColor(0, 0).name(), '#0000ff')
         self.assertEqual(self.dialog.last_image, (str(observation), 8))
 
+    def test_v1_advertised_observation_refreshes_creator_and_external_preview(self):
+        from PIL import Image
+        bridge = Path(self.tmp.name) / 'v1-bridge'
+        (bridge / 'screenshots').mkdir(parents=True)
+        startup = bridge / 'screenshots/startup.png'
+        image = bridge / 'screenshots/observation.png'
+        Image.new('RGB', (24, 24), 'red').save(startup)
+        Image.new('RGB', (24, 24), 'blue').save(image)
+        state = {'connected': True, 'protocol': 1, 'observation_seq': 3,
+                 'observation_screenshot': 'screenshots/observation.png'}
+        self.dialog._display({'state': 'ready_paused', 'screenshot': str(startup),
+                              'bridge_directory': str(bridge), 'control': state})
+        self.assertEqual(self.dialog.preview.pixmap().toImage().pixelColor(0, 0).name(), '#0000ff')
+        Image.new('RGB', (24, 24), 'green').save(image)
+        self.dialog._display_external({**state, 'bound': True, 'directory': str(bridge),
+                                       'observation_seq': 4, 'paused': True, 'held': []})
+        self.assertEqual(self.dialog.preview.pixmap().toImage().pixelColor(0, 0).name(), '#008000')
+        self.assertEqual(self.dialog.last_image, (str(image), 4))
+        self.manager.start.assert_not_called()
+
     def test_observation_refresh_does_not_reuse_qt_filename_cache(self):
         from PIL import Image
         image = Path(self.tmp.name) / 'refresh.png'

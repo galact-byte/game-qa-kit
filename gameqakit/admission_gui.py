@@ -316,7 +316,8 @@ class AdmissionDialog(QDialog):
     def _display_observation(self, directory, state):
         if directory:
             folder = Path(directory) / 'screenshots'
-            name = 'observation.png' if state.get('protocol') == 2 else 'startup.png'
+            current = state.get('protocol') == 2 or state.get('observation_screenshot') == 'screenshots/observation.png'
+            name = 'observation.png' if current else 'startup.png'
             image = folder / name
             admission.no_links(image)
             token = (str(image), state.get('observation_seq', 0))

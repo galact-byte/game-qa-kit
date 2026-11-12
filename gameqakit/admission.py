@@ -54,6 +54,12 @@ def inspect(path, *, artifacts=None):
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
         if not result['blockers']:
             result['profile_id'] = 'unity-mono-legacy-taimashi-fixed'
+    elif result['engine'] in ('rpgmaker_mv', 'rpgmaker_mz'):
+        from plugins.rpgmaker_js import prepare as rpgmaker
+        result['blockers'] = rpgmaker.inspect(Path(result['root']), artifacts, result['engine'])
+        result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+        if not result['blockers']:
+            result['profile_id'] = result['engine'] + '-sdk-fixed'
     elif result.get('profile_id') != 'srpgstudio-x86-fixed':
         result['launch_readiness'] = 'not_migrated'
         block('recipe_unavailable', '已识别引擎，但这个构建尚无已核查的产品启动流程。',
@@ -104,6 +110,19 @@ def make_plan(source, destination, *, artifacts):
                                 '启动后确认输入暂停、松键及有效引擎首图；不宣称停止 Unity 仿真',
                                 '结束自有进程，核对原目录、原存档和 PlayerPrefs；移除自有联接，保留新进度'])
         return {**payload, 'fingerprint': fingerprint(payload)}
+    if result['engine'] in ('rpgmaker_mv', 'rpgmaker_mz'):
+        from plugins.rpgmaker_js import prepare as rpgmaker
+        validate_destination(artifacts, destination)
+        payload = dict(schema_version=1, backend='rpgmaker_js', engine=result['engine'], source=str(source),
+                       destination=str(destination), artifacts=str(artifacts),
+                       source_digests=fingerprint(rpgmaker.source_digests(source, result['engine'])),
+                       artifact_digests=fingerprint(rpgmaker.artifact_digests(artifacts)),
+                       data_policy='blank-sdk-progress-private-nwjs-profile', desktop='private',
+                       changes=['只修改副本：完整工程与已登记 NW.js，不带原存档',
+                                '加载现有 JavaScript 控制桥；随机产品标识、独立浏览器数据与临时目录',
+                                '初始暂停、松键并取得有效引擎首图；不自动输入',
+                                '结束自有进程并核对原工程、运行时和原浏览器数据；保留新增进度'])
+        return {**payload, 'fingerprint': fingerprint(payload)}
     keys = ('game.exe', 'game.ini', 'data.dts', 'runtime.rts', 'system.dat', 'environment.evs')
     payload = dict(schema_version=1, backend='native_input', source=str(source),
                    destination=str(destination), artifacts=str(artifacts),
@@ -119,7 +138,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy'):
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'rpgmaker_js'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:
