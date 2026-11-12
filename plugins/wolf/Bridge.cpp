@@ -218,18 +218,28 @@ std::string capture(const std::string& id) {
     auto bitmap=CreateCompatibleBitmap(screen,width,height);
     if(!bitmap) { DeleteDC(memory);ReleaseDC(window,screen);throw std::runtime_error("capture_bitmap_failed"); }
     auto old=SelectObject(memory,bitmap);
-    const bool rendered=PrintWindow(window,memory,3) || PrintWindow(window,memory,1);
-    SelectObject(memory,old);
     const int stride=width*4;std::vector<BYTE> pixels(static_cast<size_t>(stride)*height);
-    const bool copied=rendered && GetDIBits(memory,bitmap,0,height,pixels.data(),&info,DIB_RGB_COLORS)==static_cast<int>(height);
-    size_t black=0,white=0,sampled=0;const size_t total=static_cast<size_t>(width)*height,step=(std::max)(size_t(1),total/20000);
-    if(copied) for(size_t i=0;i<total;i+=step) {
-        const auto p=pixels.data()+i*4;
-        if(p[0]==0 && p[1]==0 && p[2]==0) ++black;
-        else if(p[0]==255 && p[1]==255 && p[2]==255) ++white;
-        ++sampled;
+    bool rendered=false,copied=false,usable=false;
+    for(const UINT flags : {3u,1u}) {
+        SelectObject(memory,bitmap);
+        const bool drew=PrintWindow(window,memory,flags)!=FALSE;
+        SelectObject(memory,old);
+        rendered=rendered || drew;
+        if(!drew) continue;
+        const bool read=GetDIBits(memory,bitmap,0,height,pixels.data(),&info,DIB_RGB_COLORS)==static_cast<int>(height);
+        copied=copied || read;
+        if(!read) continue;
+        size_t black=0,white=0,sampled=0;
+        const size_t total=static_cast<size_t>(width)*height,step=(std::max)(size_t(1),total/20000);
+        for(size_t i=0;i<total;i+=step) {
+            const auto p=pixels.data()+i*4;
+            if(p[0]==0 && p[1]==0 && p[2]==0) ++black;
+            else if(p[0]==255 && p[1]==255 && p[2]==255) ++white;
+            ++sampled;
+        }
+        usable=sampled && static_cast<double>((std::max)(black,white))/sampled<0.999;
+        if(usable) break;
     }
-    const bool usable=sampled && static_cast<double>((std::max)(black,white))/sampled<0.999;
     std::string name="screenshots/"+id+".png";bool saved=false;
     if(usable) {
         Gdiplus::Bitmap image(width,height,stride,PixelFormat32bppRGB,pixels.data());

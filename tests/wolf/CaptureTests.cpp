@@ -13,7 +13,19 @@
 namespace fs=std::filesystem;
 fs::path directory;
 DWORD game_thread=0;
+std::wstring capture_mode;
+BOOL fixture_print(HWND window,HDC dc,UINT flags) {
+    if(capture_mode==L"black" || capture_mode==L"white" ||
+       (capture_mode==L"blank-full-content" && flags==3)) {
+        RECT area{};GetClientRect(window,&area);
+        PatBlt(dc,0,0,area.right,area.bottom,capture_mode==L"white"?WHITENESS:BLACKNESS);
+        return TRUE;
+    }
+    return PrintWindow(window,dc,flags);
+}
+#define PrintWindow fixture_print
 #include "BridgeCapture.inc"
+#undef PrintWindow
 
 LRESULT CALLBACK paint(HWND window,UINT message,WPARAM wparam,LPARAM lparam) {
     if(message==WM_PRINTCLIENT || message==WM_PRINT || message==WM_PAINT) {
@@ -29,7 +41,8 @@ LRESULT CALLBACK paint(HWND window,UINT message,WPARAM wparam,LPARAM lparam) {
     return DefWindowProcW(window,message,wparam,lparam);
 }
 int wmain(int argc,wchar_t** argv) {
-    if(argc!=3) return 2;
+    if(argc!=4) return 2;
+    capture_mode=argv[3];
     directory=argv[1];fs::create_directories(directory/L"screenshots");
     const bool aware=std::wstring(argv[2])==L"aware";
     const auto context=aware?DPI_AWARENESS_CONTEXT_SYSTEM_AWARE:DPI_AWARENESS_CONTEXT_UNAWARE;
@@ -51,14 +64,19 @@ int wmain(int argc,wchar_t** argv) {
         const auto previous=GetThreadDpiAwarenessContext();
         try {
             const auto name=capture("full-frame");
-            if(name.empty()) throw std::runtime_error("empty_capture");
-            Gdiplus::Bitmap image((directory/name).c_str());
-            std::cout<<"capture "<<image.GetWidth()<<"x"<<image.GetHeight()<<" expected "<<width<<"x"<<height<<std::endl;
-            if(image.GetWidth()!=static_cast<UINT>(width) || image.GetHeight()!=static_cast<UINT>(height))
-                throw std::runtime_error("capture_cropped_client_area");
-            Gdiplus::Color corner;
-            if(image.GetPixel(width-5,height-5,&corner)!=Gdiplus::Ok || corner.GetR()!=255 || corner.GetG()!=0 || corner.GetB()!=0)
-                throw std::runtime_error("bottom_right_marker_missing");
+            if(capture_mode==L"black" || capture_mode==L"white") {
+                if(!name.empty() || fs::exists(directory/L"screenshots/full-frame.png"))
+                    throw std::runtime_error("blank_capture_was_accepted");
+            } else {
+                if(name.empty()) throw std::runtime_error("empty_capture");
+                Gdiplus::Bitmap image((directory/name).c_str());
+                std::cout<<"capture "<<image.GetWidth()<<"x"<<image.GetHeight()<<" expected "<<width<<"x"<<height<<std::endl;
+                if(image.GetWidth()!=static_cast<UINT>(width) || image.GetHeight()!=static_cast<UINT>(height))
+                    throw std::runtime_error("capture_cropped_client_area");
+                Gdiplus::Color corner;
+                if(image.GetPixel(width-5,height-5,&corner)!=Gdiplus::Ok || corner.GetR()!=255 || corner.GetG()!=0 || corner.GetB()!=0)
+                    throw std::runtime_error("bottom_right_marker_missing");
+            }
             if(!AreDpiAwarenessContextsEqual(previous,GetThreadDpiAwarenessContext()))
                 throw std::runtime_error("capture_changed_caller_dpi_context");
             result=0;

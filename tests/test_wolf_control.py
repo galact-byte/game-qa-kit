@@ -278,9 +278,12 @@ class WolfControlTests(unittest.TestCase):
         script.write_text('@echo off\ncall "E:/vsCode/VSBuildTools/VC/Auxiliary/Build/vcvars32.bat" >nul\n'
                           'if errorlevel 1 exit /b 1\n' + subprocess.list2cmdline(args) + '\n', encoding='utf-8')
         subprocess.run(['cmd', '/d', '/c', str(script)], cwd=self.root, check=True, timeout=45)
-        for awareness in ('aware', 'unaware'):
-            with self.subTest(awareness=awareness), DesktopProcess(
-                    [str(output), str(self.root / awareness), awareness], cwd=self.root) as child:
+        import itertools
+        for awareness, mode in itertools.product(
+                ('aware', 'unaware'), ('native', 'blank-full-content', 'black', 'white')):
+            with self.subTest(awareness=awareness, mode=mode), DesktopProcess(
+                    [str(output), str(self.root / (awareness + '-' + mode)), awareness, mode],
+                    cwd=self.root) as child:
                 child.run()
                 from gameqakit.desktop import k, W
                 self.assertEqual(k.WaitForSingleObject(child.process, 10000), 0, 'capture fixture did not exit')
