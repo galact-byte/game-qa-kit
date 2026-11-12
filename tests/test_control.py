@@ -265,6 +265,65 @@ class ControlTests(unittest.TestCase):
         with mock.patch.object(self.control, 'write_json', side_effect=publish):
             self.client.action('wait', command_id='leased', timeout=1)
 
+    def test_file_lease_renews_during_image_validation_and_stops_after_return(self):
+        for format_name in ('json', 'ini'):
+            with self.subTest(format=format_name):
+                meta = {**self.meta, 'command_format': format_name}
+                self.control.write_connection(self.root, meta)
+                self.client = self.control.BridgeClient(self.root, pid=os.getpid(), exe_path=sys.executable)
+                observed = []
+                original = Image.open
+
+                def slow_open(*args, **kwargs):
+                    time.sleep(.25)
+                    path = self.root / ('lease.' + format_name)
+                    if format_name == 'json':
+                        expiry = json.loads(path.read_text())['expires_at']
+                    else:
+                        parser = configparser.ConfigParser(interpolation=None)
+                        parser.read(path, encoding='utf-8')
+                        expiry = float(parser['bridge']['expires_at'])
+                    observed.append(expiry)
+                    return original(*args, **kwargs)
+
+                # The response fixture uses JSON requests; publish the matching reply
+                # before the client waits, including for the INI wire variant.
+                command_id = 'slow-validation-' + format_name
+                shot = self.root / 'screenshots' / (command_id + '.png')
+                shot.parent.mkdir(exist_ok=True)
+                Image.new('RGB', (32, 24), 'blue').save(shot)
+                write_json(self.root / 'results' / (command_id + '.json'), {
+                    'protocol': 1, 'session_id': 'session-a', 'id': command_id,
+                    'ok': True, 'consumed': True, 'frame': 11, 'capture_frame': 11,
+                    'screenshot': 'screenshots/' + shot.name})
+                started = time.time()
+                with mock.patch.object(self.control.Image, 'open', side_effect=slow_open):
+                    result = self.client.action('wait', command_id=command_id, timeout=2)
+                self.assertEqual(result['status'], 'done')
+                self.assertGreater(observed[0], started + 1.6, '图像校验期间没有发布新租约')
+                lease = self.root / ('lease.' + format_name)
+                after = lease.read_bytes()
+                time.sleep(.15)
+                self.assertEqual(lease.read_bytes(), after, '动作返回后仍在续租')
+
+    def test_background_renewal_failure_pauses_and_stops_worker(self):
+        original = self.client._wire_write
+        publications = []
+
+        def fail_renewal(name, value, meta=None):
+            if name == 'lease':
+                publications.append(value)
+                if len(publications) > 1:
+                    raise OSError('renewal unavailable')
+            return original(name, value, meta)
+
+        with mock.patch.object(self.client, '_wire_write', side_effect=fail_renewal):
+            with self.assertRaisesRegex(RuntimeError, '控制续租失败'):
+                self.client.action('wait', command_id='renewal-fails', timeout=1)
+        self.assertTrue((self.root / 'pause.json').exists())
+        self.assertEqual(len(publications), 2)
+        self.assertFalse(any(t.name == 'control-lease' for t in threading.enumerate()))
+
     def test_historical_result_is_labeled_after_session_changes(self):
         self.plugin_once()
         self.client.action('wait', command_id='past', timeout=1)

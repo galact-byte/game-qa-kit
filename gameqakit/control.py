@@ -234,16 +234,13 @@ class BridgeClient:
                                              'expires_at': time.time() + 1.5}, meta)
             except Exception as exc:
                 failures.append(exc)
-        worker = None
-        if self._ipc_meta:
-            worker = threading.Thread(target=renew, name='wolf-lease', daemon=True)
-            worker.start()
+        worker = threading.Thread(target=renew, name='control-lease', daemon=True)
+        worker.start()
         try:
             yield failures
         finally:
             stop.set()
-            if worker:
-                worker.join()
+            worker.join()
 
     def _submit(self, payload, command_id, timeout):
         command_id = _command_id(command_id)
@@ -307,8 +304,6 @@ class BridgeClient:
                     while time.monotonic() < deadline:
                         if failures:
                             raise RuntimeError('控制续租失败') from failures[0]
-                        if not self._ipc_meta:
-                            self._wire_write('lease', {'session_id': meta['session_id'], 'expires_at': time.time() + 1.5}, meta)
                         result = self.result(command_id)
                         if result.get('status') != 'pending':
                             if not result.get('ok'):
