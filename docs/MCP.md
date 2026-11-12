@@ -76,7 +76,7 @@
 |---|---|
 | `engine_inspect` | `path`：只读目录证据，识别不代表控制可用 |
 | `control_status` | 可选 `directory`（默认当前 profile 的 `state/control`）：核对路径/PID、会话、心跳、帧、场景、held 和实际能力 |
-| `control_action` | 上述参数、`action`、`confirm=true`；可选 `command_id`、`frames`、`timeout`、方向/按键/坐标 |
+| `control_action` | 上述参数、`action`、`confirm=true`；可选 `command_id`、`frames`／`duration_ms`（按协议二选一）、`timeout`、方向/按键/坐标 |
 | `control_result` | 上述绑定参数及 `command_id`；只查询，不重发 |
 | `control_pause` | 绑定参数；优先暂停请求，不要求危险操作确认 |
 | `control_resume` | 绑定参数、`confirm=true`；明确恢复，不复活旧队列 |
@@ -90,6 +90,8 @@
 ```
 
 动作统一命名，按 `capabilities` 限制。当前 RGSS3 只接受单帧输入；MV/MZ 和实验 Unity 桥额外提供按帧输入和画布坐标点击。Unity 的 Mono／IL2CPP、旧 Input／新 Input System／Rewired 组合及具体实测范围见[插件接入与限制](../plugins/unity/README.md)，须按目标构建，不能从一个组合推断其他组合可用。暂停验收须同时有 connected=true、paused=true、held=[]，读失败时返回的保守暂停不是游戏确认。桥接目录属于对应目标，不可与另一个进程混用。独立桌面游戏可能不在默认 `win` 清单中，不能据此要求重启或改走前台。
+
+固定构建的[原生输入桥](../plugins/native_input/README.md)已接入相同 MCP 工具。先启动受限宿主，再绑定本次副本路径／PID 和 `bridge/`；`control_status` 显式声明 `protocol=2`、`timing_mode=duration_ms`、`pause_scope=input`、`simulation_pause=false`。使用 `duration_ms=1..1000` 和 `observation_seq`，拒绝 `frames`，不能从回执推算游戏帧。仅支持方向移动、Z 确认／X 取消与等待；暂停不冻结游戏。固定标题菜单路线已逐图核对，正式后端实体并发和游戏玩法仍未验。
 
 可选的 PS1 方块键使用 `control_action(action="press", button="square", frames=12)`；先核对 `control_status.buttons` 数组包含 `square`，未声明的桥会在排队前拒绝。`ok/cancel/shift` 等既有按钮含义保持各引擎原映射，不能将 `shift` 当成 PS1 菜单键。
 

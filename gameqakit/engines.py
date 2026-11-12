@@ -2,8 +2,13 @@
 from __future__ import annotations
 
 from collections import deque
+import hashlib
+import json
 from pathlib import Path
 import re
+
+_NATIVE_SAMPLE = json.loads((Path(__file__).resolve().parents[1] /
+                            'plugins/native_input/samples/srpgstudio-x86-fixed.json').read_text(encoding='utf-8'))
 
 # 资源树既不含入口，也不应随游戏体量放大盘点成本。
 _RESOURCE_DIRS = {'audio', 'graphics', 'fonts', 'system', 'save', 'saves', 'savedata',
@@ -62,6 +67,13 @@ def inspect_game(path):
             if stream.read(2) == b'MZ':
                 return found('duckstation_windows', [emulator.name + ':MZ', 'SDL3.dll'], 'duckstation')
     if (root / 'Runtime.rts').is_file():
+        image = root / 'game.exe'
+        if image.is_file() and (root / 'data.dts').is_file():
+            with image.open('rb') as stream:
+                digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+            if digest == _NATIVE_SAMPLE['exe_sha256']:
+                return {**found('srpgstudio_candidate', ['Runtime.rts', 'data.dts', 'game.exe:sha256=' + digest],
+                                'native_input'), 'profile_id': _NATIVE_SAMPLE['id']}
         return found('srpgstudio_candidate', ['Runtime.rts'])
     return result
 

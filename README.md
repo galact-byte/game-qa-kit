@@ -48,6 +48,7 @@ python -m pip install -r requirements.txt
 | Unity | Mono 旧 Input、新 Input System、IL2CPP／新输入及 Mono／Rewired 分别适配；已验范围因后端和样本而异，见[覆盖表](docs/ENGINE-COVERAGE.md) |
 | Wolf RPG | 两个固定构建；官方范例移动、菜单和战斗，商业构建移动、菜单、存读档及短时重复操作 |
 | HSP3 | 官方空白工程输入与点击；八星帝外置字节码的标题／读取菜单 |
+| SRPG Studio／x86 DirectInput | 一个固定构建；受限原生宿主和 DLL 经统一 MCP 完成标题 → 环境设置 → 返回，见[插件说明](plugins/native_input/README.md) |
 | DuckStation／PS1 | 一个固定模拟器构建；指定游戏移动、存读档和首战 |
 
 **常见引擎尚未全部适配。** XP／VX 等目前只有识别；Godot、Unreal、Ren'Py 等尚无已验控制通路。
@@ -56,7 +57,7 @@ python -m pip install -r requirements.txt
 接入步骤见[后台控制说明](docs/BACKGROUND-CONTROL.md)，完整边界见[引擎覆盖表](docs/ENGINE-COVERAGE.md)。
 基础适配按后台运行、输入隔离、新画面、真实操作与暂停释放收口；战斗、存读档、全流程等按具体任务追加验证。
 独立 Win32 Desktop 是当前已验后端，不是产品的必选技术，也不隔离文件系统或存档。
-轻量替代方案及限制见[后台控制方案调研](docs/BACKGROUND-ALTERNATIVES.md)：Proto Input 受控 C++ 原型已在自有 x64 窗口通过 9 项自动检查与 30 轮有限实体键鼠并发检查；扩展的 x86 DirectInput 原型通过 10 项自有程序检查，并在一个固定 SRPG Studio 商业构建的隔离副本上完成后台「标题 → 环境设置 → 返回标题」，逐图确认输入生效。真实游戏的实体并发、鼠标与玩法未验，尚未接入生产桥或 MCP。目标是 AI 与用户键鼠互不干扰，不限定 Python 或其他框架。[受限正式后端设计](docs/superpowers/specs/2026-11-11-native-input-design.md)已获批准：[实施计划](docs/superpowers/plans/2026-11-11-native-input.md)中的 v2 协议兼容层和统一 MCP 毫秒参数已实现，现有 v1 桥仍按帧并拒绝时间字段。原生加载器及其游戏入口尚在实施，当前没有新增生产适配结论。本机 Windows 家庭版不支持 Sandbox。
+轻量替代方案及限制见[后台控制方案调研](docs/BACKGROUND-ALTERNATIVES.md)。[受限正式后端设计](docs/superpowers/specs/2026-11-11-native-input-design.md)获批后，已实现 v2 协议、原生加载器和固定 SRPG Studio x86 构建的统一 MCP 菜单路线，见[原生输入桥说明](plugins/native_input/README.md)。v2 显式按毫秒执行，暂停只停止 AI 输入；现有 v1 桥保留帧语义。正式后端的实体键鼠并发仍未验，原型的自有窗口并发结果不能替代它；游戏鼠标、存读档、玩法与其他构建也未验。本机 Windows 家庭版不支持 Sandbox。
 
 ## 进一步了解
 

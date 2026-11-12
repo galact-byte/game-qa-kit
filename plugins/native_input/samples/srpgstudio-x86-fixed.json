@@ -1,0 +1,20 @@
+{
+  "id": "srpgstudio-x86-fixed",
+  "engine": "srpgstudio_candidate",
+  "architecture": "x86",
+  "exe": "game.exe",
+  "exe_sha256": "8e123a4c07cfbc9143c266faf87bb66ef3600ab1254ee6d294fbaf685bb502a7",
+  "data_marker": "data.dts",
+  "runtime_marker": "runtime.rts",
+  "input_backend": "directinput8-buffered",
+  "buttons": {
+    "up": "DIK_UP",
+    "down": "DIK_DOWN",
+    "left": "DIK_LEFT",
+    "right": "DIK_RIGHT",
+    "confirm": "DIK_Z",
+    "cancel": "DIK_X"
+  },
+  "verified_scope": "title-settings-return",
+  "physical_concurrency_verified": false
+}

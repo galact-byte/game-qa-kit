@@ -1,9 +1,11 @@
 """只读引擎识别：抓错家族、无限资源扫描或把识别当控制成功都会失败。"""
+import hashlib
 import importlib
 import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 class EngineTests(unittest.TestCase):
@@ -67,6 +69,27 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(result['engine'], 'srpgstudio_candidate')
         self.assertIsNone(result['adapter'])
         self.assertFalse(result['control_verified'])
+
+    def test_native_profile_matches_only_exact_image_and_data_mode(self):
+        image = self.touch('game.exe', b'MZ' + bytes(126))
+        self.touch('Runtime.rts')
+        data = self.touch('data.dts')
+        digest = hashlib.sha256(image.read_bytes()).hexdigest()
+        sample = {'id': 'srpgstudio-x86-fixed', 'exe_sha256': digest}
+        before = {p.name: p.read_bytes() for p in self.root.iterdir()}
+        with patch.object(self.engines, '_NATIVE_SAMPLE', sample, create=True):
+            result = self.engines.inspect_game(self.root)
+            self.assertEqual(result['adapter'], 'native_input')
+            self.assertEqual(result['profile_id'], sample['id'])
+            self.assertFalse(result['control_verified'])
+            self.assertEqual(before, {p.name: p.read_bytes() for p in self.root.iterdir()})
+            image.write_bytes(image.read_bytes() + b'changed')
+            unknown = self.engines.inspect_game(self.root)
+            self.assertIsNone(unknown['adapter'])
+            self.assertNotIn('profile_id', unknown)
+            image.write_bytes(before['game.exe'])
+            data.unlink()
+            self.assertIsNone(self.engines.inspect_game(self.root)['adapter'])
 
     def test_hsp_bytecode_signature_is_required_and_not_control_verification(self):
         marker = self.touch('start.ax', b'not hsp')
