@@ -20,7 +20,13 @@
 当前会话使用所选 PID；PID 不写进配置。最小化的程序也可选择，但此时窗口尺寸暂不确定。
 存档目录不自动猜测。老配置仍支持原有进程名/标题规则；标题兜底不应填宽泛的游戏名。
 
-更新代码后，需重新连接 MCP，客户端才能重新获取工具列表。服务器内部版本为 `0.3.0`，共 22 项工具。只读 `processes` 可列出运行中的窗口/进程信息，不创建配置或操控游戏。
+更新代码后，需重新连接 MCP，客户端才能重新获取工具列表。当前共 29 项工具。只读 `processes` 可列出运行中的窗口/进程信息，不创建配置或操控游戏。
+
+## 游戏接入与受管启动
+
+主程序“AI 后台接入”和 `game_inspect`、`game_prepare`、`game_start`、`game_status`、`game_bind`、`game_unbind`、`game_stop` 共用会话层；完整流程与参数见[游戏接入说明](GAME-ADMISSION.md)。初次就绪暂停输入，不自动绑定或操作游戏。当前新入口仅能启动已登记的固定原生构建，其余后端仍按既有通路使用。
+
+GUI／CLI／MCP 创建者须保持运行；只有创建者可回收自有树。另一 MCP 可显式绑定查询、暂停及取得单一动作权，但不能停止别的创建者的进程。绑定后旧桌面输入和存档等旁路被阻断，解绑／失效不回退旧 profile。不要把下文人工观察 worker 的独立生命周期与受管游戏 worker 混为一谈。
 
 ## 推荐流程
 
@@ -81,7 +87,7 @@
 | `control_pause` | 绑定参数；优先暂停请求，不要求危险操作确认 |
 | `control_resume` | 绑定参数、`confirm=true`；明确恢复，不复活旧队列 |
 
-以上工具通过 `GAMEQAKIT_PROFILE` 使用当前配置，不能在每次调用里传另一个 profile；`directory` 是插件会话目录，绑定的程序路径必须与当前配置一致。
+未使用 `game_bind` 时，以上工具通过 `GAMEQAKIT_PROFILE` 使用当前配置，不能在每次调用里传另一个 profile；`directory` 是插件会话目录，绑定的程序路径必须与当前配置一致。使用 `game_bind` 后目标来自显式绑定，`directory` 若提供必须与该绑定一致，不再回退 profile。
 
 `control_action` / `control_resume` 可设置 `include_image=true`，回执后附本次截图；`control_result` 同样支持返回图片。有有效新回执时，不再例行追加截图与结果查询。
 

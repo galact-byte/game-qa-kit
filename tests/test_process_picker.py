@@ -38,6 +38,30 @@ class ProcessPickerTests(unittest.TestCase):
         self.assertIn("PID 321", dialog.cb_process.itemText(1))
         self.assertTrue(p.name)
 
+    def test_new_manual_profile_requires_explicit_qa_data_directory(self):
+        with mock.patch.object(win32, "list_process_targets", return_value=[TARGET]):
+            dialog = gui.ProfileDialog()
+            self.addCleanup(dialog.close)
+            dialog.cb_process.setCurrentIndex(1)
+            with mock.patch.object(gui.QMessageBox, "warning") as warning:
+                dialog._on_ok()
+                self.assertEqual(dialog.result(), 0)
+                warning.assert_called_once()
+                self.assertIn("QA", warning.call_args.args[2])
+            dialog.e_data.setText("E:/qa/manual-test")
+            dialog._on_ok()
+            self.assertEqual(dialog.result(), 1)
+
+    def test_new_manual_profile_does_not_silently_overwrite_existing_name(self):
+        with tempfile.TemporaryDirectory() as folder, \
+             mock.patch.object(profile, "_PROFILES_DIR", Path(folder)), \
+             mock.patch.object(win32, "list_process_targets", return_value=[TARGET]):
+            profile.save_profile(profile.GameProfile(name="sample", proc="old"))
+            dialog = gui.ProfileDialog()
+            self.addCleanup(dialog.close)
+            dialog.cb_process.setCurrentIndex(1)
+            self.assertEqual(dialog.e_name.text(), "sample-2")
+
     def test_selecting_process_does_not_replace_user_data_fields(self):
         old = profile.GameProfile(name="existing", proc="old", savedata_dir="E:/saves",
                                   save_globs=["*.sav"], data_dir="E:/qa", regions={"text": [0, 0, 10, 10]},

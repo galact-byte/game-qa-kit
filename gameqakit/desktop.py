@@ -61,7 +61,7 @@ k.CloseHandle.argtypes = [W.HANDLE]
 
 
 class DesktopProcess:
-    def __init__(self, argv, *, cwd, env=None):
+    def __init__(self, argv, *, cwd, env=None, isolated_desktop=True):
         if (not isinstance(argv, (list, tuple)) or not argv
                 or any(not isinstance(arg, str) or '\0' in arg for arg in argv)):
             raise ValueError('argv 必须是非空的字符串数组')
@@ -78,8 +78,11 @@ class DesktopProcess:
                     or not isinstance(value, str) or '\0' in value):
                 raise ValueError('环境变量名称或内容无效')
             self.env[key] = value
-        self.desktop_name = 'gameqakit-' + uuid.uuid4().hex[:16]
-        self.env['GAMEQAKIT_DESKTOP_NAME'] = self.desktop_name
+        self.desktop_name = 'gameqakit-' + uuid.uuid4().hex[:16] if isolated_desktop else None
+        if self.desktop_name:
+            self.env['GAMEQAKIT_DESKTOP_NAME'] = self.desktop_name
+        else:
+            self.env.pop('GAMEQAKIT_DESKTOP_NAME', None)
         self.desktop = None
         self.job = None
         self.process = None
@@ -90,9 +93,10 @@ class DesktopProcess:
         if self.desktop or self.pid is not None:
             raise RuntimeError('测试进程实例不可重复启动')
         try:
-            self.desktop = u.CreateDesktopW(self.desktop_name, None, None, 0, 0x01FF, None)
-            if not self.desktop:
-                raise ctypes.WinError(ctypes.get_last_error())
+            if self.desktop_name:
+                self.desktop = u.CreateDesktopW(self.desktop_name, None, None, 0, 0x01FF, None)
+                if not self.desktop:
+                    raise ctypes.WinError(ctypes.get_last_error())
             self.job = k.CreateJobObjectW(None, None)
             if not self.job:
                 raise ctypes.WinError(ctypes.get_last_error())
@@ -145,7 +149,8 @@ class DesktopProcess:
 
         u.EnumDesktopWindows.argtypes = [W.HANDLE, WNDENUMPROC, W.LPARAM]
         ctypes.set_last_error(0)
-        if not u.EnumDesktopWindows(self.desktop, collect, 0):
+        ok = u.EnumDesktopWindows(self.desktop, collect, 0) if self.desktop else u.EnumWindows(collect, 0)
+        if not ok:
             error = ctypes.get_last_error()
             # 新桌面还没有窗口时会返回零，但没有系统错误。
             if error:

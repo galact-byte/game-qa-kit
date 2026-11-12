@@ -208,7 +208,7 @@ class ProfileDialog(QDialog):
         self.e_title.setPlaceholderText("可空，留空更安全（只按进程名匹配）")
         self.e_proc.setPlaceholderText("如 Game")
         self.e_globs.setPlaceholderText("如 data*.dat, *.var（逗号分隔，改档才需）")
-        self.e_data.setPlaceholderText("可空，缺省 ~/.gameqakit/<名称>")
+        self.e_data.setPlaceholderText("新配置请选择 QA 数据目录，原有配置保持原位置")
         if existing:
             self.e_name.setText(existing.name); self.e_name.setEnabled(False)
             self.e_proc.setText(existing.proc); self.e_title.setText(existing.title_substr or "")
@@ -317,6 +317,9 @@ class ProfileDialog(QDialog):
         if not self.e_name.text().strip() or not self.e_proc.text().strip():
             QMessageBox.warning(self, "缺少必填", "名称和进程名不能为空")
             return
+        if self.e_name.isEnabled() and not self.e_data.text().strip():
+            QMessageBox.warning(self, "缺少 QA 数据目录", "请明确选择 QA 数据目录，用于保存截图、观察记录和证据。")
+            return
         self.accept()
 
     def result_profile(self):
@@ -379,6 +382,7 @@ class App(QMainWindow):
         sl.addSpacing(10)
         sl.addWidget(QLabel("工具", objectName="sectionLabel"))
         sl.addWidget(self._nav("search", "检测窗口", lambda: self._run(self._check_window)))
+        sl.addWidget(self._nav("play", "AI 后台接入", self._game_admission))
         sl.addWidget(self._nav("database", "列出快照", lambda: self._run(self._list_saves)))
         sl.addWidget(self._nav("folder", "打开数据目录", self._open_data))
         sl.addStretch(1)
@@ -477,6 +481,10 @@ class App(QMainWindow):
         return [int(x) for x in s.split(",")] if s else None
 
     # ---------------- 动作 ----------------
+    def _game_admission(self):
+        from .admission_gui import AdmissionDialog
+        AdmissionDialog(self).exec()
+
     def _refresh_profiles(self):
         self.cb_profile.clear(); self.cb_profile.addItems(_profile.list_profiles())
 

@@ -144,6 +144,10 @@ class WolfIpcTests(unittest.TestCase):
 
     def test_writer_lock_contention_and_abandonment_are_bounded(self):
         import threading
+        from ctypes import wintypes as W
+        kernel = self.mailbox.kernel
+        kernel.OpenThread.argtypes = [W.DWORD, W.BOOL, W.DWORD]
+        kernel.OpenThread.restype = W.HANDLE
         entered, release = threading.Event(), threading.Event()
         lock = self.mailbox.locks[2]
         def abandoned_writer():
@@ -152,6 +156,9 @@ class WolfIpcTests(unittest.TestCase):
             release.wait(2)
         writer = threading.Thread(target=abandoned_writer)
         writer.start()
+        thread_handle = kernel.OpenThread(0x00100000, False, writer.native_id)
+        self.assertTrue(thread_handle)
+        self.addCleanup(kernel.CloseHandle, thread_handle)
         try:
             self.assertTrue(entered.wait(1))
             started = time.monotonic()
@@ -162,6 +169,8 @@ class WolfIpcTests(unittest.TestCase):
         finally:
             release.set()
             writer.join()
+            # Python join can finish before Windows marks its mutex owner abandoned.
+            self.assertEqual(kernel.WaitForSingleObject(thread_handle, 1000), 0)
         with self.assertRaisesRegex(RuntimeError, 'ipc_writer_abandoned'):
             self.mailbox.read('pause')
 

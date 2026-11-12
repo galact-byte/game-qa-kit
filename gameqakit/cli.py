@@ -32,6 +32,51 @@ def _parse_region(s):
     return [int(x) for x in s.split(",")]
 
 
+def _game(args):
+    from . import admission
+    from .game_session import Manager
+    import time
+    import uuid
+
+    def output(value):
+        print(json.dumps(value, ensure_ascii=False), flush=True)
+
+    if args.operation == 'inspect':
+        result = (admission.make_plan(args.path, args.destination, artifacts=args.artifacts)
+                  if args.destination else admission.inspect(args.path, artifacts=args.artifacts))
+        output(result)
+        return 0
+    if args.operation == 'status':
+        output(Manager().status(args.path))
+        return 0
+    plan = admission.make_plan(args.path, args.destination, artifacts=args.artifacts)
+    if plan['fingerprint'] != args.fingerprint:
+        raise ValueError('摘要已变化，请重新运行 game inspect 并确认')
+    manager = Manager()
+    request = uuid.uuid4().hex
+    started, previous = False, None
+    try:
+        output(manager.prepare(plan, request_id=request + '-prepare', confirm=True))
+        while True:
+            state = manager.status(args.destination)
+            if state['state'] != previous:
+                output(state)
+                previous = state['state']
+            if state['state'] == 'prepared' and not started:
+                output(manager.start(args.destination, request_id=request + '-start',
+                                     fingerprint=plan['fingerprint'], confirm=True))
+                started = True
+            if state['state'] in ('failed', 'cleanup_failed', 'interrupted_unverified'):
+                return 1
+            if state['state'] in ('stopped', 'cancelled'):
+                return 0
+            time.sleep(.2)
+    except KeyboardInterrupt:
+        return 0
+    finally:
+        manager.close()
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="gameqakit", description="跨游戏 QA 盯屏/证据工具")
     ap.add_argument("--profile", "-p", help="profile 名字或 json 路径（或设 GAMEQAKIT_PROFILE）")
@@ -57,7 +102,25 @@ def main(argv=None):
 
     sub.add_parser("profiles", help="列出可用 profile")
 
+    pg = sub.add_parser('game', help='后台接入：检查、查询或保持创建者生命周期启动')
+    operations = pg.add_subparsers(dest='operation', required=True)
+    inspect = operations.add_parser('inspect', help='只读检查；带副本目录时生成待确认操作摘要')
+    inspect.add_argument('path')
+    inspect.add_argument('--artifacts', help='已有原生宿主和控制桥目录')
+    inspect.add_argument('--destination', help='本次全新会话目录')
+    status = operations.add_parser('status', help='只读查询，不能恢复停止权')
+    status.add_argument('path', help='会话目录')
+    start = operations.add_parser('start', help='准备并启动；保持运行，Ctrl+C 结束自有会话')
+    start.add_argument('path')
+    start.add_argument('--destination', required=True)
+    start.add_argument('--artifacts', required=True)
+    start.add_argument('--fingerprint', required=True, help='此前 game inspect 返回的摘要指纹')
+    start.add_argument('--confirm', required=True, action='store_true', help='确认此前检查的操作摘要')
+
     args = ap.parse_args(argv)
+
+    if args.cmd == 'game':
+        return _game(args)
 
     if args.cmd == "profiles":
         print(json.dumps(_profile.list_profiles(), ensure_ascii=False))

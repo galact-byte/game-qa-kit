@@ -31,11 +31,17 @@ SERVER_VERSION = "0.2.1"
 PROTOCOL_VERSION = "2024-11-05"
 
 _PROFILE = None
+from gameqakit.game_session import Binding, Manager
+_BINDING = Binding()
+_MANAGER = Manager()
 
 
 def P():
     """惰性加载激活 profile，缺失时给清晰报错。"""
     global _PROFILE
+    if _BINDING.engaged:
+        _BINDING.client_for({})
+        return _BINDING.profile
     if _PROFILE is None:
         _PROFILE = _profile.active_profile()
     return _PROFILE
@@ -60,6 +66,8 @@ def _ts():
 
 # ---------- handlers ----------
 def t_profile(_a):
+    if _BINDING.engaged:
+        return {**_BINDING.status(), 'available': _profile.list_profiles()}
     p = P()
     return {"active": p.name, "proc": p.proc, "exe_path": p.exe_path,
             "target_pid": win32.profile_target(p)["pid"], "data_dir": str(p.data_path),
@@ -198,7 +206,48 @@ def t_engine_inspect(a):
     return inspect_game(path)
 
 
+def t_game_inspect(a):
+    from gameqakit.admission import inspect, make_plan
+    result = inspect(a['path'], artifacts=a.get('artifacts'))
+    if a.get('destination') and result['launch_readiness'] == 'ready':
+        result['plan'] = make_plan(a['path'], a['destination'], artifacts=a.get('artifacts'))
+    return result
+
+
+def t_game_prepare(a):
+    return _MANAGER.prepare(a['plan'], request_id=a['request_id'], confirm=a.get('confirm'))
+
+
+def t_game_start(a):
+    return _MANAGER.start(a['directory'], request_id=a['request_id'],
+                          fingerprint=a['fingerprint'], confirm=a.get('confirm'))
+
+
+def t_game_stop(a):
+    return _MANAGER.stop(a['directory'], request_id=a['request_id'])
+
+
+def t_game_bind(a):
+    if not a.get('confirm'):
+        raise ValueError('绑定需要 confirm=true')
+    if not _BINDING.engaged and _PROFILE is not None and sessions.watch_status(_PROFILE)['running']:
+        raise RuntimeError('请先停止当前人工盯屏，再绑定后台会话')
+    return _BINDING.bind(a['directory'], a['session_id'])
+
+
+def t_game_unbind(_a):
+    return _BINDING.unbind()
+
+
+def t_game_status(a):
+    if a.get('directory'):
+        return {**_MANAGER.status(a['directory']), 'binding': _BINDING.status()}
+    return _BINDING.status()
+
+
 def _bridge(a):
+    if _BINDING.engaged:
+        return _BINDING.client_for(a)
     from gameqakit.control import BridgeClient
     p = P()
     return BridgeClient(a.get("directory") or p.state_dir / "control",
@@ -211,6 +260,9 @@ def t_control_status(a):
 
 def t_control_action(a):
     options = {key: a[key] for key in ("frames", "duration_ms", "direction", "button", "x", "y") if key in a}
+    if _BINDING.engaged:
+        return _BINDING.execute('action', a, action=a['action'], command_id=a.get('command_id'),
+                                timeout=a.get('timeout', 5), **options)
     return _bridge(a).action(a["action"], command_id=a.get("command_id"), timeout=a.get("timeout", 5), **options)
 
 
@@ -223,18 +275,40 @@ def t_control_pause(a):
 
 
 def t_control_resume(a):
+    if _BINDING.engaged:
+        return _BINDING.execute('resume', a, command_id=a.get('command_id'), timeout=a.get('timeout', 5))
     return _bridge(a).resume(command_id=a.get("command_id"), timeout=a.get("timeout", 5))
 
 
 PROFILE_NOTE = "按激活 profile 操作（GAMEQAKIT_PROFILE）。"
 CONFIRM = {"confirm": {"type": "boolean", "description": "危险操作必须显式传 true 才执行"}}
-DANGEROUS_TOOLS = {"click", "key", "load", "kill_game", "control_action", "control_resume"}
+DANGEROUS_TOOLS = {"click", "key", "load", "kill_game", "control_action", "control_resume",
+                   'game_prepare', 'game_start', 'game_stop'}
 BRIDGE_FIELDS = {"directory": {"type": "string", "description": "插件会话目录；默认 profile 的 state/control，不是游戏目录"}}
 COMMAND_FIELDS = {**BRIDGE_FIELDS, "command_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"},
                   "timeout": {"type": "number", "minimum": 0.05, "maximum": 15},
                   "include_image": {"type": "boolean", "description": "回传已校验的操作后 PNG；过大时仅返回归档路径"}}
 
 TOOLS = {
+    'game_inspect': ('只读检查指定游戏的后台接入条件和阻碍，不启动或输入；提供 destination 时附操作摘要供审阅。',
+                     _obj({'path': {'type': 'string'}, 'artifacts': {'type': 'string'},
+                           'destination': {'type': 'string'}}, ['path']), t_game_inspect),
+    'game_prepare': ('确认操作摘要后异步准备全新受管副本。同一 request_id 查询原结果，不重新执行。',
+                     _obj({**CONFIRM, 'plan': {'type': 'object'}, 'request_id': {'type': 'string'}},
+                          ['plan', 'request_id', 'confirm']), t_game_prepare),
+    'game_start': ('启动本 MCP 创建的已准备副本，初始暂停，不自动绑定或发菜单动作；创建者须保持运行。',
+                   _obj({**CONFIRM, 'directory': {'type': 'string'}, 'request_id': {'type': 'string'},
+                         'fingerprint': {'type': 'string'}},
+                        ['directory', 'request_id', 'fingerprint', 'confirm']), t_game_start),
+    'game_stop': ('只结束本 MCP 创建的会话；异步请求松键、回收自有树及核对原数据，未知进度保留。',
+                  _obj({**CONFIRM, 'directory': {'type': 'string'}, 'request_id': {'type': 'string'}},
+                       ['directory', 'request_id', 'confirm']), t_game_stop),
+    'game_bind': ('显式绑定已有桥的当前会话；不自动恢复，不获取进程停止权。',
+                  _obj({**CONFIRM, 'directory': {'type': 'string'}, 'session_id': {'type': 'string'}},
+                       ['directory', 'session_id', 'confirm']), t_game_bind),
+    'game_unbind': ('请求暂停并确认松键后解绑；解绑后无活动目标，不回退历史 profile。', _obj({}), t_game_unbind),
+    'game_status': ('查询受管会话或本 MCP 显式绑定状态；不采用落盘 PID 获取停止权。',
+                    _obj({'directory': {'type': 'string'}}), t_game_status),
     "profile": ("显示当前激活 profile、程序路径、会话目标 PID 与可用 profile 列表。", _obj({}), t_profile),
     "processes": ("只读列出有可见窗口的程序名、PID、窗口标题、程序路径和尺寸，供选择游戏目标；不截图、不控制。", _obj({}), t_processes),
     "engine_inspect": ("只读按目录证据识别引擎；识别不代表已支持控制，不修改游戏。", _obj({"path": {"type": "string"}}), t_engine_inspect),
@@ -304,6 +378,10 @@ def handle(method, params):
         args = params.get("arguments") or {}
         if name not in TOOLS:
             raise ValueError(f"未知工具: {name}")
+        if _BINDING.engaged and name in {'click', 'key', 'load', 'kill_game', 'save', 'list_saves',
+                                        'capture', 'win', 'mark', 'watch_start', 'watch_stop',
+                                        'watch_status', 'watch_report', 'watch_events'}:
+            raise RuntimeError('当前为后台绑定或无活动目标；请使用 control_*，结束游戏须由创建者执行 game_stop')
         if name in DANGEROUS_TOOLS and args.get("confirm") is not True:
             raise ValueError(f"危险操作 {name} 需显式确认：请加 confirm=true（会改存档或向游戏发送输入）。")
         result = TOOLS[name][2](args)
@@ -321,7 +399,7 @@ def handle(method, params):
     raise ValueError(f"未支持的方法: {method}")
 
 
-def main():
+def _serve():
     for line in sys.stdin:
         line = line.strip()
         if not line:
@@ -342,6 +420,16 @@ def main():
             resp = {"jsonrpc": "2.0", "id": mid, "error": {"code": -32000, "message": str(e)}}
         sys.stdout.write(json.dumps(resp, ensure_ascii=False) + "\n")
         sys.stdout.flush()
+
+
+def main():
+    try:
+        _serve()
+    finally:
+        try:
+            _MANAGER.close()
+        finally:
+            _BINDING.close()
 
 
 if __name__ == "__main__":
