@@ -1,5 +1,7 @@
 """固定原生接入的首图、暂停与副本数据处置边界。"""
+import hashlib
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -27,6 +29,27 @@ class NativeSessionTests(unittest.TestCase):
                        {'observation_seq': 0}, {'session_id': ''}):
             with self.subTest(change=change), self.assertRaises(RuntimeError):
                 session.validate_ready(self.root, {**valid, **change})
+
+    @unittest.skipUnless(os.name == 'nt', '需要 Windows 文件共享语义')
+    def test_first_image_can_be_republished_during_decode_without_changing_snapshot_digest(self):
+        valid = dict(connected=True, paused=True, held=[], observation_seq=1, session_id='a')
+        before = self.image.read_bytes()
+        replacement = self.image.with_name('next.png')
+        Image.new('RGB', (50, 40), 'blue').save(replacement)
+        decode = Image.open
+        def concurrent_decode(*args, **kwargs):
+            loaded = decode(*args, **kwargs)
+            try:
+                os.replace(replacement, self.image)
+            except BaseException:
+                loaded.close()
+                raise
+            return loaded
+        with mock.patch('gameqakit.admission_runtime.Image.open', side_effect=concurrent_decode):
+            result = session.validate_ready(self.root, valid)
+        self.assertEqual(result['screenshot_sha256'], hashlib.sha256(before).hexdigest())
+        with Image.open(self.image) as published:
+            self.assertEqual(published.getpixel((0, 0)), (0, 0, 255))
 
     def test_black_or_missing_first_image_is_never_ready(self):
         valid = dict(connected=True, paused=True, held=[], observation_seq=1, session_id='a')

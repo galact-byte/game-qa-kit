@@ -59,3 +59,30 @@ class UnityControlTests(unittest.TestCase):
                                     env={**os.environ, 'TEMP': directory, 'TMP': directory})
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('Unity frame intake assertions', result.stdout)
+
+    def test_paused_observation_captures_only_rendered_ready_frames_without_commands(self):
+        if os.name != 'nt':
+            self.skipTest('本地回归需要 Windows .NET Framework 运行编译产物')
+        tools = runpy.run_path(str(ROOT / 'plugins/unity/build.py'))
+        try:
+            tools['compiler']()
+        except RuntimeError as error:
+            self.skipTest(str(error))
+        source = (ROOT / 'plugins/unity/GameQaBridge.cs').read_text(encoding='utf-8')
+        render = source[source.index('        private IEnumerator AfterRender()'):source.index('        private void Capture(')]
+        parent = Path('E:/DevData/gameqa-unity/tmp')
+        parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='observation-', dir=parent) as directory:
+            generated = Path(directory) / 'RenderUnderTest.cs'
+            generated.write_text('using System;\nusing System.IO;\nusing System.Collections;\n'
+                                 'using UnityEngine;\nusing UnityEngine.SceneManagement;\nusing GameQaKit.Unity;\n'
+                                 'internal sealed partial class BridgeObservationHarness\n{\n' + render + '\n}\n',
+                                 encoding='utf-8')
+            output = Path(directory) / 'BridgeObservationTests.exe'
+            tools['compile_sources'](output, [ROOT / 'plugins/unity/ControlCore.cs',
+                                             ROOT / 'tests/unity/BridgeObservationTests.cs', generated])
+            result = subprocess.run([str(output), directory], capture_output=True, encoding='utf-8',
+                                    errors='replace', timeout=10,
+                                    env={**os.environ, 'TEMP': directory, 'TMP': directory})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('Unity paused observation assertions: passed', result.stdout)

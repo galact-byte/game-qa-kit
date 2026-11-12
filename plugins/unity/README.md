@@ -43,6 +43,25 @@ python plugins/unity/build.py --game-root "<IL2CPP 测试副本>" --il2cpp --out
 
 将同次构建的主桥及后端 DLL 一起放入副本 `BepInEx/plugins/GameQaKit/`。加载器本身须与游戏位数、Unity 版本和入口签名相符。老 Unity 的分辨率启动对话框要在测试副本关闭；停在对话框不代表加载器失败。离线入口实验不属于一键安装能力。
 
+## 受管入口
+
+主程序“AI 后台接入”、CLI 与 MCP 的 `game_*` 工具已迁入已登记哈希的《Taimashi》Unity 2020.3.7f1 Mono／旧 Input 构建，操作顺序见[游戏接入说明](../../docs/GAME-ADMISSION.md)。其他 Unity 输入后端尚未迁入这一启动入口，继续使用各自已验接入流程。
+
+已有组件目录须采用以下结构，桥用本项目当前源码和该游戏的程序集构建，加载器与 BepInEx 核心须使用原已核查材料，不自动下载：
+
+```text
+<组件目录>/
+  GameQaBridge.dll
+  winhttp.dll
+  BepInEx/core/*.dll
+```
+
+入口只读核对程序、全部托管程序集与已选组件摘要；仅修改 QA 副本的产品标识、窗口与后台设置，排除原 `SaveData` 和旧插件。随机公司标识的 LocalLow 目录通过私有目录联接指向本次会话的 `persistent/`；结束先确认松键再回收自有目标，核对原目录、原存档与 PlayerPrefs 并移除本次联接。运行副本产生缓存或其他变化时保留现场，不自动删除新进度。
+
+桥在输入初始暂停时也于帧绘制结束后导出首图及观察图，更新 `observation_seq`；此操作不恢复输入，不暂停整个 Unity 仿真。取图失败会使绑定失效，worker 记录具体原因并收尾；无法取得松键确认时记为未确认，目标已退出不能代替确认。
+
+受管真实 MCP 批次已逐图验证：初始暂停首图、正常标题“开始”点击、进入剧情，Qt 观察预览随当前图更新且不占动作权，观察者关闭后目标仍存活，最终由创建者停止并通过原数据核对。该批只覆盖此固定构建的菜单／剧情入口，不能扩展为其他 Unity 构建或完整玩法验收。
+
 ## 接入与验证
 
 1. 用 `gameqakit.desktop.DesktopProcess` 挂起创建副本；设置 `GAMEQAKIT_BRIDGE_DIR`、`GAMEQAKIT_SESSION_ID` 和 `GAMEQAKIT_INPUT_BACKEND`（`legacy`、`input_system`、`rewired`）。DesktopProcess 绑定实际独立桌面名称。

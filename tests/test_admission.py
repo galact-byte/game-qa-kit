@@ -88,6 +88,22 @@ class BindingTests(unittest.TestCase):
         self.client.resume.assert_not_called()
         self.client.pause.assert_not_called()
 
+    def test_failed_observation_invalidates_binding_and_blocks_actions(self):
+        self.binding.bind(self.bridge, 'session-a')
+        self.state['observation_error'] = 'capture unavailable'
+        state = self.binding.status()
+        self.assertFalse(state['connected'])
+        self.assertFalse(state['can_control'])
+        with self.assertRaises(RuntimeError):
+            self.binding.execute('resume', {})
+        self.client.resume.assert_not_called()
+
+    def test_failed_observation_cannot_be_bound_as_ready(self):
+        self.state['observation_error'] = 'capture unavailable'
+        with self.assertRaisesRegex(RuntimeError, '取图'):
+            self.binding.bind(self.bridge, 'session-a')
+        self.assertIsNone(self.binding.client)
+
     def test_second_client_can_observe_and_pause_but_cannot_control(self):
         self.binding.bind(self.bridge, 'session-a')
         other = game_session.Binding()

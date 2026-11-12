@@ -173,6 +173,19 @@ class AdmissionGuiTests(unittest.TestCase):
         self.assertEqual(self.dialog.preview.pixmap().toImage().pixelColor(0, 0).name(), '#0000ff')
         self.assertEqual(self.dialog.last_image, (str(observation), 8))
 
+    def test_observation_refresh_does_not_reuse_qt_filename_cache(self):
+        from PIL import Image
+        image = Path(self.tmp.name) / 'refresh.png'
+        Image.new('RGB', (24, 24), 'red').save(image)
+        timestamp = image.stat().st_mtime_ns
+        self.dialog._show_image(str(image), token=('frame', 1))
+        self.assertEqual(self.dialog.preview.pixmap().toImage().pixelColor(0, 0).name(), '#ff0000')
+        Image.new('RGB', (24, 24), 'blue').save(image)
+        os.utime(image, ns=(timestamp, timestamp))
+        self.dialog._show_image(str(image), token=('frame', 2))
+        self.assertEqual(self.dialog.preview.pixmap().toImage().pixelColor(0, 0).name(), '#0000ff')
+        self.assertEqual(self.dialog.last_image, ('frame', 2))
+
     def test_lost_external_connection_clears_old_preview(self):
         from PIL import Image
         image = Path(self.tmp.name) / 'image.png'

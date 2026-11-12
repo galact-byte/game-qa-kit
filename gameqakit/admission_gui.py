@@ -350,7 +350,8 @@ class AdmissionDialog(QDialog):
             self._show_image(image)
 
     def _show_image(self, image, *, token=None):
-        pixmap = QPixmap(image)
+        pixmap = QPixmap()
+        pixmap.loadFromData(Path(image).read_bytes())
         if not pixmap.isNull():
             self.preview.setPixmap(pixmap.scaled(self.preview.width(), self.preview.height(),
                 Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))

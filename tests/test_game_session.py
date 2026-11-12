@@ -66,6 +66,19 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(stale['state'], 'interrupted_unverified')
         self.assertFalse(stale['worker_alive'])
 
+    def test_observation_failure_is_reported_lost_before_worker_reaps_target(self):
+        self.manager.prepare(self.plan, request_id='prepare-bad-image', confirm=True)
+        root = Path(self.plan['destination'])
+        write_json(root / 'session.json', {'schema_version': 1, 'state': 'ready_paused',
+                                          'bridge_directory': str(root / 'bridge')})
+        with mock.patch('gameqakit.game_session.BridgeClient') as client:
+            client.return_value.status.return_value = {'connected': True, 'paused': True,
+                                                        'observation_error': 'capture unavailable'}
+            state = self.manager.status(root)
+        self.assertEqual(state['state'], 'connection_lost')
+        self.assertFalse(state['control']['connected'])
+        self.assertTrue(state['can_stop'])
+
     def test_start_requires_prepared_state_and_exact_approved_fingerprint(self):
         self.manager.prepare(self.plan, request_id='prepare-3', confirm=True)
         root = Path(self.plan['destination'])

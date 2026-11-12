@@ -6,37 +6,13 @@ from pathlib import Path
 import shutil
 import time
 
-from PIL import Image
 from gameqakit.admission import file_digest, revalidate_plan
+from gameqakit.admission_runtime import validate_ready
 from gameqakit.control import BridgeClient
 from gameqakit.process_job import OwnedProcess
 from gameqakit.sessions import read_json, write_json
 from gameqakit.win32 import _pid_path
 from .prepare import prepare, manifest, no_links
-
-
-def validate_ready(root, state):
-    if not (state.get('connected') and state.get('paused') is True and state.get('held') == []
-            and state.get('observation_seq', 0) > 0 and state.get('session_id')):
-        raise RuntimeError('首图或真实暂停松键尚未确认')
-    image = Path(root) / 'bridge/screenshots/startup.png'
-    no_links(image)
-    with Image.open(image) as source:
-        width, height = source.size
-        if source.format != 'PNG' or width <= 2 or height <= 2 or width * height > 16777216:
-            raise RuntimeError('startup_image_invalid')
-        pixels = source.convert('RGB')
-        # 与正式桥一致：忽略一像素边缘，拒绝 >=99.9% 的纯黑／纯白采样。
-        count, black, white = 0, 0, 0
-        total = (width - 2) * (height - 2)
-        for index in range(0, total, max(1, total // 20000)):
-            value = pixels.getpixel((index % (width - 2) + 1, index // (width - 2) + 1))
-            black += value == (0, 0, 0)
-            white += value == (255, 255, 255)
-            count += 1
-        if max(black, white) / count >= .999:
-            raise RuntimeError('startup_image_invalid')
-    return {'screenshot': str(image), 'screenshot_sha256': file_digest(image)}
 
 
 def reclaim_runtime(runtime, baseline, *, safe_to_remove):

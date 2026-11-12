@@ -36,7 +36,9 @@ namespace GameQaKit.Unity
         private ControlCore core;
         private IInputBackend router;
         private bool installed;
-        private double lastStatus;
+        private double lastStatus,lastObservation;
+        private long observationSequence;
+        private string observationError;
         private static double Now { get { return (DateTime.UtcNow-new DateTime(1970,1,1,0,0,0,DateTimeKind.Utc)).TotalSeconds; } }
         private string FileAt(string name) { return Path.Combine(directory,name); }
         private Dictionary<string,string> Read(string name) { return Wire.ReadIni(FileAt(name+".ini")); }
@@ -165,11 +167,22 @@ namespace GameQaKit.Unity
                         if(!scene.isLoaded) continue;
                         string relative="screenshots/"+core.ActiveId+".png";
                         Capture(FileAt(relative));
+                        Wire.Write(FileAt("screenshots/startup.png"),File.ReadAllBytes(FileAt(relative)));
+                        observationSequence++; lastObservation=Now; observationError=null;
                         core.Captured(relative);
+                    }
+                    else if(Ready && observationError==null && (observationSequence==0 || Now-lastObservation>=0.5))
+                    {
+                        Capture(FileAt("screenshots/startup.png"));
+                        observationSequence++; lastObservation=Now;
                     }
                     FlushReceipt(); WriteStatus(false);
                 }
-                catch(Exception error) { core.Fail("capture_failed: "+error.Message); TryReport(); }
+                catch(Exception error)
+                {
+                    observationSequence=0; observationError=error.Message;
+                    core.Fail("capture_failed: "+error.Message); TryReport();
+                }
             }
         }
         private void Capture(string target)
@@ -236,7 +249,8 @@ namespace GameQaKit.Unity
             state["unity_version"]=Application.unityVersion; state["company"]=Application.companyName;
             state["product"]=Application.productName; state["persistent_data_path"]=Application.persistentDataPath;
             state["updated_at"]=now; state["frame"]=core.Frame; state["paused"]=core.Paused;
-            state["held"]=core.HeldButtons; state["input_ready"]=Ready;
+            state["held"]=core.HeldButtons; state["input_ready"]=Ready && observationError==null;
+            state["observation_seq"]=observationSequence; state["observation_error"]=observationError;
             state["screen"]=new[]{Screen.width,Screen.height}; state["error"]=core.Error;
             state["command_id"]=core.ActiveId; state["patched_methods"]=router==null ? 0 : router.PatchedMethods;
             state["capabilities"]=Ready ? new[]{"move","confirm","cancel","wait","press","release","click"} : new string[0];

@@ -48,6 +48,12 @@ def inspect(path, *, artifacts=None):
 
     if result['engine'] == 'unknown':
         block('unknown_engine', '尚未识别这个游戏的后台接入方式。', 'source', '请正常打开游戏，使用人工盯屏。')
+    elif result['engine'] == 'unity_mono':
+        from plugins.unity import prepare as unity
+        result['blockers'] = unity.inspect(Path(result['root']), artifacts)
+        result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+        if not result['blockers']:
+            result['profile_id'] = 'unity-mono-legacy-taimashi-fixed'
     elif result.get('profile_id') != 'srpgstudio-x86-fixed':
         result['launch_readiness'] = 'not_migrated'
         block('recipe_unavailable', '已识别引擎，但这个构建尚无已核查的产品启动流程。',
@@ -85,6 +91,19 @@ def make_plan(source, destination, *, artifacts):
         raise ValueError('; '.join(row['message'] for row in result['blockers']))
     destination = validate_destination(result['root'], destination)
     source, artifacts = Path(result['root']), Path(artifacts).absolute()
+    if result['engine'] == 'unity_mono':
+        from plugins.unity import prepare as unity
+        payload = dict(schema_version=1, backend='unity_mono_legacy', source=str(source),
+                       destination=str(destination), artifacts=str(artifacts),
+                       source_digests=unity.source_digests(source),
+                       artifact_digests=unity.artifact_digests(artifacts),
+                       data_policy='blank-unity-identity-preserve-progress', desktop='private',
+                       changes=['只修改副本：独立产品标识、后台运行和窗口化设置，不带原 SaveData 和插件',
+                                '加载所选 Unity 旧 Input 桥、BepInEx 5 和匹配的 Doorstop；不自动输入',
+                                '随机产品标识使用目录联接将 LocalLow 游戏数据留在 QA 会话内',
+                                '启动后确认输入暂停、松键及有效引擎首图；不宣称停止 Unity 仿真',
+                                '结束自有进程，核对原目录、原存档和 PlayerPrefs；移除自有联接，保留新进度'])
+        return {**payload, 'fingerprint': fingerprint(payload)}
     keys = ('game.exe', 'game.ini', 'data.dts', 'runtime.rts', 'system.dat', 'environment.evs')
     payload = dict(schema_version=1, backend='native_input', source=str(source),
                    destination=str(destination), artifacts=str(artifacts),
@@ -100,7 +119,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') != 'native_input':
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:

@@ -9,14 +9,23 @@ import time
 from .sessions import read_json, write_json
 
 
+def session_for(plan):
+    if plan.get('backend') == 'native_input':
+        from plugins.native_input.session import NativeSession
+        return NativeSession(plan)
+    if plan.get('backend') == 'unity_mono_legacy':
+        from plugins.unity.session import UnitySession
+        return UnitySession(plan)
+    raise ValueError('unsupported_backend')
+
+
 def _run(record):
-    from plugins.native_input.session import NativeSession
     from .admission import no_links
     request = read_json(record)
     plan = request['payload']
     root = Path(plan['destination'])
     cancel_file = Path(record).parent / (root.name + '.cancel.json')
-    native = NativeSession(plan)
+    native = session_for(plan)
     phase = 'preparing'
     state = {'schema_version': 1, 'state': phase, 'backend': plan['backend'],
              'fingerprint': plan['fingerprint'], 'request_id': request['request_id'],
@@ -57,8 +66,11 @@ def _run(record):
             if not native.host.alive():
                 raise RuntimeError('host_exited')
             bridge = native.bridge.status()
+            if bridge.get('observation_error'):
+                raise RuntimeError('observation_failed：' + str(bridge['observation_error']))
             if not bridge.get('connected'):
-                raise RuntimeError('bridge_disconnected：停止输入并回收自有进程')
+                raise RuntimeError('bridge_disconnected：' + str(bridge.get('error') or 'unknown')
+                                   + '；停止输入并回收自有进程')
             if (root / 'bridge/fatal.json').exists():
                 raise RuntimeError('bridge_failed：' + str(read_json(root / 'bridge/fatal.json')))
             # resumed 状态由控制协议维护；生命周期记录不据此冒称仿真暂停。

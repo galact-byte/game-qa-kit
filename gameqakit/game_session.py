@@ -29,6 +29,8 @@ class Binding:
             raise ValueError('session_id 不匹配')
         client = BridgeClient(directory, pid=meta.get('pid'), exe_path=meta.get('exe_path'))
         state = client.status()
+        if state.get('observation_error'):
+            raise RuntimeError('绑定失败：取图失效，停止输入。' + str(state['observation_error']))
         if not state.get('connected') or state.get('session_id') != session_id:
             raise RuntimeError('绑定失败：' + state.get('error', '目标身份不匹配'))
         lease = None
@@ -55,6 +57,9 @@ class Binding:
         if directory and Path(directory).resolve() != self.client.directory.resolve():
             raise ValueError('directory 与当前显式绑定不一致')
         state = self.client.status()
+        if state.get('observation_error'):
+            self.invalid = True
+            raise RuntimeError('绑定已失效：取图失败，停止输入。' + str(state['observation_error']))
         if (not state.get('connected') or state.get('session_id') != self.session_id
                 or state.get('pid') != self.profile.target_pid):
             self.invalid = True
@@ -203,6 +208,8 @@ class Manager:
         if alive and state.get('state') == 'ready_paused' and state.get('bridge_directory'):
             control = BridgeClient(state['bridge_directory'], pid=state.get('pid'),
                                    exe_path=state.get('exe_path')).status()
+            if control.get('observation_error'):
+                control = {**control, 'connected': False}
             state = {**state, 'control': control}
             if control.get('connected') and control.get('paused') is False:
                 state['state'] = 'running'
