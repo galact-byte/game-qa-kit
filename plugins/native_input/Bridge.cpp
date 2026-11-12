@@ -20,7 +20,7 @@ inline fs::path directory,root,executable;
 inline std::string session,exe_utf8;
 inline uint64_t observation=0;
 inline HMODULE own_module=nullptr;
-inline std::atomic<bool> running{false};
+inline std::atomic<bool> running{false},receiving{false},receive_failed{false};
 inline ULONG_PTR imaging=0;
 inline void write(const fs::path& relative,const std::string& text){
     auto destination=directory/relative;auto temporary=destination;temporary+=L".tmp";
@@ -69,6 +69,7 @@ inline void accept(const std::string& request,const std::string& lease,const std
         if(remaining>1.501)throw std::runtime_error("invalid_lease_duration");
     }
     std::lock_guard<std::mutex> lock(mutex);
+    if(!receiving)return;
     if(generation!=core.pause_id){core.pause(generation);synchronize();}
     const auto expiry=remaining>0?time+static_cast<uint64_t>(remaining*1000):time;
     if(!core.paused&&remaining>0)core.renew(time,expiry);
@@ -92,6 +93,19 @@ inline void accept(const std::string& request,const std::string& lease,const std
             ", generation_matches="+std::to_string(get(command,"pause_id")==core.pause_id)+", lease_present="+std::to_string(!funding.empty())+
             ", remaining_ms="+std::to_string(remaining*1000)+", request_age_ms="+std::to_string(age*1000));
     synchronize();
+}
+inline DWORD WINAPI receiver(void*){
+    try{
+        while(receiving){
+            // Request first, then the latest lease and pause; capture must not delay these reads.
+            const auto request=text(directory/L"request.json");const auto lease=text(directory/L"lease.json");const auto pause=text(directory/L"pause.json");
+            accept(request,lease,pause);
+            Sleep(5);
+        }
+    }catch(const std::exception& error){
+        std::lock_guard<std::mutex> lock(mutex);core.fail(error.what());synchronize();receive_failed=true;
+    }
+    return 0;
 }
 inline DWORD WINAPI watchdog(void*){
     while(running){
@@ -120,16 +134,15 @@ inline DWORD WINAPI worker(void*){
         }
         {std::lock_guard<std::mutex> lock(mutex);++observation;}
         write(L"status.json",state_text());
+        receiving=true;auto input=CreateThread(nullptr,0,receiver,nullptr,0,nullptr);
+        if(!input)throw std::runtime_error("receiver_thread_failed");CloseHandle(input);
         write(L"connection.json","{"+identity()+",\"command_format\":\"json\",\"control_transport\":\"files-v1\",\"backend\":\"native-input-x86\"}");
         std::string published;uint64_t updated=0,captured=GetTickCount64();
         while(running){
             if(!IsWindow(window.load()))throw std::runtime_error("window_destroyed");
-            // Read the request first, then the latest lease and pause generation.
-            const auto request=text(directory/L"request.json");const auto lease=text(directory/L"lease.json");const auto pause=text(directory/L"pause.json");
-            accept(request,lease,pause);
-            Core snapshot;bool pending=false;
-            {std::lock_guard<std::mutex> lock(mutex);snapshot=core;pending=core.active&&core.capture_pending;}
-            if(snapshot.error=="input_release_unconfirmed")throw std::runtime_error(snapshot.error);
+            Core snapshot;bool pending=false,failed=false;
+            {std::lock_guard<std::mutex> lock(mutex);snapshot=core;pending=core.active&&core.capture_pending;failed=receive_failed;}
+            if(failed||snapshot.error=="input_release_unconfirmed")throw std::runtime_error(snapshot.error);
             if(pending){
                 const auto image=capture(snapshot.id);if(image.empty())throw std::runtime_error("invalid_capture_image");
                 const auto digest=hash(directory/image);uint64_t sequence=0,completed=GetTickCount64();
@@ -155,7 +168,9 @@ inline DWORD WINAPI worker(void*){
             if(GetTickCount64()-updated>=50){write(L"status.json",state_text());guard_audit();updated=GetTickCount64();}
             Sleep(5);
         }
+        receiving=false;
     }catch(const std::exception& error){
+        receiving=false;
         {std::lock_guard<std::mutex> lock(mutex);core.fail(error.what());synchronize();}
         try{write(L"fatal.json","{\"error\":"+quote(error.what())+"}");write(L"status.json",state_text());guard_audit();}catch(...){}
     }

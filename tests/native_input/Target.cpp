@@ -17,6 +17,10 @@ LRESULT CALLBACK window_proc(HWND window,UINT message,WPARAM w,LPARAM l){
     if(message==WM_TIMER){
         if(fs::exists(root/L"stop-poll"))return 0;
         if(fs::exists(root/L"stall-window")){Sleep(6000);return 0;}
+        if(fs::exists(root/L"slow-capture")){
+            fs::remove(root/L"slow-capture");
+            Sleep(1800);
+        }
         DIDEVICEOBJECTDATA events[32]{};DWORD count=32;
         if(keyboard&&SUCCEEDED(keyboard->GetDeviceData(sizeof(events[0]),events,&count,0)))for(DWORD i=0;i<count;++i){
             if(events[i].dwData&0x80){last_code=events[i].dwOfs;++presses;down=true;position+=events[i].dwOfs==DIK_LEFT?-20:20;}
