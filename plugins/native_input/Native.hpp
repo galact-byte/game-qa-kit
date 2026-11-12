@@ -33,7 +33,7 @@ inline double now() {
 inline void publish(const fs::path& temporary,const fs::path& destination) {
     const auto deadline=GetTickCount64()+100;
     for(;;){
-        if(MoveFileExW(temporary.c_str(),destination.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))return;
+        if(MoveFileExW(temporary.c_str(),destination.c_str(),MOVEFILE_REPLACE_EXISTING))return;
         const auto error=GetLastError();
         if((error!=ERROR_ACCESS_DENIED&&error!=ERROR_SHARING_VIOLATION&&error!=ERROR_LOCK_VIOLATION)||GetTickCount64()>=deadline)
             throw std::runtime_error("evidence_publish_failed:"+std::to_string(error));

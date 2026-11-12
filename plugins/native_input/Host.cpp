@@ -25,7 +25,7 @@ static DWORD remote(HANDLE process,void* function,void* parameter,bool startup,c
     if(!thread)throw std::runtime_error("remote_thread_failed:"+std::to_string(GetLastError()));
     try{
         if(startup){StartupGuard guard(process);guard.run(tid);guard.save(bridge);}
-        require(WaitForSingleObject(thread,8000)==WAIT_OBJECT_0,"remote_timeout");DWORD result=0;
+        require(WaitForSingleObject(thread,8000)==WAIT_OBJECT_0,startup?"remote_load_timeout":"remote_initialize_timeout");DWORD result=0;
         require(GetExitCodeThread(thread,&result)!=FALSE,"remote_exit_failed");CloseHandle(thread);return result;
     }catch(...){CloseHandle(thread);throw;}
 }
@@ -69,7 +69,8 @@ int wmain(int argc,wchar_t** argv){
         auto local=LoadLibraryExW(dll.c_str(),nullptr,DONT_RESOLVE_DLL_REFERENCES);require(local!=nullptr,"local_dll_map_failed");
         auto entry=GetProcAddress(local,"_StartNative@4");if(!entry){FreeLibrary(local);throw std::runtime_error("start_export_missing");}
         const auto offset=reinterpret_cast<uintptr_t>(entry)-reinterpret_cast<uintptr_t>(local);FreeLibrary(local);
-        require(remote(process.hProcess,reinterpret_cast<void*>(module+offset),nullptr,false,bridge)==0,"native_initialize_failed");
+        const auto initialized=remote(process.hProcess,reinterpret_cast<void*>(module+offset),nullptr,false,bridge);
+        if(initialized!=0)throw std::runtime_error("native_initialize_failed:"+std::to_string(initialized));
         require(fs::is_regular_file(bridge/L"guard-ready.json"),"guard_not_ready");
         require(ResumeThread(process.hThread)==1,"target_resume_failed");CloseHandle(process.hThread);process.hThread=nullptr;
         auto start=GetTickCount64();bool connected=false;std::string reason="stopped";

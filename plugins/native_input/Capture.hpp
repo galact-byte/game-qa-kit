@@ -33,7 +33,7 @@ std::string capture(const std::string& id) {
         const CLSID png={0x557cf406,0x1a04,0x11d3,{0x9a,0x73,0x00,0x00,0xf8,0x1e,0xf3,0x2e}};
         auto path=directory/(usable?name:"screenshots/rejected-"+id+".png");auto tmp=path;tmp+=L".tmp";
         saved=image.Save(tmp.c_str(),&png,nullptr)==Gdiplus::Ok &&
-            MoveFileExW(tmp.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=FALSE;
+            MoveFileExW(tmp.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING)!=FALSE;
     }
     SelectObject(memory,old);DeleteObject(bitmap);DeleteDC(memory);ReleaseDC(capture_window,screen);
     if(!rendered || !copied) throw std::runtime_error("capture_failed");

@@ -49,14 +49,16 @@ class Witness:
         self.changed = threading.Event()
         self.cancelled = threading.Event()
         self.state = {'left': False, 'left_presses': 0, 'right_presses': 0, 'motion': 0, 'clicks': 0}
+        self.progress = {'status': 'starting', 'rounds': 0}
         root.title('GameQA — 实体并发见证窗口')
         root.geometry('620x310+520+80')
         tk.Label(root, text='请在这个窗口操作，不要点击后台测试窗口。', font=('Microsoft YaHei UI', 16)).pack(pady=20)
         tk.Label(root, text='点击“准备好了”后，持续按住键盘左方向键；\n同时在本窗口移动鼠标，并点击至少两次。\n后台将发出 12 次右移动，约需 15 秒。',
                  font=('Microsoft YaHei UI', 12), justify='left').pack(pady=8)
-        self.message = tk.StringVar(value='尚未开始。此窗口只记录事件，不发送桌面键鼠输入。')
+        self.message = tk.StringVar(value='正在准备后台测试，请稍候。')
         tk.Label(root, textvariable=self.message, wraplength=580).pack(pady=12)
-        tk.Button(root, text='准备好了', command=self.changed.set).pack()
+        self.button = tk.Button(root, text='准备好了', command=self.ready)
+        self.button.pack()
         root.bind('<KeyPress-Left>', lambda e: self.event('left', True))
         root.bind('<KeyRelease-Left>', lambda e: self.event('left', False))
         root.bind('<KeyPress-Right>', lambda e: self.event('right_presses'))
@@ -64,6 +66,40 @@ class Witness:
         root.bind('<ButtonPress-1>', lambda e: self.event('clicks'))
         root.bind('<FocusOut>', lambda e: self.event('left', False))
         root.protocol('WM_DELETE_WINDOW', self.cancelled.set)
+
+    def ready(self):
+        self.changed.set()
+        self.button.configure(state='disabled')
+        self.refresh()
+
+    def report_progress(self, status, *, rounds=0):
+        with self.lock:
+            self.progress = {'status': status, 'rounds': rounds}
+
+    def refresh(self):
+        with self.lock:
+            progress = dict(self.progress)
+        if progress['status'] == 'running':
+            text = f"测试进行中：已完成 {progress['rounds']}/12 次。请持续按住左方向键，并移动、点击鼠标。"
+        elif self.changed.is_set():
+            text = '已确认，正在开始本轮测试。请按住左方向键，并移动、点击鼠标。'
+        elif progress['status'] == 'waiting_for_participant':
+            text = '后台已就绪。请点击“准备好了”开始。'
+        else:
+            text = '正在准备后台测试，请稍候。'
+        self.message.set(text)
+
+    def finish(self, result):
+        messages = {
+            'checks_passed_pending_participant_confirmation': '12/12 次测试已完成，键鼠参与记录齐全，等待本人确认。',
+            'smoke_passed_no_physical_claim': '12/12 次自动冒烟已完成；本批不作实体并发结论。',
+            'incomplete_participation': '12/12 次后台动作已完成，但键鼠参与不足，本次未通过实体并发验收。',
+            'incomplete_no_participant': '等待操作超时，本次测试未开始。',
+            'cancelled': '测试已取消，后台进程已收尾。',
+        }
+        self.message.set(messages.get(result['status'], '测试失败，后台未能完成本轮。请保留结果目录供排查。'))
+        self.button.configure(text='关闭', state='normal', command=self.root.destroy)
+        self.root.protocol('WM_DELETE_WINDOW', self.root.destroy)
 
     def event(self, name, value=None):
         with self.lock:
@@ -101,6 +137,7 @@ def run(output, binaries, witness, *, smoke=False):
             bridge, meta = connect(case, host, exe)
             if not smoke:
                 result['status'] = 'waiting_for_participant'
+                witness.report_progress('waiting_for_participant')
                 write_json(output / 'progress.json', result)
                 deadline = time.monotonic() + 120
                 while not witness.changed.wait(.1):
@@ -115,6 +152,7 @@ def run(output, binaries, witness, *, smoke=False):
                 baseline_witness = witness.snapshot()
             else:
                 baseline_witness = witness.snapshot()
+            witness.report_progress('running')
             with mcp(case, exe) as rpc:
                 before = read(case / 'target-state.json')
                 images = []
@@ -153,6 +191,7 @@ def run(output, binaries, witness, *, smoke=False):
                     if not (action['press_consumed'] and action['release_consumed']):
                         raise RuntimeError('input_consumption_unconfirmed')
                     images.append(action['screenshot_sha256'])
+                    witness.report_progress('running', rounds=index + 1)
                     write_json(output / 'progress.json', {**result, 'status': 'running', 'rounds': index + 1})
                 rpc.call('control_pause')
                 until(lambda: bridge.status().get('paused') and bridge.status().get('held') == [], 2)
@@ -204,8 +243,12 @@ def main():
         if not thread.is_alive():
             result = outcome[0]
             print(result['status'], str(args.output), flush=True)
-            root.destroy()
+            if args.smoke:
+                root.destroy()
+            else:
+                witness.finish(result)
         else:
+            witness.refresh()
             root.after(100, poll)
     root.after(100, poll)
     root.mainloop()

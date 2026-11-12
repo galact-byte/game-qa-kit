@@ -1,6 +1,7 @@
 """实体并发证据的判据；冒烟和未确认的人工操作不能算实体实证。"""
+import os
 import unittest
-from tests.native_input_concurrent import assess
+from tests.native_input_concurrent import Witness, assess
 
 
 class ConcurrentEvidenceTests(unittest.TestCase):
@@ -50,3 +51,49 @@ class ConcurrentEvidenceTests(unittest.TestCase):
                 else:
                     samples[0]['last_scan_code'] = 0xcb
                 self.assertEqual(assess(before, after, witness, samples, rounds=12)['status'], 'failed')
+
+
+@unittest.skipUnless(os.name == 'nt', 'Windows witness UI')
+class ConcurrentWitnessTests(unittest.TestCase):
+    def setUp(self):
+        import tkinter as tk
+        self.root = tk.Tk()
+        self.root.withdraw()
+        self.addCleanup(self.close_root)
+        self.witness = Witness(self.root)
+        self.root.update_idletasks()
+
+    def close_root(self):
+        try:
+            self.root.destroy()
+        except Exception:
+            pass
+
+    def test_start_click_updates_visible_state_and_prevents_duplicate_start(self):
+        import tkinter as tk
+        button = next(widget for widget in self.root.winfo_children() if isinstance(widget, tk.Button))
+        before = self.witness.message.get()
+        button.invoke()
+        self.assertTrue(self.witness.changed.is_set())
+        self.assertNotEqual(self.witness.message.get(), before)
+        self.assertEqual(str(button['state']), 'disabled')
+
+    def test_background_progress_is_displayed_on_the_ui_thread(self):
+        import threading
+        task = threading.Thread(target=lambda: self.witness.report_progress('running', rounds=7))
+        task.start()
+        task.join(2)
+        self.assertFalse(task.is_alive())
+        self.witness.refresh()
+        self.assertIn('7/12', self.witness.message.get())
+
+    def test_failure_keeps_result_visible_and_allows_closing(self):
+        import tkinter as tk
+        self.witness.finish({'status': 'failed', 'error': 'bridge_heartbeat_timeout'})
+        self.assertTrue(self.root.winfo_exists())
+        self.assertIn('失败', self.witness.message.get())
+        button = next(widget for widget in self.root.winfo_children() if isinstance(widget, tk.Button))
+        self.assertEqual(str(button['state']), 'normal')
+        button.invoke()
+        with self.assertRaises(tk.TclError):
+            self.root.winfo_exists()
