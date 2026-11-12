@@ -14,12 +14,14 @@ from tests.native_input_game import run
 class GameWitness(Witness):
     def __init__(self, root):
         super().__init__(root, total=16, instructions=(
-            '点击“准备好了”后，持续按住键盘左方向键；\n'
-            '同时在本窗口移动鼠标，并点击至少两次。\n'
+            '后台就绪后，在本窗口按住键盘左方向键即可开始；\n'
+            '继续按住，同时移动鼠标并点击至少两次。\n'
             '后台游戏进入环境设置，观察约 8 秒后返回标题。'))
         root.title('GameQA — 正式游戏实体并发见证')
         self.state['unexpected_keys'] = 0
         self.baseline = None
+        self.finished = False
+        self.button.pack_forget()
         root.bind('<KeyPress>', self.key_event)
 
     def key_event(self, event):
@@ -27,8 +29,27 @@ class GameWitness(Witness):
             self.event('unexpected_keys')
 
     def ready(self):
+        if self.changed.is_set() or self.cancelled.is_set() or self.finished:
+            return
         self.baseline = self.snapshot()
         super().ready()
+
+    def refresh(self):
+        if self.finished:
+            return
+        with self.lock:
+            waiting = self.progress['status'] == 'waiting_for_participant'
+            held = self.state['left']
+        if waiting and held:
+            self.ready()
+        super().refresh()
+        if waiting and not self.changed.is_set():
+            self.message.set('后台已就绪。在本窗口按住左方向键即开始，无需点击开始按钮。')
+
+    def finish(self, result):
+        self.finished = True
+        super().finish(result)
+        self.button.pack()
 
 
 def main():

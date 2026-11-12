@@ -2,6 +2,7 @@
 import os
 import unittest
 from tests.native_input_concurrent import Witness, assess
+from tests.native_input_game_concurrent import GameWitness
 
 
 class ConcurrentEvidenceTests(unittest.TestCase):
@@ -94,6 +95,45 @@ class ConcurrentWitnessTests(unittest.TestCase):
         self.assertIn('9/16', self.witness.message.get())
         self.witness.finish({'status': 'smoke_passed_no_physical_claim'})
         self.assertIn('16/16', self.witness.message.get())
+
+    def test_game_starts_from_held_left_only_after_background_is_ready(self):
+        self.witness = GameWitness(self.root)
+        self.witness.event('left', True)
+        self.witness.refresh()
+        self.assertFalse(self.witness.changed.is_set())
+        self.witness.report_progress('waiting_for_participant')
+        self.witness.refresh()
+        self.assertTrue(self.witness.changed.is_set())
+        self.assertIsNotNone(self.witness.baseline)
+        self.assertEqual(self.witness.baseline['left_presses'], 1)
+        baseline = dict(self.witness.baseline)
+        self.witness.event('motion')
+        self.witness.refresh()
+        self.assertEqual(self.witness.baseline, baseline)
+
+    def test_game_waits_for_input_and_retains_close_button_after_failure(self):
+        self.witness = GameWitness(self.root)
+        self.witness.report_progress('waiting_for_participant')
+        self.witness.refresh()
+        self.root.update_idletasks()
+        self.assertFalse(self.witness.changed.is_set())
+        self.assertFalse(self.witness.button.winfo_manager())
+        self.witness.finish({'status': 'failed', 'error': 'startup_failed'})
+        self.root.update_idletasks()
+        self.assertTrue(self.witness.button.winfo_manager())
+        self.assertEqual(str(self.witness.button['state']), 'normal')
+        self.witness.event('left', True)
+        self.witness.refresh()
+        self.assertFalse(self.witness.changed.is_set())
+        self.assertIn('失败', self.witness.message.get())
+
+    def test_cancelled_game_cannot_start_from_held_left(self):
+        self.witness = GameWitness(self.root)
+        self.witness.report_progress('waiting_for_participant')
+        self.witness.cancelled.set()
+        self.witness.event('left', True)
+        self.witness.refresh()
+        self.assertFalse(self.witness.changed.is_set())
 
     def test_failure_keeps_result_visible_and_allows_closing(self):
         import tkinter as tk
