@@ -57,7 +57,7 @@ python -m pip install -r requirements.txt
 接入步骤见[后台控制说明](docs/BACKGROUND-CONTROL.md)，完整边界见[引擎覆盖表](docs/ENGINE-COVERAGE.md)。
 基础适配按后台运行、输入隔离、新画面、真实操作与暂停释放收口；战斗、存读档、全流程等按具体任务追加验证。
 独立 Win32 Desktop 是当前已验后端，不是产品的必选技术，也不隔离文件系统或存档。
-轻量替代方案及限制见[后台控制方案调研](docs/BACKGROUND-ALTERNATIVES.md)。[受限正式后端设计](docs/superpowers/specs/2026-11-11-native-input-design.md)获批后，已实现 v2 协议、原生加载器和固定 SRPG Studio x86 构建的统一 MCP 菜单路线，见[原生输入桥说明](plugins/native_input/README.md)。v2 显式按毫秒执行，暂停只停止 AI 输入；现有 v1 桥保留帧语义。正式后端的实体键鼠并发仍未验，原型的自有窗口并发结果不能替代它；游戏鼠标、存读档、玩法与其他构建也未验。本机 Windows 家庭版不支持 Sandbox。
+轻量替代方案及限制见[后台控制方案调研](docs/BACKGROUND-ALTERNATIVES.md)。[受限正式后端设计](docs/superpowers/specs/2026-11-11-native-input-design.md)获批后，已实现 v2 协议、原生加载器和固定 SRPG Studio x86 构建的统一 MCP 菜单路线，见[原生输入桥说明](plugins/native_input/README.md)。v2 显式按毫秒执行，暂停只停止 AI 输入；现有 v1 桥保留帧语义。正式后端的自有窗口实体键鼠并发已通过并获参与者确认；正式游戏实体并发仍待独立批次验收，已有真人见证入口与自动预检，见插件说明；游戏鼠标、存读档、玩法与其他构建也未验。本机 Windows 家庭版不支持 Sandbox。
 
 ## 进一步了解
 

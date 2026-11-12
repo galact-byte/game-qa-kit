@@ -42,9 +42,10 @@ def assess(before, after, witness, samples, *, rounds, smoke=False):
 
 
 class Witness:
-    def __init__(self, root):
+    def __init__(self, root, *, total=12, instructions=None):
         import tkinter as tk
         self.root = root
+        self.total = total
         self.lock = threading.Lock()
         self.changed = threading.Event()
         self.cancelled = threading.Event()
@@ -53,7 +54,7 @@ class Witness:
         root.title('GameQA — 实体并发见证窗口')
         root.geometry('620x310+520+80')
         tk.Label(root, text='请在这个窗口操作，不要点击后台测试窗口。', font=('Microsoft YaHei UI', 16)).pack(pady=20)
-        tk.Label(root, text='点击“准备好了”后，持续按住键盘左方向键；\n同时在本窗口移动鼠标，并点击至少两次。\n后台将发出 12 次右移动，约需 15 秒。',
+        tk.Label(root, text=instructions or '点击“准备好了”后，持续按住键盘左方向键；\n同时在本窗口移动鼠标，并点击至少两次。\n后台将发出 12 次右移动，约需 15 秒。',
                  font=('Microsoft YaHei UI', 12), justify='left').pack(pady=8)
         self.message = tk.StringVar(value='正在准备后台测试，请稍候。')
         tk.Label(root, textvariable=self.message, wraplength=580).pack(pady=12)
@@ -80,7 +81,7 @@ class Witness:
         with self.lock:
             progress = dict(self.progress)
         if progress['status'] == 'running':
-            text = f"测试进行中：已完成 {progress['rounds']}/12 次。请持续按住左方向键，并移动、点击鼠标。"
+            text = f"测试进行中：已完成 {progress['rounds']}/{self.total} 次。请持续按住左方向键，并移动、点击鼠标。"
         elif self.changed.is_set():
             text = '已确认，正在开始本轮测试。请按住左方向键，并移动、点击鼠标。'
         elif progress['status'] == 'waiting_for_participant':
@@ -91,9 +92,10 @@ class Witness:
 
     def finish(self, result):
         messages = {
-            'checks_passed_pending_participant_confirmation': '12/12 次测试已完成，键鼠参与记录齐全，等待本人确认。',
-            'smoke_passed_no_physical_claim': '12/12 次自动冒烟已完成；本批不作实体并发结论。',
-            'incomplete_participation': '12/12 次后台动作已完成，但键鼠参与不足，本次未通过实体并发验收。',
+            'checks_passed_pending_participant_confirmation': f'{self.total}/{self.total} 次测试已完成，键鼠参与记录齐全，等待本人确认。',
+            'checks_passed_pending_participant_confirmation_and_visual_review': f'{self.total}/{self.total} 次后台动作已完成，等待本人确认与游戏截图复核。',
+            'smoke_passed_no_physical_claim': f'{self.total}/{self.total} 次自动冒烟已完成；本批不作实体并发结论。',
+            'incomplete_participation': f'{self.total}/{self.total} 次后台动作已完成，但键鼠参与不足，本次未通过实体并发验收。',
             'incomplete_no_participant': '等待操作超时，本次测试未开始。',
             'cancelled': '测试已取消，后台进程已收尾。',
         }

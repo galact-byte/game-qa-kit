@@ -87,6 +87,14 @@ class ConcurrentWitnessTests(unittest.TestCase):
         self.witness.refresh()
         self.assertIn('7/12', self.witness.message.get())
 
+    def test_custom_route_progress_uses_its_own_action_count(self):
+        self.witness = Witness(self.root, total=16, instructions='后台进入环境设置并观察后返回。')
+        self.witness.report_progress('running', rounds=9)
+        self.witness.refresh()
+        self.assertIn('9/16', self.witness.message.get())
+        self.witness.finish({'status': 'smoke_passed_no_physical_claim'})
+        self.assertIn('16/16', self.witness.message.get())
+
     def test_failure_keeps_result_visible_and_allows_closing(self):
         import tkinter as tk
         self.witness.finish({'status': 'failed', 'error': 'bridge_heartbeat_timeout'})

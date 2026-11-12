@@ -7,7 +7,7 @@
 - 固定 EXE SHA-256：`8e123a4c07cfbc9143c266faf87bb66ef3600ab1254ee6d294fbaf685bb502a7`，样本档案为 [srpgstudio-x86-fixed.json](samples/srpgstudio-x86-fixed.json)。只读识别返回候选档案，始终保持 `control_verified=false`；不会启动或注入。
 - 正式宿主／DLL 经真实 MCP 完成后台「标题 → 环境设置 → 返回标题」，逐图核对光标移动、设置界面与返回标题，正常 Z 确认／X 取消。`game-menu-03/` 的 7 张动作观察、输入消费和松键、前台采样、原目录／外部数据摘要与回收检查通过。
 - 自有窗口完成安全故障注入与真实 MCP 检查，包括按住时暂停、控制端退出／租约到期、宿主被杀后的 Job 回收、未读松开、窗口线程阻塞、黑白帧和证据发布失败。
-- **实体键鼠并发仍未验。** 自有窗口并发入口的自动冒烟只证明入口能运行；老师实际参与后才能增加该批次结论，自有窗口结果也不能替代游戏实体并发。
+- 自有窗口实体键鼠并发已通过：`physical-20261112-222347-200801/` 完成 12 轮前台左键与后台右移重叠，参与者确认实际按住左键并移动、点击鼠标；独立确认记录绑定原结果摘要。**正式游戏实体并发仍未验**，自动冒烟和自有窗口结果均不能替代。
 - 不支持鼠标动作、坐标点击、手柄、x64、其他哈希、非 `data.dts` 模式。存读档、玩法、全流程和长期运行尚未验证。最小化取图直接拒绝。
 - 暂停只停止 AI 输入并清键，游戏逻辑和动画继续；不宣称模拟暂停或帧精确操作。原型旧批次与本插件验收分别保留。
 
@@ -48,7 +48,7 @@ v2 拒绝 `frames`，v1 继续使用原 `frames` 并拒绝时间字段；不自�
 
 `control_pause` 返回请求后，还须查到已连接、`paused=true` 且 `held=[]`。如果目标不再读取松开事件，兜底期限到达后失败回收，不能只靠软件保持键为空声称目标松开。结果不明时先用原编号查询，不能盲换编号重试。
 
-租约仍为 1.5 秒、输入轮询停滞 1 秒、截图／宿主心跳 3 秒、启动 15 秒。引导期在同一启动期限内等待有效首帧；黑白画面判据保持 0.999，排除取图最外圈一像素边缘。证据文件读写仅对 Windows 短暂共享冲突作 100ms 有界重试，持续失败仍松键并回收。运行中截图失败不回退前台。
+租约仍为 1.5 秒、输入轮询停滞 1 秒、截图／宿主心跳 3 秒、启动 15 秒。控制接收线程按请求→最新租约→暂停代次读取，与取图／证据发布线程分开；独立看门狗只处理内存状态。取图期间仍能读取续租和暂停，失败后停止接收新命令，不延长期限。引导期在同一启动期限内等待有效首帧；黑白画面判据保持 0.999，排除取图最外圈一像素边缘。证据文件读写仅对 Windows 短暂共享冲突作 100ms 有界重试，持续失败仍松键并回收。运行中截图失败不回退前台。
 
 ## 数据与退出
 
@@ -59,15 +59,21 @@ v2 拒绝 `frames`，v1 继续使用原 `frames` 并拒绝时间字段；不自�
 ## 可重复验证
 
 ```bash
-python -m unittest tests.test_engines tests.test_native_prepare tests.test_native_concurrent -v
+python -m unittest tests.test_engines tests.test_native_prepare tests.test_native_concurrent tests.test_native_game_concurrent -v
 python tests/native_input_safety.py --output <全新安全批次目录> --binaries <自有窗口构建目录>
 python tests/native_input_mcp.py --output <全新MCP批次目录> --binaries <自有窗口构建目录>
+python tests/native_input_slow_capture.py --output <全新慢取图批次目录> --binaries <自有窗口构建目录>
 python tests/native_input_game.py --source <获准原目录> --output <全新游戏批次目录> --binaries <游戏宿主构建目录>
 python tests/native_input_concurrent.py --output <全新并发批次目录> --binaries <自有窗口构建目录>
+python tests/native_input_game_concurrent.py --source <获准原目录> --output <全新游戏并发批次目录> --binaries <游戏宿主构建目录>
 ```
 
 自有窗口需要 `target.exe`、固定该窗口摘要的 `owned-host.exe` 和同版本 `native-input.dll`，通过 `build.py --mode target`、`--mode host --owned-image <target.exe>` 构建。游戏批次使用 `native-host.exe` 和 `native-input.dll`，不使用测试宿主。
 
-并发入口打开人工见证窗口，点击“准备好了”后按住左方向键、在窗口内移动鼠标并至少点击两次，后台同时执行 12 次软件右移动。`--smoke` 不要求人工参与，结果明确标记不作实体结论；正式结果先保留 `physical_verified=false`，需参与者确认后另留复核记录，不改写原始证据。该入口当前仅验自有窗口，游戏实体并发仍需独立批次。
+自有窗口并发入口打开人工见证窗口，点击“准备好了”后按住左方向键、在窗口内移动鼠标并至少点击两次，后台同时执行 12 次软件右移动。
+
+正式游戏入口 `native_input_game_concurrent.py` 复用同一菜单脚本、宿主与 DLL，在新副本经真实 MCP 进入环境设置，保持约 8 秒观察后返回标题，共 16 条动作与 17 张观察图；不重复发送标题下移，不更改设置或操作存档。见证窗口记录人工左键、鼠标与意外串入的按键，使用与回执相同的系统单调时钟核对真实保持区间；至少三条按键动作重叠、设置页人工左键采样跨度至少五秒，并检查鼠标参与、前台与退出隔离。未开始或中途关闭见证入口均停止并回收副本。
+
+两个入口的 `--smoke` 均不要求人工参与，明确不作实体结论；原始结果保留 `physical_verified=false`。游戏批次还需逐图核对菜单及 BGM 选项未受前台左键／鼠标影响，并由参与者确认操作无干扰，再另存绑定原结果摘要的复核记录，不改写原始证据。
 
 本地证据统一留在 `<原生输入验证目录>/`，不入源码仓库：`owned-safety-resumed/`、`owned-mcp-resumed/`、`game-menu-03/`、`concurrent-smoke-02/`，以及 `logs/` 的红／绿阶段记录。失败批次保留，后续通过不追认历史偶发首帧空白、启动失败或恢复拒绝均已定位。
