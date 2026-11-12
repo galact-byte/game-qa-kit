@@ -38,6 +38,19 @@ class GameConcurrentEvidenceTests(unittest.TestCase):
         self.assertTrue(callable(assess), '正式游戏尚无独立的并发证据判定')
         return assess(*args, **kwargs)
 
+    def test_nonactive_owned_popup_covering_witness_is_rejected(self):
+        windows = [
+            {'handle': 11, 'pid': 7, 'rect': [50, 50, 150, 150]},
+            {'handle': 22, 'pid': 8, 'rect': [0, 0, 200, 200]},
+            {'handle': 33, 'pid': 7, 'rect': [0, 0, 200, 200]},
+        ]
+        inspect = getattr(game, 'window_interference', None)
+        self.assertTrue(callable(inspect), '缺少所有目标窗口的遮挡判定')
+        self.assertEqual(inspect(windows, 7, 22, 22), {'foreground': False, 'obstructing': [11]})
+        self.assertEqual(inspect(windows[1:], 7, 22, 22), {'foreground': False, 'obstructing': []})
+        windows[0]['rect'] = [200, 0, 300, 100]
+        self.assertEqual(inspect(windows, 7, 22, 11), {'foreground': True, 'obstructing': []})
+
     def test_real_participation_still_requires_confirmation_and_visual_review(self):
         result = self.assess(*self.evidence())
         self.assertEqual(result['status'], 'checks_passed_pending_participant_confirmation_and_visual_review')

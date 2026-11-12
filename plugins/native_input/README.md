@@ -52,6 +52,8 @@ v2 拒绝 `frames`，v1 继续使用原 `frames` 并拒绝时间字段；不自�
 
 ## 数据与退出
 
+DirectInput 的 `GUID_SysKeyboard`／`GUID_SysMouse` 及标准 `Em`、`Em2` 别名使用同一套键鼠隔离：键盘读取软件状态，鼠标返回中立状态，其他设备仍拒绝。顶层窗口与弹窗创建时不激活、不置顶，显示和调整位置时保持在其他窗口之后；子窗口保留原有层级。正式游戏见证采样检查目标进程的全部可见顶层窗口及其与见证窗口的遮挡关系，不能只以主窗口未取得键盘焦点判定隔离通过。
+
 引导期阻断文件／注册表写入，DLL 就绪后限制副本外文件创建／写入并阻断注册表修改，保留已核查系统加密设备例外。每批检查原目录、外部保存目录和副本外探针，正常停止或故障后核对目标／宿主退出，归档副本摘要后只回收运行副本。
 
 这不是完整安全沙箱；不能抵御任意程序绕过 hook、硬链接等对抗行为，也不隔离网络。不因有 Job 或复制了目录就宣称任意游戏数据安全。更换构建／保存模式须重新核查与批准，不添加宽泛哈希放行。
@@ -60,6 +62,9 @@ v2 拒绝 `frames`，v1 继续使用原 `frames` 并拒绝时间字段；不自�
 
 ```bash
 python -m unittest tests.test_engines tests.test_native_prepare tests.test_native_concurrent tests.test_native_game_concurrent -v
+python plugins/native_input/build.py --mode window-tests --output <构建目录>/window-tests.exe
+python tests/native_input_emulated.py --output <全新Em2批次目录> --binaries <自有窗口构建目录>
+python tests/native_input_emulated.py --first-alias --output <全新Em批次目录> --binaries <自有窗口构建目录>
 python tests/native_input_safety.py --output <全新安全批次目录> --binaries <自有窗口构建目录>
 python tests/native_input_mcp.py --output <全新MCP批次目录> --binaries <自有窗口构建目录>
 python tests/native_input_slow_capture.py --output <全新慢取图批次目录> --binaries <自有窗口构建目录>

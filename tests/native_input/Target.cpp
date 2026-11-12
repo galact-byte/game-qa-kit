@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <cstring>
 namespace fs=std::filesystem;
 IDirectInput8W* input=nullptr;IDirectInputDevice8W* keyboard=nullptr;
 fs::path root;int position=100;unsigned presses=0,releases=0,paints=0,prints=0,last_code=0;bool down=false;ULONGLONG visible_after=0;
@@ -59,8 +60,19 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR,int){
     WNDCLASSW cls{};cls.hInstance=instance;cls.lpfnWndProc=window_proc;cls.lpszClassName=L"GameQaNativeFixture";RegisterClassW(&cls);
     auto window=CreateWindowExW(WS_EX_NOACTIVATE,cls.lpszClassName,L"GameQA Native Fixture",WS_OVERLAPPEDWINDOW,30,30,480,320,nullptr,nullptr,instance,nullptr);
     if(!window)return 4;
+    const auto& keyboard_guid=fs::exists(root/L"emulated-keyboard-1")?GUID_SysKeyboardEm:
+                              fs::exists(root/L"emulated-keyboard")?GUID_SysKeyboardEm2:GUID_SysKeyboard;
     if(FAILED(DirectInput8Create(instance,DIRECTINPUT_VERSION,IID_IDirectInput8W,reinterpret_cast<void**>(&input),nullptr))||
-       FAILED(input->CreateDevice(GUID_SysKeyboard,&keyboard,nullptr))||FAILED(keyboard->SetDataFormat(&c_dfDIKeyboard)))return 5;
+       FAILED(input->CreateDevice(keyboard_guid,&keyboard,nullptr))||FAILED(keyboard->SetDataFormat(&c_dfDIKeyboard)))return 5;
+    if(fs::exists(root/L"emulated-keyboard")||fs::exists(root/L"emulated-keyboard-1")){
+        IDirectInputDevice8W* mouse=nullptr;DIMOUSESTATE2 state{};
+        const auto& guid=fs::exists(root/L"emulated-keyboard-1")?GUID_SysMouseEm:GUID_SysMouseEm2;
+        if(FAILED(input->CreateDevice(guid,&mouse,nullptr))||FAILED(mouse->SetDataFormat(&c_dfDIMouse2))||
+           FAILED(mouse->Acquire())||FAILED(mouse->GetDeviceState(sizeof(state),&state)))return 7;
+        const DIMOUSESTATE2 neutral{};const bool isolated=std::memcmp(&state,&neutral,sizeof(state))==0;mouse->Release();
+        {std::ofstream out(root/L"mouse-state.json");out<<"{\"neutral\":"<<(isolated?"true":"false")<<"}";}
+        if(!isolated)return 8;
+    }
     DIPROPDWORD buffer{};buffer.diph.dwSize=sizeof(buffer);buffer.diph.dwHeaderSize=sizeof(buffer.diph);buffer.diph.dwHow=DIPH_DEVICE;buffer.dwData=32;
     if(FAILED(keyboard->SetProperty(DIPROP_BUFFERSIZE,&buffer.diph))||FAILED(keyboard->SetCooperativeLevel(window,DISCL_BACKGROUND|DISCL_NONEXCLUSIVE))||FAILED(keyboard->Acquire()))return 6;
     visible_after=fs::exists(root/L"delay-first-paint")?GetTickCount64()+750:0;

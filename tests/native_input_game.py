@@ -20,6 +20,45 @@ from tests.native_input_safety import alive, connect
 from tests.native_input_smoke import read, until
 
 
+def window_interference(windows, target_pid, witness_handle, foreground_handle):
+    witness = next((row for row in windows if row['handle'] == witness_handle), None)
+    obstructing = []
+    for row in windows:
+        if row is witness:
+            break
+        if row['pid'] == target_pid and witness:
+            a, b = row['rect'], witness['rect']
+            if max(a[0], b[0]) < min(a[2], b[2]) and max(a[1], b[1]) < min(a[3], b[3]):
+                obstructing.append(row['handle'])
+    return {'foreground': any(row['handle'] == foreground_handle and row['pid'] == target_pid for row in windows),
+            'obstructing': obstructing}
+
+
+class WindowAudit:
+    def __init__(self, user, witness_handle):
+        self.user, self.witness_handle = user, witness_handle
+        user.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+        user.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+        user.IsWindowVisible.argtypes = [wintypes.HWND]
+        self.callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        user.EnumWindows.argtypes = [self.callback_type, wintypes.LPARAM]
+
+    def sample(self, target_pid, foreground_handle):
+        windows = []
+        def collect(handle, _):
+            pid = wintypes.DWORD()
+            self.user.GetWindowThreadProcessId(handle, ctypes.byref(pid))
+            if (pid.value == target_pid or handle == self.witness_handle) and self.user.IsWindowVisible(handle):
+                rect = wintypes.RECT()
+                if self.user.GetWindowRect(handle, ctypes.byref(rect)):
+                    windows.append({'handle': int(handle), 'pid': pid.value,
+                                    'rect': [rect.left, rect.top, rect.right, rect.bottom]})
+            return True
+        if not self.user.EnumWindows(self.callback_type(collect), 0):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return {**window_interference(windows, target_pid, self.witness_handle, foreground_handle), 'windows': windows}
+
+
 def assess_concurrency(actions, samples, witness, lifecycle, *, smoke=False):
     keyed = [row for row in actions if row.get('action') in ('move', 'confirm', 'cancel')]
     overlap, settings = set(), []
@@ -75,23 +114,32 @@ def run(source, output, binaries, *, witness=None, smoke=False):
     kernel = ctypes.WinDLL('kernel32', use_last_error=True)
     kernel.GetTickCount64.restype = ctypes.c_ulonglong
     witness_handle = user.GetAncestor(witness.handle, 2) if witness else None
+    audit = WindowAudit(user, witness_handle)
     samples, sampling_errors = [], []
+    target_pid = None
     active_label = ''
     participating = threading.Event()
     stop_sampling = threading.Event()
 
     def sample():
+        nonlocal target_pid
         try:
             while not stop_sampling.is_set():
                 current = int(user.GetForegroundWindow() or 0)
-                foreground.append({'at': time.time(), 'window': current})
+                if target_pid is None:
+                    try:
+                        target_pid = read(output / 'process.json').get('pid')
+                    except (FileNotFoundError, json.JSONDecodeError):
+                        pass
+                observed = audit.sample(target_pid, current)
+                foreground.append({'at': time.time(), 'window': current, **observed})
                 if participating.is_set():
                     state = witness.snapshot()
                     ticks = kernel.GetTickCount64()
                     status = read(output / 'bridge/status.json')
                     samples.append({'label': active_label, 'ticks': ticks, 'held': status.get('held', []),
                                     'left': state['left'], 'foreground': current == witness_handle,
-                                    'target_foreground': current == game_window})
+                                    'target_foreground': observed['foreground']})
                 stop_sampling.wait(.02)
         except BaseException as error:
             sampling_errors.append(repr(error))
@@ -100,7 +148,6 @@ def run(source, output, binaries, *, witness=None, smoke=False):
     sampler.start()
     failure = None
     host = None
-    target_pid = None
     baseline_witness = {}
     outcome = None
     try:
@@ -109,7 +156,6 @@ def run(source, output, binaries, *, witness=None, smoke=False):
                                      hashlib.sha256(dll.read_bytes()).hexdigest()], stdout=log, stderr=log)
             bridge, meta = connect(output, host, exe)
             target_pid = meta['pid']
-            game_window = bridge.status()['window_id']
             if witness:
                 witness.report_progress('waiting_for_participant')
                 write_json(output / 'progress.json', {'status': 'waiting_for_participant'})
@@ -164,7 +210,8 @@ def run(source, output, binaries, *, witness=None, smoke=False):
                                                   for a, b in zip(actions, actions[1:]))
                 checks['input_and_image_chain'] = len(actions) == (17 if witness else 7)
                 checks['sampler_completed'] = not sampling_errors
-                checks['no_game_foreground'] = all(row['window'] != game_window for row in foreground)
+                checks['no_game_foreground'] = not any(row['foreground'] for row in foreground)
+                checks['no_game_obstruction'] = not any(row['obstructing'] for row in foreground)
                 checks['visual_review_required'] = True
                 assert all(checks.values()), checks
     except BaseException as error:
@@ -204,6 +251,8 @@ def run(source, output, binaries, *, witness=None, smoke=False):
             until(cleanup, 3)
         checks['runtime_removed'] = not (output / 'runtime').exists()
         checks['sampler_completed'] = not sampler.is_alive() and not sampling_errors
+        checks['no_game_foreground'] = bool(foreground) and not any(row['foreground'] for row in foreground)
+        checks['no_game_obstruction'] = bool(foreground) and not any(row['obstructing'] for row in foreground)
         outcome = {'checks': checks, 'error': failure, 'actions': actions,
                    'physical_concurrency': 'not_tested', 'visual_review': 'pending'}
         if witness:

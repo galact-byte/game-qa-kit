@@ -20,19 +20,32 @@ inline BOOL WINAPI no_keyboard(PBYTE data){if(!data)return FALSE;std::memset(dat
 inline BOOL WINAPI no_raw(PCRAWINPUTDEVICE,UINT,UINT){return TRUE;}
 inline BOOL WINAPI show_without_activation(HWND hwnd,int command){
     const auto original=reinterpret_cast<BOOL(WINAPI*)(HWND,int)>(GetProcAddress(GetModuleHandleW(L"user32.dll"),"ShowWindow"));
-    return original(hwnd,command==SW_HIDE?SW_HIDE:SW_SHOWNOACTIVATE);
+    if(command!=SW_HIDE&&!(GetWindowLongPtrW(hwnd,GWL_STYLE)&WS_CHILD)){
+        const BOOL visible=IsWindowVisible(hwnd);
+        SetWindowPos(hwnd,HWND_BOTTOM,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|SWP_SHOWWINDOW);
+        return visible;
+    }
+    return original(hwnd,command==SW_HIDE?SW_HIDE:SW_SHOWNA);
 }
 inline BOOL WINAPI position_without_activation(HWND hwnd,HWND after,int x,int y,int cx,int cy,UINT flags){
     const auto original=reinterpret_cast<BOOL(WINAPI*)(HWND,HWND,int,int,int,int,UINT)>(GetProcAddress(GetModuleHandleW(L"user32.dll"),"SetWindowPos"));
+    // No activation alone still allows an overlapping or topmost game window.
+    if(!(GetWindowLongPtrW(hwnd,GWL_STYLE)&WS_CHILD)){after=HWND_BOTTOM;flags&=~SWP_NOZORDER;}
     return original(hwnd,after,x,y,cx,cy,flags|SWP_NOACTIVATE);
 }
 inline HWND WINAPI create_window_a(DWORD ex,LPCSTR cls,LPCSTR title,DWORD style,int x,int y,int width,int height,HWND parent,HMENU menu,HINSTANCE instance,LPVOID parameter){
     auto original=reinterpret_cast<decltype(&CreateWindowExA)>(GetProcAddress(GetModuleHandleW(L"user32.dll"),"CreateWindowExA"));
-    return original(ex|WS_EX_NOACTIVATE,cls,title,style,x,y,width,height,parent,menu,instance,parameter);
+    if(style&WS_CHILD)return original(ex,cls,title,style,x,y,width,height,parent,menu,instance,parameter);
+    auto hwnd=original((ex&~WS_EX_TOPMOST)|WS_EX_NOACTIVATE,cls,title,style&~WS_VISIBLE,x,y,width,height,parent,menu,instance,parameter);
+    if(hwnd)SetWindowPos(hwnd,HWND_BOTTOM,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|((style&WS_VISIBLE)?SWP_SHOWWINDOW:0));
+    return hwnd;
 }
 inline HWND WINAPI create_window_w(DWORD ex,LPCWSTR cls,LPCWSTR title,DWORD style,int x,int y,int width,int height,HWND parent,HMENU menu,HINSTANCE instance,LPVOID parameter){
     auto original=reinterpret_cast<decltype(&CreateWindowExW)>(GetProcAddress(GetModuleHandleW(L"user32.dll"),"CreateWindowExW"));
-    return original(ex|WS_EX_NOACTIVATE,cls,title,style,x,y,width,height,parent,menu,instance,parameter);
+    if(style&WS_CHILD)return original(ex,cls,title,style,x,y,width,height,parent,menu,instance,parameter);
+    auto hwnd=original((ex&~WS_EX_TOPMOST)|WS_EX_NOACTIVATE,cls,title,style&~WS_VISIBLE,x,y,width,height,parent,menu,instance,parameter);
+    if(hwnd)SetWindowPos(hwnd,HWND_BOTTOM,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|((style&WS_VISIBLE)?SWP_SHOWWINDOW:0));
+    return hwnd;
 }
 inline void install_isolation(){
     auto module=GetModuleHandleW(L"user32.dll");

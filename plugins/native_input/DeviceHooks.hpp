@@ -83,7 +83,8 @@ inline HRESULT STDMETHODCALLTYPE create_device(void* self,REFGUID guid,void** ou
     const auto result=original(self,guid,output,outer);
     if(SUCCEEDED(result)&&output&&*output){
         try{
-            const bool keyboard=IsEqualGUID(guid,GUID_SysKeyboard)!=FALSE,mouse=IsEqualGUID(guid,GUID_SysMouse)!=FALSE;
+            const bool keyboard=IsEqualGUID(guid,GUID_SysKeyboard)||IsEqualGUID(guid,GUID_SysKeyboardEm)||IsEqualGUID(guid,GUID_SysKeyboardEm2);
+            const bool mouse=IsEqualGUID(guid,GUID_SysMouse)||IsEqualGUID(guid,GUID_SysMouseEm)||IsEqualGUID(guid,GUID_SysMouseEm2);
             if(!keyboard&&!mouse)throw std::runtime_error("unsupported_input_device");
             {std::lock_guard<std::mutex> lock(mutex);if(core.active)core.fail("device_recreated");
                 if(devices.size()>=16&&!devices.count(*output))throw std::runtime_error("device_capacity_exceeded");
