@@ -79,6 +79,15 @@ class BindingTests(unittest.TestCase):
         self.client.resume.assert_not_called()
         self.client.pause.assert_not_called()
 
+    def test_observer_binding_never_claims_action_lease(self):
+        state = self.binding.bind(self.bridge, 'session-a', observe_only=True)
+        self.assertFalse(state['can_control'])
+        controller = game_session.Binding()
+        self.addCleanup(controller.close)
+        self.assertTrue(controller.bind(self.bridge, 'session-a')['can_control'])
+        self.client.resume.assert_not_called()
+        self.client.pause.assert_not_called()
+
     def test_second_client_can_observe_and_pause_but_cannot_control(self):
         self.binding.bind(self.bridge, 'session-a')
         other = game_session.Binding()

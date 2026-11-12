@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 from .engines import inspect_game
@@ -105,3 +106,81 @@ def revalidate_plan(plan):
     if actual != plan:
         raise ValueError('plan_changed：原游戏、构建或操作摘要已变化，请重新检查并确认')
     return actual
+
+
+def preference_locator():
+    from .profile import profiles_dir
+    return profiles_dir() / '.admission-location.txt'
+
+
+def load_preferences(qa_root=None):
+    from .sessions import read_json, read_text
+    if qa_root is None:
+        locator = preference_locator()
+        no_links(locator)
+        if not locator.exists():
+            return {}
+        qa_root = read_text(locator).strip()
+        if not qa_root:
+            raise ValueError('invalid_preferences_location')
+    root = Path(qa_root).absolute()
+    no_links(root)
+    path = root / 'admission-preferences.json'
+    no_links(path)
+    if not path.exists():
+        return {'qa_root': str(root)}
+    value = read_json(path)
+    if (not isinstance(value, dict) or value.get('schema_version') != 1
+            or set(value) - {'schema_version', 'source', 'artifacts'}
+            or any(not isinstance(value.get(key, ''), str) for key in ('source', 'artifacts'))):
+        raise ValueError('invalid_preferences：目录偏好格式不受支持，请重新选择目录')
+    return {**value, 'qa_root': str(root)}
+
+
+def save_preferences(qa_root, *, source, artifacts):
+    from .sessions import write_json, write_text
+    root, source_path = Path(qa_root).absolute(), Path(source).absolute()
+    no_links(root)
+    no_links(source_path)
+    if root == source_path or root in source_path.parents or source_path in root.parents:
+        raise ValueError('overlapping_paths：QA 数据目录与游戏源目录不能重叠')
+    path, locator = root / 'admission-preferences.json', preference_locator()
+    no_links(path)
+    no_links(locator)
+    root.mkdir(parents=True, exist_ok=True)
+    write_json(path, {'schema_version': 1, 'source': str(source_path), 'artifacts': artifacts})
+    write_text(locator, str(root))
+
+
+def list_sessions(qa_root, *, limit=100):
+    from .sessions import read_json
+    if type(limit) is not int or not 1 <= limit <= 100:
+        raise ValueError('limit 必须为 1–100 的整数')
+    root = Path(qa_root).absolute()
+    no_links(root)
+    rows, errors, truncated = [], [], False
+    # 只检查父目录的直接子项；总检查数量同样有界，损坏记录不能造成无限扫描。
+    with os.scandir(root) as entries:
+        for index, entry in enumerate(entries):
+            if index >= 1000:
+                truncated = True
+                break
+            folder = Path(entry.path)
+            if not entry.is_dir(follow_symlinks=False) or entry.name.startswith('.'):
+                continue
+            try:
+                no_links(folder)
+                record = folder / 'session.json'
+                no_links(record)
+                if not record.is_file():
+                    continue
+                value = read_json(record)
+                if not isinstance(value, dict) or value.get('schema_version') != 1:
+                    raise ValueError('unsupported_session_record')
+                if len(rows) >= limit:
+                    truncated = True
+                    break
+                rows.append({**value, 'directory': str(folder), 'bridge_directory': str(folder / 'bridge')})
+            except (OSError, ValueError) as exc:
+                errors.append({'directory': str(folder), 'error': str(exc)})
+    return {'sessions': rows, 'errors': errors, 'truncated': truncated}

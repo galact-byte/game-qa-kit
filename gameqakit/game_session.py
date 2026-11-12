@@ -18,7 +18,7 @@ class Binding:
         self.invalid = False
         self._action_lock = threading.Lock()
 
-    def bind(self, directory, session_id):
+    def bind(self, directory, session_id, *, observe_only=False):
         from .admission import no_links
         if self.client is not None:
             raise RuntimeError('请先显式解绑当前会话')
@@ -31,11 +31,13 @@ class Binding:
         state = client.status()
         if not state.get('connected') or state.get('session_id') != session_id:
             raise RuntimeError('绑定失败：' + state.get('error', '目标身份不匹配'))
-        lease = SessionLease(directory / 'binding-control.lock')
-        try:
-            lease.__enter__()
-        except RuntimeError:
-            lease = None
+        lease = None
+        if not observe_only:
+            lease = SessionLease(directory / 'binding-control.lock')
+            try:
+                lease.__enter__()
+            except RuntimeError:
+                lease = None
         self.client, self.session_id, self._lease = client, session_id, lease
         self.engaged, self.invalid = True, False
         self.profile = GameProfile(name='session-' + session_id, proc=Path(meta['exe_path']).stem,

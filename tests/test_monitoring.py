@@ -33,9 +33,6 @@ class WatchTests(unittest.TestCase):
 
     def run_frames(self, texts, *, ocr=None, frames=None, **options):
         stop = threading.Event()
-        timer = threading.Timer(3, stop.set)
-        timer.start()
-        self.addCleanup(timer.cancel)
         images = frames or [Image.new("RGB", (160, 90), "gray") for _ in texts]
         index = 0
 
@@ -49,7 +46,8 @@ class WatchTests(unittest.TestCase):
             return texts[min(index - 1, len(texts) - 1)]
 
         def event(obj):
-            if obj.get("kind") == "stats" and obj.get("captured", 0) >= len(texts):
+            if obj.get("kind") == "stats" and (obj.get("captured", 0) >= len(texts)
+                                                 or obj.get("capture_errors", 0)):
                 stop.set()
 
         with mock.patch.object(watch, "find_window", return_value=123), \
