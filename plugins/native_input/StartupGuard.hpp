@@ -17,6 +17,15 @@ class StartupGuard {
         require(ReadProcessMemory(process_,reinterpret_cast<void*>(address),&value,sizeof(value),&count) && count==sizeof(value),"startup_read_failed");
         return value;
     }
+    void remember_thread(DWORD id,HANDLE thread) {
+        HANDLE owned=nullptr;
+        require(DuplicateHandle(GetCurrentProcess(),thread,GetCurrentProcess(),&owned,0,FALSE,DUPLICATE_SAME_ACCESS)!=FALSE,"startup_thread_duplicate_failed");
+        threads_.emplace(id,owned);
+    }
+    void forget_thread(DWORD id) {
+        const auto found=threads_.find(id);
+        if(found!=threads_.end()) {CloseHandle(found->second);threads_.erase(found);}
+    }
     void byte(DWORD address,unsigned char value) {
         DWORD old=0,ignored=0;SIZE_T count=0;
         auto pointer=reinterpret_cast<void*>(address);
@@ -96,11 +105,12 @@ public:
             DWORD proceed=DBG_CONTINUE;
             switch(event.dwDebugEventCode) {
             case CREATE_PROCESS_DEBUG_EVENT:
-                threads_[event.dwThreadId]=event.u.CreateProcessInfo.hThread;
-                if(event.u.CreateProcessInfo.hProcess!=process_) CloseHandle(event.u.CreateProcessInfo.hProcess);
+                remember_thread(event.dwThreadId,event.u.CreateProcessInfo.hThread);
+                // Keep the debugger-owned process handle valid until detach.
+                // Closing it here can leave detach with an invalid or recycled handle.
                 if(event.u.CreateProcessInfo.hFile) CloseHandle(event.u.CreateProcessInfo.hFile);
                 break;
-            case CREATE_THREAD_DEBUG_EVENT:threads_[event.dwThreadId]=event.u.CreateThread.hThread;break;
+            case CREATE_THREAD_DEBUG_EVENT:remember_thread(event.dwThreadId,event.u.CreateThread.hThread);break;
             case LOAD_DLL_DEBUG_EVENT: {
                 const auto file=event.u.LoadDll.hFile;wchar_t path[32768]{};
                 if(file && GetFinalPathNameByHandleW(file,path,32768,0) &&
@@ -109,17 +119,44 @@ public:
                 if(file) CloseHandle(file);break;
             }
             case EXCEPTION_DEBUG_EVENT:proceed=exception(event);break;
-            case EXIT_THREAD_DEBUG_EVENT:done=!process_exit && event.dwThreadId==stop_thread;break;
+            case EXIT_THREAD_DEBUG_EVENT:
+                done=!process_exit && event.dwThreadId==stop_thread;forget_thread(event.dwThreadId);break;
             case EXIT_PROCESS_DEBUG_EVENT:done=true;exited=true;break;
             default:break;
+            }
+            if(done && !exited) {
+                require(!points_.empty(),"startup_guard_incomplete");
+                // A pending debug event freezes all target threads. Remove INT3 before
+                // continuing them, or a loader worker can trap while the debugger detaches.
+                std::vector<HANDLE> suspended;
+                for(const auto& item:threads_) {
+                    DWORD code=0;
+                    if(item.first==event.dwThreadId || !GetExitCodeThread(item.second,&code) || code!=STILL_ACTIVE) continue;
+                    HANDLE owned=nullptr;
+                    require(DuplicateHandle(GetCurrentProcess(),item.second,GetCurrentProcess(),&owned,0,FALSE,DUPLICATE_SAME_ACCESS)!=FALSE,"startup_thread_duplicate_failed");
+                    if(SuspendThread(owned)==static_cast<DWORD>(-1)) {CloseHandle(owned);throw std::runtime_error("startup_suspend_failed");}
+                    suspended.push_back(owned);
+                }
+                for(const auto& point:points_) byte(point.first,point.second.original[0]);
+                require(ContinueDebugEvent(event.dwProcessId,event.dwThreadId,proceed)!=FALSE,"startup_continue_failed");
+                // Other threads may already have queued a breakpoint before the final event.
+                // Keep them suspended while those exceptions are consumed and the debugger detaches.
+                while(WaitForDebugEvent(&event,0)) {
+                    require(event.dwDebugEventCode==EXCEPTION_DEBUG_EVENT,"startup_pending_event_unexpected");
+                    proceed=exception(event);
+                    require(ContinueDebugEvent(event.dwProcessId,event.dwThreadId,proceed)!=FALSE,"startup_continue_failed");
+                }
+                if(!DebugActiveProcessStop(GetProcessId(process_)))
+                    throw std::runtime_error("startup_detach_failed:"+std::to_string(GetLastError()));
+                for(const auto thread:suspended) {
+                    const auto resumed=ResumeThread(thread);const auto error=GetLastError();CloseHandle(thread);
+                    if(resumed==static_cast<DWORD>(-1)) throw std::runtime_error("startup_resume_failed:"+std::to_string(error));
+                }
+                return;
             }
             require(ContinueDebugEvent(event.dwProcessId,event.dwThreadId,proceed)!=FALSE,"startup_continue_failed");
         }
         require(done && !points_.empty() && (!exited || process_exit),"startup_guard_incomplete");
-        if(!exited) {
-            for(const auto& point:points_) byte(point.first,point.second.original[0]);
-            require(DebugActiveProcessStop(GetProcessId(process_))!=FALSE,"startup_detach_failed");
-        }
     }
     void save(const fs::path& bridge) const {
         std::ofstream out(bridge/L"startup-guard.json");out<<"{\"denied\":"<<denied_<<",\"calls\":[";

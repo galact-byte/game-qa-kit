@@ -18,6 +18,7 @@ def build(output, *, mode='core', easyhook=None, vcvars=None, owned_image=None):
         raise RuntimeError('需要已有 MSVC x86；可用 --vcvars 指定路径')
     source = ROOT / ('tests/native_input/CoreTests.cpp' if mode == 'core' else
                      'plugins/native_input/Host.cpp' if mode == 'host' else
+                     'tests/native_input/StartupGuardTests.cpp' if mode == 'startup-tests' else
                      'tests/native_input/Target.cpp' if mode == 'target' else 'plugins/native_input/Bridge.cpp')
     args = ['/nologo', '/EHsc', '/MT', '/O2', '/W4', '/WX', '/std:c++17', '/utf-8', '/DWIN32_LEAN_AND_MEAN', '/DNOMINMAX',
             '/I' + str(ROOT / 'plugins/native_input')]
@@ -39,6 +40,9 @@ def build(output, *, mode='core', easyhook=None, vcvars=None, owned_image=None):
         args += ['user32.lib', 'gdi32.lib', 'gdiplus.lib', 'bcrypt.lib', 'advapi32.lib', 'dinput8.lib', 'dxguid.lib']
     if mode == 'bridge':
         args += [str(easyhook_library), 'ole32.lib', 'psapi.lib', 'ntdll.lib']
+    if mode == 'startup-tests':
+        # The remote-thread fixture checks identical code addresses in its owned child.
+        args += ['/DYNAMICBASE:NO', '/FIXED']
     if mode == 'target':
         args += ['/SUBSYSTEM:WINDOWS']
     with tempfile.TemporaryDirectory(prefix='native-build-', dir=output.parent) as tmp:
@@ -46,7 +50,7 @@ def build(output, *, mode='core', easyhook=None, vcvars=None, owned_image=None):
         script.write_text('@echo off\ncall "' + str(vcvars) + '" >nul\nif errorlevel 1 exit /b 1\n' +
                           subprocess.list2cmdline(['cl', *args]) + '\n', encoding='utf-8')
         subprocess.run(['cmd', '/d', '/c', str(script)], cwd=tmp, check=True)
-    if mode == 'core':
+    if mode in ('core', 'startup-tests'):
         subprocess.run([str(output)], check=True)
     return output
 
@@ -54,7 +58,7 @@ def build(output, *, mode='core', easyhook=None, vcvars=None, owned_image=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--mode', choices=['core', 'bridge', 'host', 'target'], default='core')
+    parser.add_argument('--mode', choices=['core', 'bridge', 'host', 'target', 'startup-tests'], default='core')
     parser.add_argument('--easyhook', type=Path)
     parser.add_argument('--vcvars', type=Path)
     parser.add_argument('--owned-image', type=Path, help='仅用于自有窗口测试构建，固定该 EXE 摘要；不可发布')
