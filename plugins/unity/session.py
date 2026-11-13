@@ -1,6 +1,7 @@
-"""固定 Unity Mono 输入后端的受管生命周期。"""
+"""固定 Unity Mono 与 IL2CPP 输入构建的受管生命周期。"""
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import shutil
@@ -48,7 +49,9 @@ class UnitySession:
         if self.baseline is None or self.host is not None:
             raise RuntimeError('启动前需要本创建者完成准备，且不能重复启动')
         profile = recipe.build_profile(self.plan['source'])
-        if recipe.artifact_digests(self.plan['artifacts'], input_system=profile['input_backend'] == 'input_system') != self.plan['artifact_digests']:
+        if recipe.artifact_digests(self.plan['artifacts'], input_system=profile['input_backend'] == 'input_system',
+                                   rewired=profile['input_backend'] == 'rewired',
+                                   il2cpp=profile['backend'] == 'unity_il2cpp_input_system') != self.plan['artifact_digests']:
             raise RuntimeError('artifact_changed')
         if recipe.manifest(self.root / 'runtime') != self.baseline:
             raise RuntimeError('runtime_changed_before_start')
@@ -66,7 +69,9 @@ class UnitySession:
                                    'GAMEQAKIT_SESSION_ID': session, 'GAMEQAKIT_INPUT_BACKEND': profile['input_backend']})
         self.host.__enter__()
         connection = {'protocol': 1, 'session_id': session, 'pid': self.host.pid,
-                      'exe_path': str(executable), 'engine': 'unity_mono', 'command_format': 'ini'}
+                      'exe_path': str(executable),
+                      'engine': 'unity_il2cpp' if profile['backend'] == 'unity_il2cpp_input_system' else 'unity_mono',
+                      'command_format': 'ini'}
         write_json(directory / 'connection.json', connection)
         _write_ini(directory / 'connection.ini', connection)
         self.bridge = BridgeClient(directory, pid=self.host.pid, exe_path=str(executable))
@@ -144,8 +149,8 @@ class UnitySession:
         if (self.root / 'source-before.json').exists():
             after = recipe.manifest(self.plan['source'])
             write_json(self.root / 'source-after.json', after)
-            source_ok = after == read_json(self.root / 'source-before.json')
-            before = read_json(self.root / 'external-before.json')
+            source_ok = after == json.loads((self.root / 'source-before.json').read_text(encoding='utf-8'))
+            before = json.loads((self.root / 'external-before.json').read_text(encoding='utf-8'))
             after = recipe.manifest(before['path'])
             write_json(self.root / 'external-after.json', after)
             external_ok = after == before['files']

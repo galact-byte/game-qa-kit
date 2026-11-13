@@ -45,7 +45,7 @@ python plugins/unity/build.py --game-root "<IL2CPP 测试副本>" --il2cpp --out
 
 ## 受管入口
 
-主程序“AI 后台接入”、CLI 与 MCP 的 `game_*` 工具已迁入已登记哈希的《Taimashi》Unity 2020.3.7f1 Mono／旧 Input 构建与《OmaNeko-Seikatsu》Unity 6000.4.3f1 Mono／Input System 1.19 构建，操作顺序见[游戏接入说明](../../docs/GAME-ADMISSION.md)。Rewired 与 IL2CPP 尚未迁入这一启动入口，继续使用各自已验接入流程。
+主程序“AI 后台接入”、CLI 与 MCP 的 `game_*` 工具已迁入已登记哈希的《Taimashi》Unity 2020.3.7f1 Mono／旧 Input 构建与《OmaNeko-Seikatsu》Unity 6000.4.3f1 Mono／Input System 1.19 构建，操作顺序见[游戏接入说明](../../docs/GAME-ADMISSION.md)。Rewired 固定构建已补登记和准备，暂停标题正常，但新游戏和读档入图均超过现行 2 秒心跳判据，完整迁入未通过；IL2CPP／新输入固定构建已补离线准备；一批正常进入剧情但未完成后续验收，另一批在 Loading 期间触发原 2 秒心跳保护，松键未确认，完整受管整链未通过。
 
 已有组件目录须采用以下结构，桥用本项目当前源码和该游戏的程序集构建，加载器与 BepInEx 核心须使用原已核查材料，不自动下载：
 
@@ -57,7 +57,9 @@ python plugins/unity/build.py --game-root "<IL2CPP 测试副本>" --il2cpp --out
   BepInEx/core/*.dll
 ```
 
-入口只读核对程序、全部托管程序集与已选组件摘要；仅修改 QA 副本的产品标识及已核查的启动设置，排除原 `SaveData` 和旧插件。旧 Input 构建解析 PlayerSettings 修改标识；固定 Unity 6 构建的类型树暂不能解析，仅在 PlayerSettings 原始字节内唯一匹配并等长替换已核查的公司／产品标识，重复或缺失标记即拒绝准备，启动使用已验 D3D11 参数。随机公司标识的 LocalLow 目录通过私有目录联接指向本次会话的 `persistent/`；结束先确认松键再回收自有目标，核对原目录、原存档与 PlayerPrefs 并移除本次联接。运行副本产生缓存或其他变化时保留现场，不自动删除新进度。
+Mono Rewired 固定构建改用 32 位 Doorstop，并在同一层提供 `GameQaRewired.dll`。IL2CPP 固定构建使用另一个独立组件目录：同层放 `GameQaBridge.dll`、`GameQaInputSystem.dll` 与 64 位 `winhttp.dll`，并包含 `BepInEx/core/`、`BepInEx/interop/`、`BepInEx/unity-libs/` 和 `dotnet/`；全部离线文件摘要进入准备指纹，互操作自动更新关闭。不把 Mono 和 IL2CPP 的桥或运行库混用。
+
+入口只读核对程序、全部托管程序集或已登记 IL2CPP 原生组件与已选依赖摘要；仅修改 QA 副本的产品标识及已核查的启动设置，按构建排除原 `SaveData` 和旧插件。Rewired 固定构建例外复制 `SaveData`／`OtherConfigData`，保留原进度及首次初始化标记，避免缺失标记时触发 EpicPrefs 初始化异常；本次复制范围会在操作摘要披露。旧 Input 构建解析 PlayerSettings 修改标识；固定 Unity 6／IL2CPP 构建仅在 PlayerSettings 原始字节内唯一匹配并等长替换已核查的公司／产品标识，重复或缺失标记即拒绝准备；固定 Unity 6 构建启动使用已验 D3D11 参数。随机公司标识的 LocalLow 目录通过私有目录联接指向本次会话的 `persistent/`；结束先确认松键再回收自有目标，核对原目录、原存档与 PlayerPrefs 并移除本次联接。运行副本产生缓存或其他变化时保留现场，不自动删除新进度。退出核对完整读取文件摘要清单，控制文件的 128 KiB 上限保持。
 
 桥在输入初始暂停时也于帧绘制结束后导出首图及观察图，更新 `observation_seq`；此操作不恢复输入，不暂停整个 Unity 仿真。取图失败会使绑定失效，worker 记录具体原因并收尾；无法取得松键确认时记为未确认，目标已退出不能代替确认。
 

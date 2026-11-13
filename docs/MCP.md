@@ -26,6 +26,8 @@
 
 主程序“AI 后台接入”和 `game_inspect`、`game_prepare`、`game_start`、`game_status`、`game_bind`、`game_unbind`、`game_stop` 共用会话层；完整流程与参数见[游戏接入说明](GAME-ADMISSION.md)。初次就绪暂停输入，不自动绑定或操作游戏。当前新入口覆盖已登记的固定原生构建、《Taimashi》Unity Mono／旧 Input 与《OmaNeko-Seikatsu》Mono／新 Input System 构建、MV 1.6.1／MZ 1.8.0 SDK 空白工程与固定 VX Ace SDK＋RGSS301 组合；其余后端仍按既有通路使用。MV／MZ 的组件目录为已登记的完整 NW.js；VX Ace 的组件目录包含已登记的 RGSS301.dll。准备摘要与工程／运行时清单指纹绑定，原工程和原进度不改写；VX Ace 的转向与菜单实证不等同于该水面地图上的真实位移，见 [RGSS3 接入](../plugins/rgss3/README.md)。
 
+Rewired 固定构建已补受管登记、32 位组件和原 `SaveData`／`OtherConfigData` 的副本复制，但新游戏和读档入图均超过现行 2 秒心跳判据，完整验收未通过。IL2CPP／新输入固定构建已补 64 位 Doorstop、BepInEx 6 及离线互操作／.NET 组件准备；一批进入剧情但后续验收未完成，另一批 Loading 期间触发 2 秒心跳保护，目标被回收、松键未确认，完整 MCP／Qt／退出整链未通过。两条结果均与历史独立控制探测分开披露；复制原进度时只写副本，摘要清单完整核对，控制文件上限不变。
+
 GUI／CLI／MCP 创建者须保持运行；只有创建者可回收自有树。另一 MCP 可显式绑定查询、暂停及取得单一动作权，但不能停止别的创建者的进程。绑定后旧桌面输入和存档等旁路被阻断，解绑／失效不回退旧 profile。不要把下文人工观察 worker 的独立生命周期与受管游戏 worker 混为一谈。
 
 ## 推荐流程

@@ -48,7 +48,7 @@ def inspect(path, *, artifacts=None):
 
     if result['engine'] == 'unknown':
         block('unknown_engine', '尚未识别这个游戏的后台接入方式。', 'source', '请正常打开游戏，使用人工盯屏。')
-    elif result['engine'] == 'unity_mono':
+    elif result['engine'] in ('unity_mono', 'unity_il2cpp'):
         from plugins.unity import prepare as unity
         result['blockers'] = unity.inspect(Path(result['root']), artifacts)
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
@@ -103,16 +103,21 @@ def make_plan(source, destination, *, artifacts):
         raise ValueError('; '.join(row['message'] for row in result['blockers']))
     destination = validate_destination(result['root'], destination)
     source, artifacts = Path(result['root']), Path(artifacts).absolute()
-    if result['engine'] == 'unity_mono':
+    if result['engine'] in ('unity_mono', 'unity_il2cpp'):
         from plugins.unity import prepare as unity
         profile = unity.build_profile(source)
+        copied_progress = profile['input_backend'] == 'rewired'
         payload = dict(schema_version=1, backend=profile['backend'], source=str(source),
                        destination=str(destination), artifacts=str(artifacts),
                        source_digests=unity.source_digests(source),
-                       artifact_digests=unity.artifact_digests(artifacts, input_system=profile['input_backend'] == 'input_system'),
-                       data_policy='blank-unity-identity-preserve-progress', desktop='private',
-                       changes=['只修改副本：独立产品标识、后台运行和窗口化设置，不带原 SaveData 和插件',
-                                '加载所选 Unity 输入后端桥、BepInEx 5 和匹配的 Doorstop；不自动输入',
+                       artifact_digests=unity.artifact_digests(artifacts, input_system=profile['input_backend'] == 'input_system',
+                                                            rewired=profile['input_backend'] == 'rewired',
+                                                            il2cpp=result['engine'] == 'unity_il2cpp'),
+                       data_policy='copied-unity-progress-private-identity' if copied_progress else 'blank-unity-identity-preserve-progress', desktop='private',
+                       changes=[('只修改副本：复制 SaveData 和 OtherConfigData 以保留初始化及原进度，原目录只读' if copied_progress
+                                 else '只修改副本：独立产品标识、后台运行和窗口化设置，不带原 SaveData 和插件'),
+                                ('加载 IL2CPP 输入桥、BepInEx 6、匹配的 Doorstop 及已核查离线运行库，不自动更新互操作程序集' if result['engine'] == 'unity_il2cpp'
+                                 else '加载所选 Unity 输入后端桥、BepInEx 5 和匹配的 Doorstop；不自动输入'),
                                 '随机产品标识使用目录联接将 LocalLow 游戏数据留在 QA 会话内',
                                 '启动后确认输入暂停、松键及有效引擎首图；不宣称停止 Unity 仿真',
                                 '结束自有进程，核对原目录、原存档和 PlayerPrefs；移除自有联接，保留新进度'])
@@ -158,7 +163,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'rpgmaker_js', 'rgss3'):
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:

@@ -8,8 +8,8 @@
 | RPG Maker VX Ace／RGSS3 | 独立 Ruby 桥；既有 SDK 和定制商业副本的正常读档、真实位移、菜单及暂停；固定 SDK＋已登记 RGSS301 已迁入受管入口，真实双 MCP＋Qt 验证暂停标题、开始、转向、菜单、预览和回收 | 本轮固定 SDK 地图不可通行，不算位移或存读档复验；商业游戏尚未迁入受管入口，不能直接用于 RGSS1／2；见 [受管插件说明](../plugins/rgss3/README.md)及[后台控制实证](BACKGROUND-CONTROL.md) |
 | Unity Mono／旧 Input | BepInEx 5；空白场景移动／菜单／UI，商业样本标题和对话 | 商业玩法及其他版本另验；见 [Unity 矩阵](../plugins/unity/README.md) |
 | Unity Mono／新 Input System | 虚拟键鼠与设备隔离；Unity 6 空白场景真实位移、菜单和 UI；固定商业构建经受管 MCP 正常标题点击进入房间及推进对白、Qt 当前预览和退出核查 | 商业位移、存读档、其他构建及自定义设备另验 |
-| Unity IL2CPP／新 Input System | BepInEx 6／Il2CppInterop；指定商业副本标题、难度与剧情 | 不代表 IL2CPP 旧 Input 或 Rewired 已支持，也未据此验商业角色位移 |
-| Unity Mono／Rewired | 指定 Unity 5.6.7f1 商业副本正常推进至地图、左右实际位移与暂停 | Rewired API、其他中间件及动态程序集不自动覆盖 |
+| Unity IL2CPP／新 Input System | BepInEx 6／Il2CppInterop；既有指定商业副本标题、难度与剧情；受管入口新增固定登记与离线准备，已有一批正常进入剧情 | 受管另一批 Loading 期间触发 2 秒心跳保护，松键未确认，完整迁入未通过；不代表 IL2CPP 旧 Input 或 Rewired 已支持，也未据此验商业角色位移 |
+| Unity Mono／Rewired | 指定 Unity 5.6.7f1 商业副本既有桥已验正常推进至地图、左右实际位移与暂停；受管入口新增固定登记与准备，标题、难度和读档槽菜单已验 | 受管新游戏／读档入图均触发原 2 秒心跳保护，松键未确认，完整迁入未通过；既有桥的历史成功不能代替受管验收；Rewired API、其他中间件及动态程序集不自动覆盖 |
 | Wolf RPG | 两个固定 EXE 哈希，原生桥；官方范例移动／菜单与战斗闭环；商业构建新游戏、移动／菜单、第 1 槽保存和跨进程读取，以及 30 轮移动／菜单重复测试 | 未测哈希拒绝；官方存读档、商业战斗、全流程及长期稳定性仍未验；见 [Wolf 记录](../plugins/wolf/README.md) |
 | HSP3 | 官方 HSP 3.7 空白工程 getkey／stick、菜单／点击；八星帝外置字节码标题和读取菜单 | 原内嵌 EXE 不自动接入，商业玩法未验；见 [HSP 说明](../plugins/hsp/README.md) |
 | DuckStation／PS1 | 一个固定 Windows x64 构建；原生帧计时、数字手柄，指定游戏移动、存读档和首战 | 这是模拟器适配；不是所有 PS1 模拟器通用。音频、换盘、其他构建未验；见 [说明](../plugins/duckstation/README.md) |
