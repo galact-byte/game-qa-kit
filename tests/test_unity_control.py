@@ -32,6 +32,27 @@ class UnityControlTests(unittest.TestCase):
         self.assertIn('Unity control assertions', result.stdout)
         self.assertIn('mapped action assertions', result.stdout)
 
+    def test_target_input_query_confirms_release_without_down_false_or_repeated_refresh(self):
+        if os.name != 'nt':
+            self.skipTest('本地回归需要 Windows .NET Framework 运行编译产物')
+        tools = runpy.run_path(str(ROOT / 'plugins/unity/build.py'))
+        source = (ROOT / 'plugins/unity/LegacyInput.cs').read_text(encoding='utf-8')
+        read = source[source.index('        private static bool Read('):source.index('        public static bool GetKey(')]
+        parent = Path('E:/DevData/gameqa-unity/tmp')
+        parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='release-', dir=parent) as directory:
+            generated = Path(directory) / 'ReadUnderTest.cs'
+            generated.write_text('namespace GameQaKit.Unity { internal static partial class LegacyInput {\n'
+                                 + read + '\n} }', encoding='utf-8')
+            output = Path(directory) / 'LegacyReleaseTests.exe'
+            tools['compile_sources'](output, [ROOT / 'plugins/unity/ControlCore.cs',
+                                             ROOT / 'tests/unity/LegacyReleaseTests.cs', generated])
+            result = subprocess.run([str(output)], capture_output=True, encoding='utf-8',
+                                    errors='replace', timeout=10,
+                                    env={**os.environ, 'TEMP': directory, 'TMP': directory})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('PASS: Unity target release queries', result.stdout)
+
     def test_frame_intake_handles_command_publication_and_priority_pause(self):
         if os.name != 'nt':
             self.skipTest('本地回归需要 Windows .NET Framework 运行编译产物')

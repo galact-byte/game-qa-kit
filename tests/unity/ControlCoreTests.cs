@@ -86,6 +86,25 @@ internal static class ControlCoreTests
         try
         {
             AtomicPublication();
+            var release=Running();
+            Check(!release.ReleaseConfirmed,"an idle session is not evidence of target release consumption");
+            release.Accept(Request(release,"release-witness","move",1),10,11);
+            release.Observe("right");
+            release.ObserveReleased("right");
+            Check(!release.ReleaseConfirmed,"a query while held must not confirm release");
+            release.EndFrame(); release.BeginFrame(10,11,"");
+            Check(release.HeldCount==0 && !release.ReleaseConfirmed,"software clearing is not target release consumption");
+            release.ObserveReleased("left");
+            Check(!release.ReleaseConfirmed,"an unrelated release query cannot confirm the input");
+            release.ObserveReleased("right");
+            Check(release.ReleaseConfirmed && release.ReleaseFrame==release.Frame,"matching target release query confirms its real frame");
+            Finish(release,false);
+            release.Accept(Request(release,"release-witness-again","move",1),10,11);
+            Check(!release.ReleaseConfirmed,"a new press must invalidate the earlier release witness");
+            release.Fail("manual_pause");
+            Check(!release.ReleaseConfirmed,"failure clearing input is not a release witness");
+            release.ObserveReleased("right");
+            Check(release.ReleaseConfirmed,"actual release reads after pause may confirm but failure alone cannot");
             var core=Running();
             var move=Request(core,"move","move",2);
             Check(core.Accept(move,10,11), "move accepted");

@@ -1,5 +1,37 @@
 # 修改记录 — game-qa-kit
 
+## 2026-11-14 — Unity 目标侧松键消费证明与 Rewired 加载入口取证
+
+### 背景与目标
+
+- 按已批准的加载观察方向，先验证必要前提：区分软件清空保持键与游戏实际读取松开。本次只交付这一独立门槛，未启用产品加载观察或延后回收。
+
+### 影响与兼容性
+
+- 核心跟踪等待松开读取的输入令牌；新按下使旧证明失效。旧 Input 与 Rewired 只在相关 `Held=false`、实际 `Up=true` 或归零轴查询时记录证明，`Down=false`、`Up=false`、无查询及软件清空均不算证明。
+- Unity 状态增加 `release_observed`／`release_frame` 取证字段。未修改公共控制协议、动作回执、2 秒心跳、2 秒 PNG 发布期限、15 秒启动期限、图像判据或回收策略；新 Input System 尚未增加这项释放读取证明，不扩大支持范围。
+
+### 文件与实现
+
+| 操作 | 路径 | 说明 |
+| --- | --- | --- |
+| 修改 | `plugins/unity/ControlCore.cs`、`LegacyInput.cs`、`ActionState.cs`、`GameQaBridge.cs` | 令牌级松键证明及只读状态字段 |
+| 新增／修改 | `tests/unity/LegacyReleaseTests.cs`、`ControlCoreTests.cs`、`RewiredStateTests.cs`、`tests/test_unity_control.py` | 直接编译生产读取分支，固定错误边界、对应输入证明及新按下失效 |
+| 新增／修改 | 加载观察实施计划、加载生命周期设计、Unity 插件说明 | 记录已批准方向、实测门槛与当前阻碍 |
+| 本地保留 | `<接入验证目录>/validation/verify_loading_release_delivery.py`、`unity-loading-release-evidence.json` | 核对实际加载入口、三批无效测量、原数据保护和副本回收；原始材料不入库 |
+
+### 验证
+
+- `real-unity-rewired-scene-probe-04` 的两次实际 `LoadScene` 入口均为 `held=[]`、`release_observed=true`：游戏第 97682 帧已读取相关松开，第 98280 帧进入加载。加载前门槛成立；之后仍按原 2 秒心跳规则回收，最终 `release_confirmed=false`，不得计作加载通过或安全恢复。
+- 三批加载时长测量均未进入被动观察：01／03 在零输入时状态文件访问被拒绝，02 在菜单阶段遇到截图发布超时。原始失败保留，01 的首次清理未完成也原样保留，后续独立回收记录已确认进程退出、私有联接移除和三类原数据一致；全部完整副本已删除。
+- 控制／诊断聚焦回归 30 项通过；四条 Unity 生产构建成功；全量 Python 323 项中 321 项通过、2 项因未配置本地 Wolf 原版样本／启动宿主而跳过，未追认为通过；JavaScript 28 项通过、无跳过。
+- 原版 Mono 的隔离并发文件 I/O 对照未复现游戏内秒级阻塞；它不含 Unity、Harmony、实际场景和相同帧率，不能据此归因慢写入或推断等待上限。
+
+### 已知限制与回退
+
+- 完整加载时长、产品等待上限及恢复生命周期仍未实现／验收。诊断脚本的 15 秒只属本批采集上限，三批均未进入该区间；不能写成产品承诺。不继续重复创建商业副本碰运气，先定位状态文件访问与截图发布失败。
+- 可回退本提交的 Unity 核心／输入模块／桥及对应测试，并从同一版本重建匹配组件；本次未改动原游戏、原档或用户注册表，三者无需还原。测试副本改动与保全位置见各批 `session/reclaim.json`。
+
 ## 2026-11-14 — Rewired 场景请求与失联边界核对
 
 ### 背景与目标

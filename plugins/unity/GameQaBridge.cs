@@ -321,6 +321,7 @@ namespace GameQaKit.Unity
             state["product"]=Application.productName; state["persistent_data_path"]=Application.persistentDataPath;
             state["updated_at"]=now; state["frame"]=core.Frame; state["paused"]=core.Paused;
             state["held"]=core.HeldButtons; state["input_ready"]=Ready && observationError==null;
+            state["release_observed"]=core.ReleaseConfirmed; state["release_frame"]=core.ReleaseFrame;
             state["observation_seq"]=observationSequence; state["observation_error"]=observationError;
             state["screen"]=new[]{Screen.width,Screen.height}; state["error"]=core.Error;
             state["command_id"]=core.ActiveId; state["patched_methods"]=router==null ? 0 : router.PatchedMethods;

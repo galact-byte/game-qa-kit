@@ -69,6 +69,7 @@ namespace GameQaKit.Unity
         {
             if(token==null) return false;
             Core.Observe(token);
+            if(edge==0 || (edge==2 && Core.Up(token))) Core.ObserveReleased(token);
             return edge==1 ? Core.Down(token) : edge==2 ? Core.Up(token) : Core.Held(token);
         }
         public static bool GetKey(KeyCode key) { return Ai ? Read(Token(key),0) : NativeInput.GetKey(key); }
@@ -83,9 +84,15 @@ namespace GameQaKit.Unity
         private static float Axis(string name,bool raw)
         {
             if(name=="Horizontal")
-            { Core.Observe("left"); Core.Observe("right"); return raw ? Raw("left","right") : horizontal; }
+            { Core.Observe("left"); Core.Observe("right");
+                float value=raw ? Raw("left","right") : horizontal;
+                if(value==0) { Core.ObserveReleased("left"); Core.ObserveReleased("right"); }
+                return value; }
             if(name=="Vertical")
-            { Core.Observe("down"); Core.Observe("up"); return raw ? Raw("down","up") : vertical; }
+            { Core.Observe("down"); Core.Observe("up");
+                float value=raw ? Raw("down","up") : vertical;
+                if(value==0) { Core.ObserveReleased("down"); Core.ObserveReleased("up"); }
+                return value; }
             return 0;
         }
         public static float GetAxis(string name) { return Ai ? Axis(name,false) : NativeInput.GetAxis(name); }

@@ -24,7 +24,11 @@ internal static class RewiredStateTests
             Check(!ActionState.Button(core,bindings,1,0),"negative input is not a positive button");
             Check(ActionState.Button(core,bindings,0,0),"any button includes a held mapped input");
             core.EndFrame(); core.BeginFrame(1,10,"");
+            Check(!core.ReleaseConfirmed,"clearing bounded input is not a target release read");
+            Check(!ActionState.Button(core,bindings,-1,1) && !core.ReleaseConfirmed,"Down=false does not prove release");
+            Check(!ActionState.Button(core,bindings,1,0) && !core.ReleaseConfirmed,"another mapping cannot confirm release");
             Check(ActionState.Button(core,bindings,-1,2),"release queries observe the bounded release");
+            Check(core.ReleaseConfirmed,"mapped Up query confirms the actual released input");
             Check(!ActionState.Button(core,bindings,-1,1),"release is not a new press");
             Check(ActionState.Axis(core,new ActionBinding[0])==0,"unmapped actions remain neutral");
             core.Fail("pause");

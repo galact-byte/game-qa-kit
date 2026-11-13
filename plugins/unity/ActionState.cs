@@ -17,7 +17,10 @@ namespace GameQaKit.Unity
             if(core.Paused) return 0;
             float value=0;
             foreach(var binding in bindings)
+            {
                 if(core.Held(binding.Token)) { core.Observe(binding.Token); value+=binding.Sign; }
+                else core.ObserveReleased(binding.Token);
+            }
             return Math.Max(-1,Math.Min(1,value));
         }
         public static bool Button(ControlCore core,IEnumerable<ActionBinding> bindings,int polarity,int edge)
@@ -28,6 +31,7 @@ namespace GameQaKit.Unity
             {
                 if(polarity!=0 && binding.Sign!=polarity) continue;
                 bool active=edge==1 ? core.Down(binding.Token) : edge==2 ? core.Up(binding.Token) : core.Held(binding.Token);
+                if(edge==0 || (edge==2 && active)) core.ObserveReleased(binding.Token);
                 if(active) { core.Observe(binding.Token); value=true; }
             }
             return value;

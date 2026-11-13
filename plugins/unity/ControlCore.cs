@@ -33,6 +33,14 @@ namespace GameQaKit.Unity
         private readonly HashSet<string> seen = new HashSet<string>();
         private readonly HashSet<string> held = new HashSet<string>();
         private readonly HashSet<string> previous = new HashSet<string>();
+        private readonly HashSet<string> awaitingRelease = new HashSet<string>();
+        public long ReleaseFrame { get; private set; }
+        public bool ReleaseConfirmed { get { return ReleaseFrame>0 && awaitingRelease.Count==0 && held.Count==0; } }
+        public void ObserveReleased(string token)
+        {
+            if(token!=null && !Held(token) && awaitingRelease.Remove(token) && awaitingRelease.Count==0)
+                ReleaseFrame=Frame;
+        }
         private Command active;
         private string acceptedPause="";
         private int remaining, settle;
@@ -80,7 +88,7 @@ namespace GameQaKit.Unity
             held.Clear();
             string token=action=="move" ? command.Direction : action=="confirm" ? "ok" :
                 action=="cancel" ? "cancel" : action=="press" ? command.Button : action=="click" ? "mouse0" : null;
-            if(token!=null) held.Add(token);
+            if(token!=null) { held.Add(token); awaitingRelease.Add(token); ReleaseFrame=0; }
             remaining=command.Frames; settle=2;
             consumed=token==null;
             return true;
