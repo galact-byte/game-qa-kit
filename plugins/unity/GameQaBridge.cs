@@ -36,6 +36,10 @@ namespace GameQaKit.Unity
         private ControlCore core;
         private PhaseDiagnostics diagnostics;
         private CapturePublisher publisher;
+        private readonly LoadingWindow loading=new LoadingWindow();
+        private IDisposable sceneLoadingHook=null;
+        private long observationFrame;
+        private bool captureImageUsable;
         private CapturePublisher.Publication publication;
         private Dictionary<string,object> captureView;
         private Dictionary<string,object> receiptView;
@@ -90,11 +94,40 @@ namespace GameQaKit.Unity
         {
             if(core!=null && SceneManager.GetActiveScene().isLoaded) Install();
         }
-        private void OnSceneLoaded(Scene scene,LoadSceneMode mode) { Install(); }
+        private void OnSceneLoaded(Scene scene,LoadSceneMode mode)
+        {
+            Install();
+            if(loading.Active) { loading.Loaded(scene.name,core.Frame); WriteLoading(); }
+        }
+        private void BeginSceneLoad(string scene)
+        {
+            loading.Begin(scene,core,Now,observationSequence);
+            FlushReceipt(); WriteLoading(); WriteStatus(true);
+        }
+        private void WriteLoading()
+        {
+            Wire.WriteJson(FileAt("loading.json"),new Dictionary<string,object> {
+                {"schema_version",1},{"protocol",1},{"session_id",session},{"pid",pid},{"exe_path",executable},
+                {"id",loading.Id},{"started_at",loading.StartedAt},{"start_frame",loading.StartFrame},
+                {"start_observation_seq",loading.StartObservationSequence},{"release_frame",loading.ReleaseFrame},
+                {"release_observed",loading.Eligible},{"eligible",loading.Eligible},
+                {"phase",loading.Active ? "loading" : "ready_paused"},
+                {"requested",loading.Requested},{"pending",loading.Pending},{"completion_frame",loading.CompletionFrame} });
+        }
+        private void RecoverLoading(long capturedFrame)
+        {
+            if(!loading.Active) return;
+            // 先拒收加载期间发布的命令；恢复只认后续显式操作，不重放旧请求。
+            var fields=Read("request");
+            if(Wire.Get(fields,"session_id")==session && Wire.Get(fields,"protocol")=="1")
+                core.Reject(Wire.ParseCommand(fields),"scene_loading");
+            if(loading.Observe(capturedFrame,core,Now)) WriteLoading();
+        }
         private void Install()
         {
             if(installed || core==null) return;
             installed=true;
+            using(Trace("input_install"))
             try
             {
                 string backend=Environment.GetEnvironmentVariable("GAMEQAKIT_INPUT_BACKEND")??"legacy";
@@ -113,6 +146,7 @@ namespace GameQaKit.Unity
                     string file=Path.Combine(Path.GetDirectoryName(GetType().Assembly.Location),"GameQaRewired.dll");
                     var assembly=System.Reflection.Assembly.LoadFrom(file);
                     router=(IInputBackend)Activator.CreateInstance(assembly.GetType("GameQaKit.Unity.RewiredBackend",true),new object[]{core,Path.Combine(Application.dataPath,"Managed")});
+                    using(Trace("scene_loading_hook")) sceneLoadingHook=new SceneLoadingHook(BeginSceneLoad);
                 }
                 else if(backend=="legacy") router=new LegacyBackend(Path.Combine(Application.dataPath,"Managed"));
                 else throw new NotSupportedException("Unknown input backend: "+backend);
@@ -160,7 +194,8 @@ namespace GameQaKit.Unity
                     if(Wire.Get(fields,"session_id")==session && Wire.Get(fields,"protocol")=="1")
                     {
                         var request=Wire.ParseCommand(fields);
-                        if(core.Accept(request,now,expiry))
+                        if(loading.Active) core.Reject(request,"scene_loading");
+                        else if(core.Accept(request,now,expiry))
                         {
                             if(!Ready || observationError!=null) core.Fail("input_backend_unavailable");
                             else if(request.Action=="click" && (request.X>=Screen.width || request.Y>=Screen.height)) core.Fail("click_out_of_bounds");
@@ -204,6 +239,8 @@ namespace GameQaKit.Unity
                             if(completed.CommandId==null || core.ActiveId==completed.CommandId)
                             {
                                 observationSequence++; lastObservation=Now; observationError=null;
+                                observationFrame=completed.Frame;
+                                if(captureImageUsable) RecoverLoading(completed.Frame);
                                 if(completed.CommandId!=null)
                                 {
                                     receiptView=captureView; receiptViewId=completed.CommandId;
@@ -254,6 +291,17 @@ namespace GameQaKit.Unity
                 {
                     texture=new Texture2D(Screen.width,Screen.height,TextureFormat.RGB24,false);
                     texture.ReadPixels(new Rect(0,0,Screen.width,Screen.height),0,0,false); texture.Apply();
+                }
+                captureImageUsable=true;
+                if(loading.Active)
+                {
+                    // 与宿主共用的首图判据一致；过渡黑帧只能等待，不能恢复输入。
+                    var pixels=texture.GetPixels32();
+                    captureImageUsable=LoadingWindow.ImageUsable(Screen.width,Screen.height,delegate(int index)
+                    {
+                        var color=pixels[index];
+                        return (color.r<<16)|(color.g<<8)|color.b;
+                    });
                 }
                 byte[] png;
                 using(Trace("png_encode"))
@@ -320,9 +368,11 @@ namespace GameQaKit.Unity
             state["unity_version"]=Application.unityVersion; state["company"]=Application.companyName;
             state["product"]=Application.productName; state["persistent_data_path"]=Application.persistentDataPath;
             state["updated_at"]=now; state["frame"]=core.Frame; state["paused"]=core.Paused;
-            state["held"]=core.HeldButtons; state["input_ready"]=Ready && observationError==null;
+            state["held"]=core.HeldButtons; state["input_ready"]=Ready && observationError==null && !loading.Active;
+            state["loading_id"]=loading.Id; state["loading_phase"]=loading.Id==null ? null : loading.Active ? "loading" : "ready_paused";
             state["release_observed"]=core.ReleaseConfirmed; state["release_frame"]=core.ReleaseFrame;
             state["observation_seq"]=observationSequence; state["observation_error"]=observationError;
+            state["observation_frame"]=observationFrame;
             state["screen"]=new[]{Screen.width,Screen.height}; state["error"]=core.Error;
             state["command_id"]=core.ActiveId; state["patched_methods"]=router==null ? 0 : router.PatchedMethods;
             state["capabilities"]=Ready ? new[]{"move","confirm","cancel","wait","press","release","click"} : new string[0];
@@ -347,6 +397,7 @@ namespace GameQaKit.Unity
             SceneManager.sceneLoaded-=OnSceneLoaded;
 #endif
             if(router!=null) router.Dispose();
+            if(sceneLoadingHook!=null) sceneLoadingHook.Dispose();
         }
     }
 }

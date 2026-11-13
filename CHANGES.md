@@ -1,5 +1,42 @@
 # 修改记录 — game-qa-kit
 
+## 2026-11-14 — Rewired 有界加载观察与受管剧情整链
+
+### 背景与目标
+
+- 明确场景加载会使 Unity 主线程心跳短暂中断。按已批准方向，只有加载前目标实际读取松开且身份一致时，才在禁止输入的前提下进行有界观察；固定构建的新游戏入口已通过正式桥、MCP 与 Qt 整链。
+- 两批完整测量从首次场景请求到 `Common`／`NewGameStartEV` 完成通知齐备分别为 3.669709／6.802720 秒，据此采用首次请求起固定 10 秒的失败上限；两次测量不是最长加载承诺。
+
+### 影响与兼容性
+
+- 仅 Mono Rewired 后端启用已核实的字符串同步场景请求钩子；同一加载内全部场景完成后，仍须取得完成帧之后的有效新图及同身份新状态，保持暂停，不续租、不恢复或重放旧动作。
+- 加载前排队、稍后才发布的截图不能恢复；纯黑／纯白候选图继续等待，原判据保持。宿主校验图片后复查期限、取消与目标存活，迟到结果不得报告恢复成功。
+- 纯观察连接在临时心跳中断后可重新核对原身份恢复预览，不取得控制权；控制连接失效仍须显式重绑。公共控制协议、2 秒控制心跳、2 秒 PNG 发布期限及 15 秒启动期限保持。
+
+### 文件与实现
+
+| 操作 | 路径 | 说明 |
+| --- | --- | --- |
+| 新增 | `plugins/unity/LoadingWindow.cs`、`SceneLoadingHook.cs` | 固定加载窗口、场景请求／完成通知、原判图门槛及生命周期钩子 |
+| 修改 | `plugins/unity/GameQaBridge.cs`、`ControlCore.cs`、`build.py` | 加载期间拒绝动作、取图帧证明、有效画面后才发布就绪与生产构建接入 |
+| 修改 | `plugins/unity/session.py`、`gameqakit/game_worker.py`、`game_session.py` | 身份与松键校验、固定截止的被动观察及纯观察连接恢复 |
+| 新增／修改 | `tests/test_unity_loading.py`、`tests/unity/LoadingWindowTests.cs`、既有控制／观察／诊断／宿主测试 | 无信号、假证明、跨会话、旧图、空图、超时、取消、退出及迟到校验结果回归 |
+| 修改 | Unity README、覆盖表、接入说明、集中验收表、roadmap、计划与加载设计 | 仅声明固定新游戏菜单／剧情整链实证，保留遗留故障与未验范围 |
+| 本地保留 | `<接入验证目录>/validation/UNITY-LOADING-DELIVERY.md`、`verify_loading_final_evidence.py` | 实机画面、逐批失败、原数据保护、回收与还原记录；原始证据不入库 |
+
+### 验证
+
+- `python -X utf8 -W error::ResourceWarning -m unittest tests.test_unity_loading tests.test_admission tests.test_game_session tests.test_admission_gui tests.test_game_worker -v`：49 项通过，3.037 秒。校验期间超时／取消／目标退出的三个分支已先红后绿。
+- `python -X utf8 -W error::ResourceWarning -m unittest discover -s tests -v`：335 项，333 通过、2 项缺本地 Wolf 原版样本／日文宿主跳过，93.143 秒；跳过未追认为通过。`node --test tests/rpgmaker_bridge.test.js`：28 项通过、零跳过。Mono 旧 Input、新 Input System、Rewired、IL2CPP 四条生产构建返回码均为 0。
+- `real-unity-rewired-loading-06` 已逐图核对正常新游戏加载、剧情画面、Qt 当前预览及显式恢复后点击推进对白。关闭观察者后创建者目标仍存活；最终松键确认、目标退出、原目录／原存档／PlayerPrefs 一致及私有联接移除通过，完整运行副本已回收。
+- `<接入验证目录>/validation/verify_loading_final_evidence.py` 重新核对两批测量、正式第六批加载证明／画面摘要、三类原数据现状及运行副本回收通过。前五批的失败或未完成验收原样保留，第五批正常清理不追认为加载通过。
+
+### 已知限制与回退
+
+- 偶发状态文件共享冲突与 PNG 发布超过 2 秒的底层原因仍未归因；第二、第四等失败批次保留，继续失败停手与回收。成功批次不证明长期稳定性，也不代表该类 I/O 故障已修复。
+- 本轮没有验证受管读档、商业角色位移、存读档、其他构建或长期运行；八个固定目标的集中真人并发体验仍后置。Wolf 初始化首图、HSP／DuckStation 缺样本的问题独立保留。
+- 回退本提交的宿主与 Unity 组件后，用对应版本重建完整匹配组件，不混用新旧桥。原游戏、原存档及原 PlayerPrefs 无需还原；私有测试数据与变化文件保留在各批会话，恢复到新私有副本的方法见本地交付记录及 `session/reclaim.json`，不得覆盖原进度。
+
 ## 2026-11-14 — Unity 目标侧松键消费证明与 Rewired 加载入口取证
 
 ### 背景与目标

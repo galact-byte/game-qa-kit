@@ -86,6 +86,39 @@ class BindingTests(unittest.TestCase):
         self.client.resume.assert_not_called()
         self.client.pause.assert_not_called()
 
+    def test_observer_recovers_preview_after_temporary_heartbeat_loss_without_input(self):
+        self.binding.bind(self.bridge, 'session-a', observe_only=True)
+        self.state.update(connected=False, error='heartbeat expired')
+        self.assertFalse(self.binding.status()['connected'])
+        self.state.update(connected=True, error=None, observation_seq=42)
+        recovered = self.binding.status()
+        self.assertTrue(recovered['connected'])
+        self.assertEqual(recovered['observation_seq'], 42)
+        self.assertFalse(recovered['can_control'])
+        with self.assertRaisesRegex(RuntimeError, '控制权'):
+            self.binding.execute('resume', {})
+        self.client.resume.assert_not_called()
+        self.client.pause.assert_not_called()
+
+    def test_observer_identity_loss_stays_invalid_after_heartbeat_recovers(self):
+        self.binding.bind(self.bridge, 'session-a', observe_only=True)
+        self.state.update(connected=False)
+        self.assertFalse(self.binding.status()['connected'])
+        self.state.update(connected=True, session_id='other')
+        self.assertFalse(self.binding.status()['connected'])
+        self.state['session_id'] = 'session-a'
+        self.assertFalse(self.binding.status()['connected'])
+
+    def test_controller_heartbeat_loss_stays_invalid(self):
+        self.binding.bind(self.bridge, 'session-a')
+        self.state.update(connected=False)
+        self.assertFalse(self.binding.status()['connected'])
+        self.state.update(connected=True)
+        self.assertFalse(self.binding.status()['connected'])
+        with self.assertRaises(RuntimeError):
+            self.binding.execute('resume', {})
+        self.client.resume.assert_not_called()
+
     def test_failed_observation_invalidates_binding_and_blocks_actions(self):
         self.binding.bind(self.bridge, 'session-a')
         self.state['observation_error'] = 'capture unavailable'

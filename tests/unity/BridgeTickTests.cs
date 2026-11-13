@@ -23,6 +23,7 @@ internal sealed partial class BridgeTickHarness
     internal void BeginPublication() { publication=new CapturePublisher.Publication(null,core.Frame,9); }
     internal Action<string> afterRead;
     private readonly FrameRouter router=new FrameRouter();
+    private readonly LoadingWindow loading=new LoadingWindow();
     private readonly CapturePublisher publisher=new CapturePublisher();
     private CapturePublisher.Publication publication=null;
     private string observationError=null;

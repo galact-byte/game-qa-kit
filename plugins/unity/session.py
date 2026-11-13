@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -23,6 +24,7 @@ class UnitySession:
         self.root = Path(plan['destination'])
         self.host = self.bridge = self.baseline = self.link = None
         self.link_created = False
+        self.observed_loads = set()
 
     def prepare(self):
         revalidate_plan(self.plan)
@@ -119,6 +121,78 @@ class UnitySession:
                                 'bridge_directory': str(self.root / 'bridge'), 'host_pid': self.host.pid}
             time.sleep(.02)
         raise TimeoutError('startup_timeout：Unity 未在既定启动期限内取得有效首图')
+
+    def observe_loading(self, cancelled=lambda: False):
+        """仅固定 Rewired 构建可凭加载前证明延期回收；不续租或恢复输入。"""
+        if self.plan.get('backend') != 'unity_mono_rewired':
+            return False
+        path = self.root / 'bridge/loading.json'
+        no_links(path)
+        if not path.is_file():
+            return False
+        signal = read_json(path)
+        meta = self.bridge._connection()
+        started = signal.get('started_at')
+        requested, pending = signal.get('requested'), signal.get('pending')
+        identifier = signal.get('id')
+        if not (signal.get('schema_version') == 1
+                and all(signal.get(key) == meta[key] for key in ('protocol', 'session_id', 'pid', 'exe_path'))
+                and isinstance(identifier, str) and 1 <= len(identifier) <= 64 and identifier not in self.observed_loads
+                and signal.get('eligible') is True and signal.get('release_observed') is True
+                and type(started) in (int, float) and math.isfinite(started) and 0 <= time.time()-started < 10
+                and type(signal.get('start_frame')) is int and type(signal.get('release_frame')) is int
+                and 0 < signal['release_frame'] <= signal['start_frame']
+                and type(signal.get('start_observation_seq')) is int and signal['start_observation_seq'] >= 0
+                and isinstance(requested, list) and 0 < len(requested) <= 64
+                and all(isinstance(item, str) and 0 < len(item) <= 256 for item in requested)
+                and len(set(requested)) == len(requested)
+                and isinstance(pending, list) and all(isinstance(item, str) and item in requested for item in pending)
+                and signal.get('phase') in ('loading', 'ready_paused')):
+            return False
+        self.observed_loads.add(identifier)
+        deadline = time.monotonic() + max(0, 10-(time.time()-started))
+        self.bridge.pause()
+        record = dict(id=identifier, started_at=started, limit_seconds=10, state='observing',
+                      input_resumed=False, lease_renewed=False)
+        write_json(self.root / 'loading-observation.json', record)
+        while time.monotonic() < deadline:
+            if cancelled():
+                raise RuntimeError('loading_cancelled')
+            if not self.host.alive():
+                raise RuntimeError('loading_target_exited')
+            if (self.root / 'bridge/fatal.json').exists():
+                raise RuntimeError('loading_bridge_failed')
+            latest = read_json(path)
+            if latest.get('id') != identifier or any(latest.get(key) != meta[key] for key in ('session_id', 'pid', 'exe_path')):
+                raise RuntimeError('loading_identity_changed')
+            state = self.bridge.status()
+            if state.get('observation_error'):
+                raise RuntimeError('loading_observation_failed:' + str(state['observation_error']))
+            completed = latest.get('completion_frame')
+            if (latest.get('phase') == 'ready_paused' and latest.get('pending') == []
+                    and latest.get('requested') == requested and latest.get('eligible') is True
+                    and type(completed) is int and completed >= signal['start_frame']
+                    and state.get('connected') and state.get('paused') is True and state.get('held') == []
+                    and state.get('release_observed') is True and state.get('input_ready') is True
+                    and state.get('loading_id') == identifier and state.get('loading_phase') == 'ready_paused'
+                    and type(state.get('frame')) is int and state['frame'] > completed
+                    and type(state.get('observation_frame')) is int and state['observation_frame'] > completed
+                    and type(state.get('observation_seq')) is int
+                    and state['observation_seq'] > signal['start_observation_seq']):
+                image = validate_ready(self.root, state)
+                if cancelled():
+                    raise RuntimeError('loading_cancelled')
+                if not self.host.alive():
+                    raise RuntimeError('loading_target_exited')
+                if time.monotonic() >= deadline:
+                    break
+                write_json(self.root / 'loading-observation.json', {**record, **image, 'state': 'recovered_paused',
+                           'completion_frame': completed, 'observation_frame': state['observation_frame'],
+                           'observation_seq': state['observation_seq']})
+                return True
+            time.sleep(.02)
+        write_json(self.root / 'loading-observation.json', {**record, 'state': 'timeout'})
+        raise RuntimeError('loading_timeout')
 
     def stop(self):
         release = release_error = None

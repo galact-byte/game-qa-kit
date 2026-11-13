@@ -62,6 +62,42 @@ class WorkerObservationTests(unittest.TestCase):
             session.stop.assert_called_once()
             session.bridge.resume.assert_not_called()
 
+    def test_rewired_loading_recovery_is_passive_and_failed_recovery_still_reaps(self):
+        for recovered in (True, False):
+            with self.subTest(recovered=recovered), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory) / 'session'
+                request = Path(directory) / 'request.json'
+                write_json(request, {'payload': {'destination': str(root), 'backend': 'unity_mono_rewired',
+                           'fingerprint': 'checked'}, 'request_id': 'loading'})
+                session = mock.Mock()
+                session.host.alive.return_value = True
+                def prepare():
+                    root.mkdir()
+                    write_json(root / 'start.request.json', {'operation': 'start', 'directory': str(root.resolve()),
+                               'payload': {'fingerprint': 'checked'}})
+                def observe(cancelled):
+                    self.assertFalse(cancelled())
+                    if recovered:
+                        (root / 'stop.request').touch()
+                        return True
+                    raise RuntimeError('loading_timeout')
+                session.prepare.side_effect = prepare
+                session.start.return_value = {'state': 'ready_paused'}
+                session.bridge.status.return_value = {'connected': False, 'error': 'heartbeat expired'}
+                session.observe_loading.side_effect = observe
+                session.stop.return_value = {'state': 'stopped', 'target_exited': True}
+                with mock.patch('plugins.unity.session.UnitySession', return_value=session):
+                    self.assertEqual(game_worker._run(request), 0 if recovered else 1)
+                record = read_json(root / 'session.json')
+                if recovered:
+                    self.assertEqual(record['loading_observation'], 'recovered_paused')
+                else:
+                    self.assertIn('loading_timeout', record['error'])
+                session.observe_loading.assert_called_once()
+                session.stop.assert_called_once()
+                session.bridge.resume.assert_not_called()
+                session.bridge.action.assert_not_called()
+
     def test_backend_factory_selects_only_registered_sessions(self):
         from plugins.native_input.session import NativeSession
         from plugins.unity.session import UnitySession

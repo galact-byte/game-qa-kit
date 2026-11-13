@@ -15,7 +15,7 @@ class Binding:
     def __init__(self):
         self.engaged = False
         self.client = self.profile = self.session_id = self._lease = None
-        self.invalid = False
+        self.invalid = self._observe_only = False
         self._action_lock = threading.Lock()
 
     def bind(self, directory, session_id, *, observe_only=False):
@@ -41,7 +41,7 @@ class Binding:
             except RuntimeError:
                 lease = None
         self.client, self.session_id, self._lease = client, session_id, lease
-        self.engaged, self.invalid = True, False
+        self.engaged, self.invalid, self._observe_only = True, False, observe_only
         self.profile = GameProfile(name='session-' + session_id, proc=Path(meta['exe_path']).stem,
                                    exe_path=meta['exe_path'], target_pid=meta['pid'],
                                    data_dir=str(directory.parent / 'data'))
@@ -60,6 +60,9 @@ class Binding:
         if state.get('observation_error'):
             self.invalid = True
             raise RuntimeError('绑定已失效：取图失败，停止输入。' + str(state['observation_error']))
+        # 纯观察连接失联时清除预览，但不接管输入；恢复后仍重新校验原身份。
+        if not state.get('connected') and self._observe_only:
+            raise RuntimeError('观察连接暂不可用，请等待原会话或显式解绑')
         if (not state.get('connected') or state.get('session_id') != self.session_id
                 or state.get('pid') != self.profile.target_pid):
             self.invalid = True
@@ -120,7 +123,7 @@ class Binding:
         if self._lease is not None:
             self._lease.__exit__()
         self.client = self.profile = self.session_id = self._lease = None
-        self.invalid = False
+        self.invalid = self._observe_only = False
 
 
 class Manager:

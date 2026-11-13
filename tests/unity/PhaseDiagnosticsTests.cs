@@ -27,6 +27,13 @@ internal static class PhaseDiagnosticsTests
         }
         throw new Exception("snapshot missing "+marker);
     }
+    private static void AwaitIdle(PhaseDiagnostics trace)
+    {
+        var writing=typeof(PhaseDiagnostics).GetField("writing",BindingFlags.Instance|BindingFlags.NonPublic);
+        var watch=Stopwatch.StartNew();
+        while((int)writing.GetValue(trace)!=0 && watch.ElapsedMilliseconds<2000) Thread.Sleep(1);
+        Check((int)writing.GetValue(trace)==0,"diagnostic writer did not finish");
+    }
     private static IDisposable Enter(PhaseDiagnostics trace,int frame)
     { return trace==null ? null : trace.Enter("tick",frame,0); }
     public static int Main(string[] args)
@@ -59,14 +66,22 @@ internal static class PhaseDiagnosticsTests
         Check(gap.Contains("\"sampled_at\":"),"wall clock correlation available");
         using(trace.Enter("capture",42,3))
         using(trace.Enter("png_encode",42,3)) Await(path,"\"phase\":\"png_encode\"");
-        // Accelerate only the publication cadence. This executes the real bounded writer.
+        // Execute the real final publication without hundreds of unrelated disk writes.
         var publish=typeof(PhaseDiagnostics).GetMethod("Publish",BindingFlags.Instance|BindingFlags.NonPublic);
+        var timer=(Timer)typeof(PhaseDiagnostics).GetField("timer",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(trace);
+        timer.Change(Timeout.Infinite,Timeout.Infinite);
+        AwaitIdle(trace);
+        typeof(PhaseDiagnostics).GetField("writes",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(trace,479);
+        publish.Invoke(trace,new object[]{null});
         for(int i=0;i<600;i++) publish.Invoke(trace,new object[]{null});
+        AwaitIdle(trace);
         Check(new FileInfo(path).Length<8192,"diagnostic snapshot must be bounded");
         string capped=Read(path);
         publish.Invoke(trace,new object[]{null});
         Check(Read(path)==capped,"publication budget must stop further writes");
         trace.Dispose();
+        // Dispose does not block the game thread on a write already in flight.
+        AwaitIdle(trace);
         string stopped=Read(path);
         Thread.Sleep(300);
         Check(Read(path)==stopped,"disposed timer must stop publishing");

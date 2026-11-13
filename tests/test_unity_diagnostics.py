@@ -39,6 +39,7 @@ class UnityDiagnosticsTests(unittest.TestCase):
                                         'fingerprint': 'checked'}, 'request_id': 'request-a'})
         session = mock.Mock()
         session.host.alive.return_value = True
+        session.observe_loading.return_value = False
         def prepare():
             (root / 'bridge').mkdir(parents=True)
             write_json(root / 'start.request.json', {'operation': 'start', 'directory': str(root.resolve()),

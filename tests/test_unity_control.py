@@ -75,6 +75,7 @@ class UnityControlTests(unittest.TestCase):
             output = Path(directory) / 'BridgeTickTests.exe'
             tools['compile_sources'](output, [ROOT / 'plugins/unity/ControlCore.cs',
                                               ROOT / 'tests/unity/BridgeTickTests.cs',
+                                             ROOT / 'plugins/unity/LoadingWindow.cs',
                                               ROOT / 'plugins/unity/CapturePublisher.cs', generated])
             result = subprocess.run([str(output), directory], capture_output=True, encoding='utf-8',
                                     errors='replace', timeout=10,
@@ -91,6 +92,7 @@ class UnityControlTests(unittest.TestCase):
         except RuntimeError as error:
             self.skipTest(str(error))
         source = (ROOT / 'plugins/unity/GameQaBridge.cs').read_text(encoding='utf-8')
+        recovery = source[source.index('        private void RecoverLoading('):source.index('        private void Install()')]
         render = source[source.index('        private IEnumerator AfterRender()'):source.index('        private byte[] Capture()')]
         parent = Path('E:/DevData/gameqa-unity/tmp')
         parent.mkdir(parents=True, exist_ok=True)
@@ -98,12 +100,13 @@ class UnityControlTests(unittest.TestCase):
             generated = Path(directory) / 'RenderUnderTest.cs'
             generated.write_text('using System;\nusing System.IO;\nusing System.Collections;\n'
                                  'using UnityEngine;\nusing UnityEngine.SceneManagement;\nusing GameQaKit.Unity;\n'
-                                 'internal sealed partial class BridgeObservationHarness\n{\n' + render + '\n}\n',
+                                 'internal sealed partial class BridgeObservationHarness\n{\n' + recovery + render + '\n}\n',
                                  encoding='utf-8')
             output = Path(directory) / 'BridgeObservationTests.exe'
             tools['compile_sources'](output, [ROOT / 'plugins/unity/ControlCore.cs',
                                              ROOT / 'tests/unity/BridgeObservationTests.cs',
                                              ROOT / 'plugins/unity/CapturePublisher.cs',
+                                             ROOT / 'plugins/unity/LoadingWindow.cs',
                                              ROOT / 'plugins/unity/PhaseDiagnostics.cs', generated])
             result = subprocess.run([str(output), directory], capture_output=True, encoding='utf-8',
                                     errors='replace', timeout=10,

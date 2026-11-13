@@ -78,6 +78,9 @@ def _run(record):
                 if plan['backend'].startswith('unity_'):
                     from plugins.unity.diagnostics import capture_disconnect
                     capture_disconnect(root, bridge)
+                if plan['backend'] == 'unity_mono_rewired' and native.observe_loading(cancelled):
+                    publish(state='ready_paused', loading_observation='recovered_paused')
+                    continue
                 raise RuntimeError('bridge_disconnected：' + str(bridge.get('error') or 'unknown')
                                    + '；停止输入并回收自有进程')
             if (root / 'bridge/fatal.json').exists():

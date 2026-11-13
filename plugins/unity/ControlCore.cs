@@ -66,6 +66,16 @@ namespace GameQaKit.Unity
         {
             return Array.IndexOf(new[]{"up","down","left","right","ok","cancel","shift","pageup","pagedown"},button)>=0;
         }
+        public bool Reject(Command command,string error)
+        {
+            if(command==null || command.Session!=Session || command.Protocol!=1 || command.Id==null ||
+                !Regex.IsMatch(command.Id,@"\A[A-Za-z0-9_-]{1,64}\z") || seen.Contains(command.Id) ||
+                active!=null || PendingReceipt!=null) return false;
+            seen.Add(command.Id);
+            PendingReceipt=new Receipt { Request=command, Ok=false, Consumed=false,
+                Frame=Frame, CaptureFrame=Frame, Error=error };
+            return true;
+        }
         public bool Accept(Command command, double now, double leaseExpiry)
         {
             if(command==null || command.Session!=Session || command.Protocol!=1 || command.Id==null ||

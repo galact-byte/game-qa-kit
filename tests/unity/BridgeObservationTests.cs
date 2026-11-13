@@ -26,7 +26,13 @@ internal sealed partial class BridgeObservationHarness : IDisposable
     private Dictionary<string,object> captureView,receiptView;
     private string receiptViewId;
     private bool Ready=true;
-    private long observationSequence;
+    private long observationSequence,observationFrame;
+    private bool captureImageUsable;
+    private bool blankCapture;
+    private readonly LoadingWindow loading=new LoadingWindow();
+    private readonly string session="observation-test";
+    private Dictionary<string,string> Read(string name) { return new Dictionary<string,string>(); }
+    private void WriteLoading() {}
     private string observationError;
     private double lastObservation;
     private static double Now;
@@ -63,6 +69,7 @@ internal sealed partial class BridgeObservationHarness : IDisposable
     {
         if(failCapture) throw new IOException("capture unavailable");
         captures++;
+        captureImageUsable=!blankCapture;
         return new byte[]{1,2,3};
     }
     private Dictionary<string,object> View() { return new Dictionary<string,object>{{"frame",core.Frame}}; }
@@ -109,6 +116,25 @@ internal sealed partial class BridgeObservationHarness : IDisposable
     { body(); Console.WriteLine("PASS: "+name); }
     private static int Main(string[] args)
     {
+        Case("loading cannot recover from a post-load blank image",delegate
+        {
+            using(var bridge=new BridgeObservationHarness(args[0]))
+            {
+                bridge.core.BeginFrame(Now,100,"");
+                bridge.Command("resume","resume",1);
+                bridge.core.BeginFrame(Now,100,"");
+                bridge.core.Captured("x"); bridge.core.AcknowledgeReceipt();
+                bridge.Command("click","click",1);
+                bridge.core.Fail("pause"); bridge.FlushReceipt();
+                bridge.core.ObserveReleased("mouse0");
+                bridge.loading.Begin("Next",bridge.core,Now,0);
+                bridge.loading.Loaded("Next",bridge.core.Frame);
+                bridge.blankCapture=true; bridge.release.Set(); bridge.Step(); bridge.Drain();
+                Assert(bridge.loading.Active && bridge.core.Paused,"a published black image must not release the loading gate");
+                bridge.blankCapture=false; Now=.6; bridge.Step(); bridge.Drain();
+                Assert(!bridge.loading.Active && bridge.core.Paused,"a later valid image may recover without resuming input");
+            }
+        });
         Case("paused slow publication stays off the game thread and cannot accumulate",delegate
         {
             using(var bridge=new BridgeObservationHarness(args[0]))
