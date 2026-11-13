@@ -8,6 +8,14 @@ from PIL import Image
 from .admission import no_links
 
 
+class StartupImagePending(RuntimeError):
+    """保存按原判据拒绝的空白首图，供允许自然启动等待的调用者留证。"""
+
+    def __init__(self, body):
+        super().__init__('startup_image_invalid')
+        self.body = body
+
+
 def validate_ready(root, state):
     if not (state.get('connected') and state.get('paused') is True and state.get('held') == []
             and state.get('observation_seq', 0) > 0 and state.get('session_id')):
@@ -28,5 +36,5 @@ def validate_ready(root, state):
             white += value == (255, 255, 255)
             count += 1
         if max(black, white) / count >= .999:
-            raise RuntimeError('startup_image_invalid')
+            raise StartupImagePending(body)
     return {'screenshot': str(image), 'screenshot_sha256': hashlib.sha256(body).hexdigest()}

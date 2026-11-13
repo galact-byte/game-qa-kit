@@ -8,7 +8,7 @@ import time
 import uuid
 
 from gameqakit.admission import no_links, revalidate_plan
-from gameqakit.admission_runtime import validate_ready
+from gameqakit.admission_runtime import StartupImagePending, validate_ready
 from gameqakit.control import BridgeClient, _write_ini
 from gameqakit.desktop import DesktopProcess
 from gameqakit.sessions import read_json, write_json
@@ -68,7 +68,15 @@ class UnitySession:
         _write_ini(directory / 'connection.ini', connection)
         self.bridge = BridgeClient(directory, pid=self.host.pid, exe_path=str(executable))
         self.host.run()
+        ready = self.wait_ready(self.root / 'persistent/CompatibilityProbe', cancelled)
+        write_json(self.root / 'profile.json', {'name': self.root.name, 'proc': 'Taimashi',
+                   'exe_path': str(executable), 'data_dir': str(self.root / 'data')})
+        return ready
+
+    def wait_ready(self, expected_persistent, cancelled=lambda: False):
         deadline = time.monotonic() + 15
+        last_sequence = 0
+        backend_was_ready = False
         while time.monotonic() < deadline:
             if cancelled():
                 raise InterruptedError('接入已取消')
@@ -77,15 +85,30 @@ class UnitySession:
             state = self.bridge.status()
             if state.get('observation_error'):
                 raise RuntimeError('observation_failed:' + state['observation_error'])
-            if state.get('connected') and state.get('input_ready') and state.get('observation_seq', 0) > 0:
-                image = validate_ready(self.root, state)
-                expected = str(self.root / 'persistent/CompatibilityProbe')
-                if not Path(state.get('persistent_data_path', '')).resolve() == Path(expected).resolve():
+            if backend_was_ready and not state.get('connected'):
+                raise RuntimeError('bridge_disconnected_before_ready')
+            if state.get('connected'):
+                # 第 0 帧初始化占位心跳可能先于后端加载；就绪后断线才代表控制通路丢失。
+                backend_was_ready = backend_was_ready or state.get('input_ready') is True
+                if Path(state.get('persistent_data_path', '')).resolve() != Path(expected_persistent).resolve():
                     raise RuntimeError('unexpected_persistent_data_path')
-                write_json(self.root / 'profile.json', {'name': self.root.name, 'proc': 'Taimashi',
-                           'exe_path': str(executable), 'data_dir': str(self.root / 'data')})
-                return {**state, **image, 'state': 'ready_paused', 'bridge_directory': str(directory),
-                        'host_pid': self.host.pid}
+                if not (state.get('paused') is True and state.get('held') == [] and state.get('session_id')):
+                    raise RuntimeError('首图或真实暂停松键尚未确认')
+            if state.get('connected') and state.get('input_ready') and state.get('observation_seq', 0) > 0:
+                sequence = state['observation_seq']
+                if sequence > last_sequence:
+                    last_sequence = sequence
+                    try:
+                        image = validate_ready(self.root, state)
+                    except StartupImagePending as exc:
+                        # 只等待启动空白图；保存同一份已判读字节，不重读正在发布的截图。
+                        folder = self.root / 'startup-candidates'
+                        folder.mkdir(exist_ok=True)
+                        (folder / f'{sequence}.png').write_bytes(exc.body)
+                        write_json(folder / f'{sequence}.json', {'state': state, 'error': str(exc)})
+                    else:
+                        return {**state, **image, 'state': 'ready_paused',
+                                'bridge_directory': str(self.root / 'bridge'), 'host_pid': self.host.pid}
             time.sleep(.02)
         raise TimeoutError('startup_timeout：Unity 未在既定启动期限内取得有效首图')
 
