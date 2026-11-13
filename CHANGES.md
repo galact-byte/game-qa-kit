@@ -1,5 +1,34 @@
 # 修改记录 — game-qa-kit
 
+## 2026-11-13 — Unity 商业副本阶段诊断取证
+
+### 背景与目标
+
+- 开启已批准的阶段诊断，区分 Rewired 入图失联与 IL2CPP 被动观察失败，更新[加载生命周期设计](docs/superpowers/specs/unity-loading-lifecycle-design.md#商业副本首轮取证两类停顿分别处理)中的证据和后续范围。
+
+### 影响与兼容性
+
+- 本轮仅更新取证结论与待审阅设计，生产代码、控制协议、2 秒心跳、15 秒启动期限、松键门槛、图像判据和回收策略未变。
+- 三批完整副本均在独立桌面运行，原目录／原持久化数据／PlayerPrefs 核对无变化；变化文件、私有数据和截图日志保全后，所有运行副本已回收，包括老师要求删除的约 12.46 GiB IL2CPP 副本。
+
+### 文件与实现
+
+| 操作 | 路径 | 说明 |
+| --- | --- | --- |
+| 修改 | `docs/superpowers/specs/unity-loading-lifecycle-design.md` | 区分失联附近诊断、事后完成耗时和尚未核实的底层原因；拆开截图发布与加载观察方案 |
+| 本地保留 | `<接入验证目录>/validation/verify_commercial_loading_diagnostics.py`、`unity-commercial-loading-diagnostics.json` | 只读复核三批身份、原数据保护、诊断来源与副本回收；原始证据不入库 |
+
+### 验证
+
+- Rewired 首批诊断比失联早 26.505 秒，不能用于阶段归因；第二批失联前约 2.949 毫秒采样显示桥回调间隔已达 1939.495 毫秒，已完成状态查询最大 4.210 毫秒、截图最大 179.086 毫秒。
+- IL2CPP 本批输入 0 次，在标题被动观察时失败；失联快照与事后临时记录确认一次主线程截图耗时 2191.717 毫秒，其中文件发布 1944.959 毫秒，足以跨过现行心跳门槛。没有复验剧情加载，未把底层文件系统原因写成已定位。
+- `python -X utf8 -W error::ResourceWarning -m unittest tests.test_unity_diagnostics tests.test_unity_control tests.test_control -v`：29 项通过、无跳过，10.685 秒；先前一次日志含 ERROR 且无完整汇总，原因未确认，不计通过。
+
+### 已知限制与后续
+
+- Rewired／IL2CPP 完整受管整链仍未通过，未测得可用加载宽限上限。Rewired 加载前松键证明与明确加载信号仍缺失。
+- 建议先审阅有界异步 PNG 文件发布，维持成功发布后才推进观察序号／动作回执的语义，用可控慢发布小样本先行验证；尚未实施。Rewired 加载观察方案单独审阅，不因 IL2CPP 截图结果而扩大结论。
+
 ## 2026-11-13 — Unity 阶段耗时诊断与失联现场保全
 
 ### 背景与目标
