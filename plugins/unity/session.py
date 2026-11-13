@@ -1,4 +1,4 @@
-"""固定 Unity Mono 旧 Input 构建的受管生命周期。"""
+"""固定 Unity Mono 输入后端的受管生命周期。"""
 from __future__ import annotations
 
 import os
@@ -47,20 +47,23 @@ class UnitySession:
     def start(self, cancelled=lambda: False):
         if self.baseline is None or self.host is not None:
             raise RuntimeError('启动前需要本创建者完成准备，且不能重复启动')
-        if recipe.artifact_digests(self.plan['artifacts']) != self.plan['artifact_digests']:
+        profile = recipe.build_profile(self.plan['source'])
+        if recipe.artifact_digests(self.plan['artifacts'], input_system=profile['input_backend'] == 'input_system') != self.plan['artifact_digests']:
             raise RuntimeError('artifact_changed')
         if recipe.manifest(self.root / 'runtime') != self.baseline:
             raise RuntimeError('runtime_changed_before_start')
         if cancelled():
             raise InterruptedError('接入已取消')
         self.connect_persistent()
-        executable = self.root / 'runtime/Taimashi.exe'
+        executable = self.root / 'runtime' / profile['executable']
+        record = read_json(self.root / 'unity-preparation.json')
         directory = self.root / 'bridge'
         session = uuid.uuid4().hex
-        self.host = DesktopProcess([str(executable), '-screen-fullscreen', '0', '-screen-width', '1024',
+        graphics = ['-force-d3d11'] if profile['input_backend'] == 'input_system' else []
+        self.host = DesktopProcess([str(executable), *graphics, '-screen-fullscreen', '0', '-screen-width', '1024',
                                     '-screen-height', '768', '-logFile', str(self.root / 'player.log')],
                                    cwd=str(executable.parent), env={'GAMEQAKIT_BRIDGE_DIR': str(directory),
-                                   'GAMEQAKIT_SESSION_ID': session, 'GAMEQAKIT_INPUT_BACKEND': 'legacy'})
+                                   'GAMEQAKIT_SESSION_ID': session, 'GAMEQAKIT_INPUT_BACKEND': profile['input_backend']})
         self.host.__enter__()
         connection = {'protocol': 1, 'session_id': session, 'pid': self.host.pid,
                       'exe_path': str(executable), 'engine': 'unity_mono', 'command_format': 'ini'}
@@ -68,8 +71,8 @@ class UnitySession:
         _write_ini(directory / 'connection.ini', connection)
         self.bridge = BridgeClient(directory, pid=self.host.pid, exe_path=str(executable))
         self.host.run()
-        ready = self.wait_ready(self.root / 'persistent/CompatibilityProbe', cancelled)
-        write_json(self.root / 'profile.json', {'name': self.root.name, 'proc': 'Taimashi',
+        ready = self.wait_ready(self.root / 'persistent' / record['product'], cancelled)
+        write_json(self.root / 'profile.json', {'name': self.root.name, 'proc': Path(profile['executable']).stem,
                    'exe_path': str(executable), 'data_dir': str(self.root / 'data')})
         return ready
 
@@ -146,7 +149,7 @@ class UnitySession:
             after = recipe.manifest(before['path'])
             write_json(self.root / 'external-after.json', after)
             external_ok = after == before['files']
-            registry = recipe.registry_snapshot('DefaultCompany', 'Taimashi')
+            registry = recipe.registry_snapshot(before.get('company', 'DefaultCompany'), before.get('product', 'Taimashi'))
             write_json(self.root / 'registry-after.json', registry)
             registry_ok = registry == before['registry']
         link_removed = not self.link_created

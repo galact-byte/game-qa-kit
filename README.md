@@ -38,7 +38,7 @@ python -m pip install -r requirements.txt
 
 ## AI 后台操作（实验）
 
-主程序已增加“AI 后台接入”：选择原游戏、QA 数据与已有组件目录，先只读检查和审阅操作摘要，再确认准备启动；游戏初始暂停，结束由创建者回收。所选目录可记忆；也可连接已有受管会话或外部桥，仅观察画面与暂停，不占用 MCP 动作权。当前完整启动流程覆盖已登记的固定 SRPG Studio 构建、Unity Mono／旧 Input 的《Taimashi》构建、MV 1.6.1／MZ 1.8.0 SDK 空白工程与固定 VX Ace SDK＋RGSS301 组合；分别需要已有的原生组件、匹配的 Unity 桥组件、已登记的完整 NW.js 运行时或 RGSS301.dll。其他引擎和 Unity 后端仍按各自已验接入方式使用，人工盯屏保留。操作步骤和 MCP／CLI 参数见[游戏接入说明](docs/GAME-ADMISSION.md)。
+主程序已增加“AI 后台接入”：选择原游戏、QA 数据与已有组件目录，先只读检查和审阅操作摘要，再确认准备启动；游戏初始暂停，结束由创建者回收。所选目录可记忆；也可连接已有受管会话或外部桥，仅观察画面与暂停，不占用 MCP 动作权。当前完整启动流程覆盖已登记的固定 SRPG Studio 构建、Unity Mono／旧 Input 的《Taimashi》及新 Input System 的《OmaNeko-Seikatsu》构建、MV 1.6.1／MZ 1.8.0 SDK 空白工程与固定 VX Ace SDK＋RGSS301 组合；分别需要已有的原生组件、匹配的 Unity 桥组件、已登记的完整 NW.js 运行时或 RGSS301.dll。其他引擎和 Unity 后端仍按各自已验接入方式使用，人工盯屏保留。操作步骤和 MCP／CLI 参数见[游戏接入说明](docs/GAME-ADMISSION.md)。
 
 人工盯屏可按上面的步骤直接使用。AI 后台操作需先在测试副本接入对应引擎桥，
 再通过统一 MCP 连接和发送动作。当前还没有将任意游戏一键转为后台控制的入口。

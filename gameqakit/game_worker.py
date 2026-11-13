@@ -13,7 +13,7 @@ def session_for(plan):
     if plan.get('backend') == 'native_input':
         from plugins.native_input.session import NativeSession
         return NativeSession(plan)
-    if plan.get('backend') == 'unity_mono_legacy':
+    if plan.get('backend') in ('unity_mono_legacy', 'unity_mono_input_system'):
         from plugins.unity.session import UnitySession
         return UnitySession(plan)
     if plan.get('backend') == 'rpgmaker_js':

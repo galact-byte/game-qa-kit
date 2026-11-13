@@ -7,7 +7,7 @@
 | RPG Maker MV／MZ | 共用 JavaScript 桥；SDK 工程真实移动、菜单与协议安全检查；固定 MV 1.6.1／MZ 1.8.0 SDK 工程已迁入受管入口，真实 MCP 和 Qt 验证暂停首图、开始、右移、菜单、当前预览与回收 | 仅登记工程及完整 NW.js；自定义插件、商业游戏仍逐款验收；见 [受管插件说明](../plugins/rpgmaker_js/README.md)及[后台控制实证](BACKGROUND-CONTROL.md) |
 | RPG Maker VX Ace／RGSS3 | 独立 Ruby 桥；既有 SDK 和定制商业副本的正常读档、真实位移、菜单及暂停；固定 SDK＋已登记 RGSS301 已迁入受管入口，真实双 MCP＋Qt 验证暂停标题、开始、转向、菜单、预览和回收 | 本轮固定 SDK 地图不可通行，不算位移或存读档复验；商业游戏尚未迁入受管入口，不能直接用于 RGSS1／2；见 [受管插件说明](../plugins/rgss3/README.md)及[后台控制实证](BACKGROUND-CONTROL.md) |
 | Unity Mono／旧 Input | BepInEx 5；空白场景移动／菜单／UI，商业样本标题和对话 | 商业玩法及其他版本另验；见 [Unity 矩阵](../plugins/unity/README.md) |
-| Unity Mono／新 Input System | 虚拟键鼠与设备隔离；Unity 6 空白场景真实位移、菜单和 UI | 商业样本及自定义设备另验 |
+| Unity Mono／新 Input System | 虚拟键鼠与设备隔离；Unity 6 空白场景真实位移、菜单和 UI；固定商业构建经受管 MCP 正常标题点击进入房间及推进对白、Qt 当前预览和退出核查 | 商业位移、存读档、其他构建及自定义设备另验 |
 | Unity IL2CPP／新 Input System | BepInEx 6／Il2CppInterop；指定商业副本标题、难度与剧情 | 不代表 IL2CPP 旧 Input 或 Rewired 已支持，也未据此验商业角色位移 |
 | Unity Mono／Rewired | 指定 Unity 5.6.7f1 商业副本正常推进至地图、左右实际位移与暂停 | Rewired API、其他中间件及动态程序集不自动覆盖 |
 | Wolf RPG | 两个固定 EXE 哈希，原生桥；官方范例移动／菜单与战斗闭环；商业构建新游戏、移动／菜单、第 1 槽保存和跨进程读取，以及 30 轮移动／菜单重复测试 | 未测哈希拒绝；官方存读档、商业战斗、全流程及长期稳定性仍未验；见 [Wolf 记录](../plugins/wolf/README.md) |
