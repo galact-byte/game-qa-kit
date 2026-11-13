@@ -34,6 +34,9 @@ namespace GameQaKit.Unity
         private string directory,executable,session;
         private int pid;
         private ControlCore core;
+        private PhaseDiagnostics diagnostics;
+        private IDisposable Trace(string phase)
+        { return diagnostics==null ? null : diagnostics.Enter(phase,core==null ? 0 : core.Frame,observationSequence); }
         private IInputBackend router;
         private bool installed;
         private double lastStatus,lastObservation;
@@ -62,6 +65,7 @@ namespace GameQaKit.Unity
                     throw new InvalidOperationException("Bridge target/session mismatch");
                 Directory.CreateDirectory(FileAt("results")); Directory.CreateDirectory(FileAt("screenshots"));
                 core=new ControlCore(session);
+                diagnostics=PhaseDiagnostics.Open(directory,session,Environment.GetEnvironmentVariable("GAMEQAKIT_UNITY_DIAGNOSTICS")=="1");
 #if !IL2CPP
                 LegacyInput.Core=core;
 #endif
@@ -72,7 +76,8 @@ namespace GameQaKit.Unity
                 this.StartCoroutine(AfterRender());
                 WriteStatus(true);
             }
-            catch(Exception error) { BridgeLog.LogError(error); enabled=false; }
+            catch(Exception error)
+            { if(diagnostics!=null) diagnostics.Dispose(); BridgeLog.LogError(error); enabled=false; }
         }
         private void Start()
         {
@@ -127,14 +132,20 @@ namespace GameQaKit.Unity
         private void Tick()
         {
             if(core==null) return;
+            using(Trace("tick"))
             try
             {
                 bool wasPaused=core.Paused;
                 // Read the command before its authorization snapshots: the host
                 // publishes its lease first, and a newer pause must take priority.
-                var fields=core.Active==null && core.PendingReceipt==null ? Read("request") : null;
-                double now=Now,expiry=Lease();
-                core.BeginFrame(now,expiry,Wire.PauseId(Read("pause"),session));
+                Dictionary<string,string> fields;
+                using(Trace("request_read")) fields=core.Active==null && core.PendingReceipt==null ? Read("request") : null;
+                double now=Now,expiry;
+                using(Trace("lease_pause_read"))
+                {
+                    expiry=Lease();
+                    core.BeginFrame(now,expiry,Wire.PauseId(Read("pause"),session));
+                }
                 if(fields!=null)
                 {
                     if(Wire.Get(fields,"session_id")==session && Wire.Get(fields,"protocol")=="1")
@@ -148,7 +159,7 @@ namespace GameQaKit.Unity
                     }
                 }
                 if(!wasPaused && core.Paused && (router==null || !router.DrivesFrames)) UnityEngine.Input.ResetInputAxes();
-                if(router!=null) router.Advance(Time.unscaledDeltaTime);
+                using(Trace("input_backend")) if(router!=null) router.Advance(Time.unscaledDeltaTime);
                 FlushReceipt(); WriteStatus(false);
             }
             catch(Exception error) { core.Fail("bridge_io: "+error.Message); TryReport(); }
@@ -159,6 +170,7 @@ namespace GameQaKit.Unity
             {
                 yield return new WaitForEndOfFrame();
                 if(core==null) continue;
+                using(Trace("after_render"))
                 try
                 {
                     if(core.EndFrame())
@@ -167,7 +179,8 @@ namespace GameQaKit.Unity
                         if(!scene.isLoaded) continue;
                         string relative="screenshots/"+core.ActiveId+".png";
                         Capture(FileAt(relative));
-                        Wire.Write(FileAt("screenshots/startup.png"),File.ReadAllBytes(FileAt(relative)));
+                        using(Trace("capture_publish"))
+                            Wire.Write(FileAt("screenshots/startup.png"),File.ReadAllBytes(FileAt(relative)));
                         observationSequence++; lastObservation=Now; observationError=null;
                         core.Captured(relative);
                     }
@@ -190,21 +203,33 @@ namespace GameQaKit.Unity
             if(Screen.width<1 || Screen.height<1 || (long)Screen.width*Screen.height>16777216)
                 throw new InvalidOperationException("Invalid capture dimensions");
             Texture2D texture=null;
+            using(Trace("capture"))
             try
             {
-                texture=new Texture2D(Screen.width,Screen.height,TextureFormat.RGB24,false);
-                texture.ReadPixels(new Rect(0,0,Screen.width,Screen.height),0,0,false); texture.Apply();
+                using(Trace("read_pixels"))
+                {
+                    texture=new Texture2D(Screen.width,Screen.height,TextureFormat.RGB24,false);
+                    texture.ReadPixels(new Rect(0,0,Screen.width,Screen.height),0,0,false); texture.Apply();
+                }
+                byte[] png;
+                using(Trace("png_encode"))
+                {
 #if IL2CPP
-                byte[] png=ImageConversion.EncodeToPNG(texture).ToArray();
+                    png=ImageConversion.EncodeToPNG(texture).ToArray();
 #else
-                byte[] png=texture.EncodeToPNG();
+                    png=texture.EncodeToPNG();
 #endif
+                }
                 if(png==null || png.Length>16*1024*1024) throw new InvalidOperationException("Invalid PNG size");
-                Wire.Write(target,png);
+                using(Trace("capture_write")) Wire.Write(target,png);
             }
             finally { if(texture!=null) UnityEngine.Object.Destroy(texture); }
         }
         private Dictionary<string,object> View()
+        {
+            using(Trace("view")) return ReadView();
+        }
+        private Dictionary<string,object> ReadView()
         {
             var roots=new List<object>();
             var scene=SceneManager.GetActiveScene();
@@ -236,7 +261,7 @@ namespace GameQaKit.Unity
                 {"ok",result.Ok},{"consumed",result.Consumed},{"frame",result.Frame},{"capture_frame",result.CaptureFrame},
                 {"paused",core.Paused},{"error",result.Error},{"screenshot",result.Screenshot},{"state",View()} };
             WriteStatus(true);
-            Wire.WriteJson(FileAt("results/"+result.Request.Id+".json"),record);
+            using(Trace("receipt_write")) Wire.WriteJson(FileAt("results/"+result.Request.Id+".json"),record);
             core.AcknowledgeReceipt();
         }
         private void WriteStatus(bool force)
@@ -254,7 +279,8 @@ namespace GameQaKit.Unity
             state["screen"]=new[]{Screen.width,Screen.height}; state["error"]=core.Error;
             state["command_id"]=core.ActiveId; state["patched_methods"]=router==null ? 0 : router.PatchedMethods;
             state["capabilities"]=Ready ? new[]{"move","confirm","cancel","wait","press","release","click"} : new string[0];
-            Wire.WriteState(FileAt("status.json"),state); lastStatus=now;
+            using(Trace("status_write")) Wire.WriteState(FileAt("status.json"),state);
+            lastStatus=now;
         }
         private void TryReport()
         {
@@ -263,6 +289,7 @@ namespace GameQaKit.Unity
         }
         private void OnDestroy()
         {
+            if(diagnostics!=null) diagnostics.Dispose();
             if(core==null) return;
             core.Fail("plugin_unloaded"); TryReport();
 #if !IL2CPP

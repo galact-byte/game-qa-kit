@@ -67,6 +67,16 @@ Mono Rewired 固定构建改用 32 位 Doorstop，并在同一层提供 `GameQaR
 
 受管真实 MCP 批次已逐图验证：两个固定构建分别取得初始暂停首图、正常点击标题进入剧情，Qt 观察预览随当前图更新且不占动作权，观察者关闭后目标仍存活，最终由创建者停止并通过原数据核对。新 Input System 构建的有效首图为 Live2D 启动标志，零输入持续观察后自然到达标题；普通点击进入 MainScene 房间后再次点击可推进对白。范围只覆盖这些固定构建的菜单／剧情入口，商业位移、存读档、其他构建及完整玩法仍须另验。
 
+## 阶段耗时诊断
+
+维护者排查主线程停顿时，可在启动受管 worker 的同一进程环境中显式设置 `GAMEQAKIT_UNITY_DIAGNOSTICS=1`；默认关闭。该变量由独立桌面子进程继承，不需要改游戏或控制协议。
+
+开启后，桥在 `bridge/diagnostics.json` 记录当前阶段、阶段持续时间、最近／最大完成耗时、真实游戏帧与观察序号，并保留回调之间的间隔。阶段覆盖命令读取、租约／暂停读取、输入后端、场景状态查询、像素读取、PNG 编码及文件发布。后台定时器每 250 毫秒尝试发布，只读取托管计时快照，不调用 Unity API，也不更新控制心跳。每次记录最多 8 KiB，临时文件同限；单实例最多发布 480 次或运行 120 秒，先到即停止，不自动重启计时。
+
+受管 worker 首次报告失联时，在原回收之前尝试写入会话 `disconnect.json`，限量保全读到的原始状态、连接、请求、租约、暂停及诊断文件，并记录宿主单调时钟、墙钟和可解析的心跳年龄。单个原文件最多保全 8 KiB；损坏内容原样标记，诊断失败不替换原错误、不跳过清理。诊断可能包含不同会话或过期文件，只供人工取证，不能证明输入就绪、松键或可恢复控制。
+
+本项沿用原 2 秒心跳、15 秒启动期限和失败回收。它没有实施加载等待状态，也没有解除 Rewired／IL2CPP 受管入图阻碍。使用后取消环境变量即可关闭；回退本次源码提交不改游戏或存档。诊断回归入口为 `python -m unittest tests.test_unity_diagnostics tests.test_unity_control tests.test_control -v`。
+
 ## 接入与验证
 
 1. 用 `gameqakit.desktop.DesktopProcess` 挂起创建副本；设置 `GAMEQAKIT_BRIDGE_DIR`、`GAMEQAKIT_SESSION_ID` 和 `GAMEQAKIT_INPUT_BACKEND`（`legacy`、`input_system`、`rewired`）。DesktopProcess 绑定实际独立桌面名称。

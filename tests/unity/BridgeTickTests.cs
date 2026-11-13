@@ -21,6 +21,7 @@ internal sealed partial class BridgeTickHarness
     internal readonly List<Receipt> receipts=new List<Receipt>();
     internal Action<string> afterRead;
     private readonly FrameRouter router=new FrameRouter();
+    private IDisposable Trace(string phase) { return null; }
     private static double Now { get { return 10; } }
     private bool Ready { get { return true; } }
     private sealed class FrameRouter

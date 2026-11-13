@@ -81,7 +81,7 @@ def compile_il2cpp(game: Path, output: Path) -> None:
         result = subprocess.run(command + [str(p) for p in sources], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if result.returncode:
             raise RuntimeError(result.stdout.decode('utf-8', errors='replace'))
-    compile_one(output, [ROOT / name for name in ('ControlCore.cs', 'DesktopGuard.cs', 'InputBackend.cs', 'GameQaBridge.cs', 'Il2CppEntry.cs')])
+    compile_one(output, [ROOT / name for name in ('ControlCore.cs', 'DesktopGuard.cs', 'InputBackend.cs', 'PhaseDiagnostics.cs', 'GameQaBridge.cs', 'Il2CppEntry.cs')])
     compile_one(output.parent / 'GameQaInputSystem.dll', [ROOT / 'backends/InputSystemBackend.cs'], [output, interop / 'Unity.InputSystem.dll'])
 
 

@@ -49,7 +49,7 @@ class UnityControlTests(unittest.TestCase):
         parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='intake-', dir=parent) as directory:
             generated = Path(directory) / 'TickUnderTest.cs'
-            generated.write_text('using System;\nusing UnityEngine;\nusing GameQaKit.Unity;\ninternal sealed partial class BridgeTickHarness\n{\n'
+            generated.write_text('using System;\nusing System.Collections.Generic;\nusing UnityEngine;\nusing GameQaKit.Unity;\ninternal sealed partial class BridgeTickHarness\n{\n'
                                  + lease + tick + '\n}\n', encoding='utf-8')
             output = Path(directory) / 'BridgeTickTests.exe'
             tools['compile_sources'](output, [ROOT / 'plugins/unity/ControlCore.cs',

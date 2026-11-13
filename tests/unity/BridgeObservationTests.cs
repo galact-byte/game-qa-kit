@@ -15,6 +15,7 @@ namespace UnityEngine.SceneManagement
 
 internal sealed partial class BridgeObservationHarness
 {
+    private IDisposable Trace(string phase) { return null; }
     private ControlCore core = new ControlCore("observation-test");
     private bool Ready { get; set; }
     private long observationSequence { get; set; }

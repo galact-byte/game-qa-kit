@@ -75,6 +75,9 @@ def _run(record):
             if bridge.get('observation_error'):
                 raise RuntimeError('observation_failed：' + str(bridge['observation_error']))
             if not bridge.get('connected'):
+                if plan['backend'].startswith('unity_'):
+                    from plugins.unity.diagnostics import capture_disconnect
+                    capture_disconnect(root, bridge)
                 raise RuntimeError('bridge_disconnected：' + str(bridge.get('error') or 'unknown')
                                    + '；停止输入并回收自有进程')
             if (root / 'bridge/fatal.json').exists():
