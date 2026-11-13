@@ -35,6 +35,11 @@ namespace GameQaKit.Unity
         private int pid;
         private ControlCore core;
         private PhaseDiagnostics diagnostics;
+        private CapturePublisher publisher;
+        private CapturePublisher.Publication publication;
+        private Dictionary<string,object> captureView;
+        private Dictionary<string,object> receiptView;
+        private string receiptViewId;
         private IDisposable Trace(string phase)
         { return diagnostics==null ? null : diagnostics.Enter(phase,core==null ? 0 : core.Frame,observationSequence); }
         private IInputBackend router;
@@ -43,6 +48,7 @@ namespace GameQaKit.Unity
         private long observationSequence;
         private string observationError;
         private static double Now { get { return (DateTime.UtcNow-new DateTime(1970,1,1,0,0,0,DateTimeKind.Utc)).TotalSeconds; } }
+        private static double CaptureClock { get { return Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency; } }
         private string FileAt(string name) { return Path.Combine(directory,name); }
         private Dictionary<string,string> Read(string name) { return Wire.ReadIni(FileAt(name+".ini")); }
         private void Awake()
@@ -65,6 +71,7 @@ namespace GameQaKit.Unity
                     throw new InvalidOperationException("Bridge target/session mismatch");
                 Directory.CreateDirectory(FileAt("results")); Directory.CreateDirectory(FileAt("screenshots"));
                 core=new ControlCore(session);
+                publisher=new CapturePublisher();
                 diagnostics=PhaseDiagnostics.Open(directory,session,Environment.GetEnvironmentVariable("GAMEQAKIT_UNITY_DIAGNOSTICS")=="1");
 #if !IL2CPP
                 LegacyInput.Core=core;
@@ -138,8 +145,10 @@ namespace GameQaKit.Unity
                 bool wasPaused=core.Paused;
                 // Read the command before its authorization snapshots: the host
                 // publishes its lease first, and a newer pause must take priority.
+                if(publication!=null && publisher.Expired(publication,CaptureClock))
+                    throw new TimeoutException("capture_publication_timeout");
                 Dictionary<string,string> fields;
-                using(Trace("request_read")) fields=core.Active==null && core.PendingReceipt==null ? Read("request") : null;
+                using(Trace("request_read")) fields=core.Active==null && core.PendingReceipt==null && publication==null ? Read("request") : null;
                 double now=Now,expiry;
                 using(Trace("lease_pause_read"))
                 {
@@ -153,7 +162,7 @@ namespace GameQaKit.Unity
                         var request=Wire.ParseCommand(fields);
                         if(core.Accept(request,now,expiry))
                         {
-                            if(!Ready) core.Fail("input_backend_unavailable");
+                            if(!Ready || observationError!=null) core.Fail("input_backend_unavailable");
                             else if(request.Action=="click" && (request.X>=Screen.width || request.Y>=Screen.height)) core.Fail("click_out_of_bounds");
                         }
                     }
@@ -162,7 +171,11 @@ namespace GameQaKit.Unity
                 using(Trace("input_backend")) if(router!=null) router.Advance(Time.unscaledDeltaTime);
                 FlushReceipt(); WriteStatus(false);
             }
-            catch(Exception error) { core.Fail("bridge_io: "+error.Message); TryReport(); }
+            catch(Exception error)
+            {
+                if(publication!=null) FailCapture(error);
+                else { core.Fail("bridge_io: "+error.Message); TryReport(); }
+            }
         }
         private IEnumerator AfterRender()
         {
@@ -173,32 +186,63 @@ namespace GameQaKit.Unity
                 using(Trace("after_render"))
                 try
                 {
+                    if(publication!=null)
+                    {
+                        if(publisher.Expired(publication,CaptureClock)) throw new TimeoutException("capture_publication_timeout");
+                        var completed=publisher.Take();
+                        if(completed!=null)
+                        {
+                            publication=null;
+                            if(completed.Error!=null) throw completed.Error;
+                            if(completed.ElapsedMilliseconds>2000) throw new TimeoutException("capture_publication_timeout");
+                            if(diagnostics!=null)
+                            {
+                                diagnostics.RecordDuration("capture_write",completed.WriteMilliseconds);
+                                diagnostics.RecordDuration("capture_publication",completed.ElapsedMilliseconds);
+                            }
+                            // A pause or expired lease can invalidate the action while its PNG is being written.
+                            if(completed.CommandId==null || core.ActiveId==completed.CommandId)
+                            {
+                                observationSequence++; lastObservation=Now; observationError=null;
+                                if(completed.CommandId!=null)
+                                {
+                                    receiptView=captureView; receiptViewId=completed.CommandId;
+                                    core.Captured("screenshots/"+completed.CommandId+".png",completed.Frame);
+                                }
+                            }
+                            captureView=null;
+                            FlushReceipt(); WriteStatus(true);
+                        }
+                        continue;
+                    }
+                    if(observationError!=null) continue;
+                    string commandId=null;
                     if(core.EndFrame())
                     {
                         var scene=SceneManager.GetActiveScene();
                         if(!scene.isLoaded) continue;
-                        string relative="screenshots/"+core.ActiveId+".png";
-                        Capture(FileAt(relative));
-                        using(Trace("capture_publish"))
-                            Wire.Write(FileAt("screenshots/startup.png"),File.ReadAllBytes(FileAt(relative)));
-                        observationSequence++; lastObservation=Now; observationError=null;
-                        core.Captured(relative);
+                        commandId=core.ActiveId;
                     }
-                    else if(Ready && observationError==null && (observationSequence==0 || Now-lastObservation>=0.5))
-                    {
-                        Capture(FileAt("screenshots/startup.png"));
-                        observationSequence++; lastObservation=Now;
-                    }
+                    else if(core.Active!=null || !Ready || (observationSequence>0 && Now-lastObservation<0.5)) continue;
+                    captureView=commandId==null ? null : View();
+                    byte[] png=Capture();
+                    publication=new CapturePublisher.Publication(commandId,core.Frame,CaptureClock);
+                    if(!publisher.Start(publication,png,commandId==null ? null : FileAt("screenshots/"+commandId+".png"),
+                                        FileAt("screenshots/startup.png")))
+                        throw new InvalidOperationException("capture_publisher_busy");
                     FlushReceipt(); WriteStatus(false);
                 }
-                catch(Exception error)
-                {
-                    observationSequence=0; observationError=error.Message;
-                    core.Fail("capture_failed: "+error.Message); TryReport();
-                }
+                catch(Exception error) { FailCapture(error); }
             }
         }
-        private void Capture(string target)
+        private void FailCapture(Exception error)
+        {
+            if(publisher!=null) publisher.Dispose();
+            publication=null; captureView=null; receiptView=null; receiptViewId=null;
+            observationSequence=0; observationError=error.Message;
+            core.Fail("capture_failed: "+error.Message); TryReport();
+        }
+        private byte[] Capture()
         {
             if(Screen.width<1 || Screen.height<1 || (long)Screen.width*Screen.height>16777216)
                 throw new InvalidOperationException("Invalid capture dimensions");
@@ -220,8 +264,8 @@ namespace GameQaKit.Unity
                     png=texture.EncodeToPNG();
 #endif
                 }
-                if(png==null || png.Length>16*1024*1024) throw new InvalidOperationException("Invalid PNG size");
-                using(Trace("capture_write")) Wire.Write(target,png);
+                if(png==null || png.Length==0 || png.Length>16*1024*1024) throw new InvalidOperationException("Invalid PNG size");
+                return png;
             }
             finally { if(texture!=null) UnityEngine.Object.Destroy(texture); }
         }
@@ -259,10 +303,12 @@ namespace GameQaKit.Unity
             if(result==null) return;
             var record=new Dictionary<string,object> { {"protocol",1},{"session_id",session},{"id",result.Request.Id},
                 {"ok",result.Ok},{"consumed",result.Consumed},{"frame",result.Frame},{"capture_frame",result.CaptureFrame},
-                {"paused",core.Paused},{"error",result.Error},{"screenshot",result.Screenshot},{"state",View()} };
+                {"paused",core.Paused},{"error",result.Error},{"screenshot",result.Screenshot},
+                {"state",result.Ok && receiptViewId==result.Request.Id ? receiptView : View()} };
             WriteStatus(true);
             using(Trace("receipt_write")) Wire.WriteJson(FileAt("results/"+result.Request.Id+".json"),record);
             core.AcknowledgeReceipt();
+            receiptView=null; receiptViewId=null;
         }
         private void WriteStatus(bool force)
         {
@@ -289,6 +335,7 @@ namespace GameQaKit.Unity
         }
         private void OnDestroy()
         {
+            if(publisher!=null) publisher.Dispose();
             if(diagnostics!=null) diagnostics.Dispose();
             if(core==null) return;
             core.Fail("plugin_unloaded"); TryReport();

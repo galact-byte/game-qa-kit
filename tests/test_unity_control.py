@@ -53,7 +53,8 @@ class UnityControlTests(unittest.TestCase):
                                  + lease + tick + '\n}\n', encoding='utf-8')
             output = Path(directory) / 'BridgeTickTests.exe'
             tools['compile_sources'](output, [ROOT / 'plugins/unity/ControlCore.cs',
-                                              ROOT / 'tests/unity/BridgeTickTests.cs', generated])
+                                              ROOT / 'tests/unity/BridgeTickTests.cs',
+                                              ROOT / 'plugins/unity/CapturePublisher.cs', generated])
             result = subprocess.run([str(output), directory], capture_output=True, encoding='utf-8',
                                     errors='replace', timeout=10,
                                     env={**os.environ, 'TEMP': directory, 'TMP': directory})
@@ -69,7 +70,7 @@ class UnityControlTests(unittest.TestCase):
         except RuntimeError as error:
             self.skipTest(str(error))
         source = (ROOT / 'plugins/unity/GameQaBridge.cs').read_text(encoding='utf-8')
-        render = source[source.index('        private IEnumerator AfterRender()'):source.index('        private void Capture(')]
+        render = source[source.index('        private IEnumerator AfterRender()'):source.index('        private byte[] Capture()')]
         parent = Path('E:/DevData/gameqa-unity/tmp')
         parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='observation-', dir=parent) as directory:
@@ -80,7 +81,9 @@ class UnityControlTests(unittest.TestCase):
                                  encoding='utf-8')
             output = Path(directory) / 'BridgeObservationTests.exe'
             tools['compile_sources'](output, [ROOT / 'plugins/unity/ControlCore.cs',
-                                             ROOT / 'tests/unity/BridgeObservationTests.cs', generated])
+                                             ROOT / 'tests/unity/BridgeObservationTests.cs',
+                                             ROOT / 'plugins/unity/CapturePublisher.cs',
+                                             ROOT / 'plugins/unity/PhaseDiagnostics.cs', generated])
             result = subprocess.run([str(output), directory], capture_output=True, encoding='utf-8',
                                     errors='replace', timeout=10,
                                     env={**os.environ, 'TEMP': directory, 'TMP': directory})

@@ -19,10 +19,17 @@ internal sealed partial class BridgeTickHarness
     private readonly string session="test-session";
     internal readonly ControlCore core=new ControlCore("test-session");
     internal readonly List<Receipt> receipts=new List<Receipt>();
+    internal int statusWrites;
+    internal void BeginPublication() { publication=new CapturePublisher.Publication(null,core.Frame,9); }
     internal Action<string> afterRead;
     private readonly FrameRouter router=new FrameRouter();
+    private readonly CapturePublisher publisher=new CapturePublisher();
+    private CapturePublisher.Publication publication=null;
+    private string observationError=null;
+    private void FailCapture(Exception error) { core.Fail("capture_failed: "+error.Message); TryReport(); }
     private IDisposable Trace(string phase) { return null; }
     private static double Now { get { return 10; } }
+    private static double CaptureClock { get { return Now; } }
     private bool Ready { get { return true; } }
     private sealed class FrameRouter
     {
@@ -65,7 +72,7 @@ internal sealed partial class BridgeTickHarness
         receipts.Add(core.PendingReceipt);
         core.AcknowledgeReceipt();
     }
-    private void WriteStatus(bool force) {}
+    private void WriteStatus(bool force) { statusWrites++; }
     private void TryReport() { FlushReceipt(); }
     internal void Step() { Tick(); }
 }
@@ -113,6 +120,20 @@ internal static class BridgeTickTests
             Check(bridge.core.Paused && bridge.core.HeldCount==0,"new pause must preempt queued input");
             Check(bridge.receipts.Count==1 && !bridge.receipts[0].Ok && !bridge.receipts[0].Consumed,
                 "queued input must be rejected without consumption");
+        });
+        Case("pending PNG still checks pause and heartbeat without accepting the next action",delegate()
+        {
+            var bridge=new BridgeTickHarness(args[0]); bridge.StartRunning(); bridge.BeginPublication();
+            bridge.Request("next-move","move","stop");
+            bool readRequest=false;
+            bridge.afterRead=delegate(string name) { if(name=="request") readRequest=true; };
+            bridge.Step();
+            Check(!readRequest && bridge.core.Active==null,"pending PNG must block the next command intake");
+            Check(bridge.statusWrites==1,"pending publication must not suppress main-thread status");
+            bridge.Write("pause","session_id=test-session\nid=human-stop\n");
+            bridge.Step();
+            Check(bridge.core.Paused && bridge.core.HeldCount==0 && bridge.statusWrites==2,
+                "pending PNG must still confirm priority pause with fresh main-thread state");
         });
         Case("actually expired lease still refuses resume",delegate()
         {

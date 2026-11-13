@@ -18,11 +18,11 @@
 4. AI 通过 MCP 显式连接该会话，明确恢复后才执行动作。界面显示的“运行”指输入控制状态，不代表整个游戏仿真被暂停或恢复。
 5. 从创建该会话的窗口点“结束会话”，或关闭创建者窗口。程序请求暂停松键，回收自有进程树并核对数据。
 
-当前完整启动流程覆盖已登记哈希的 SRPG Studio x86 构建、Unity Mono／旧 Input 的《Taimashi》及新 Input System 的《OmaNeko-Seikatsu》构建、MV 1.6.1／MZ 1.8.0 SDK 空白工程，以及固定 VX Ace SDK＋RGSS301 组合。原生后端需已有 `native-host.exe` 与 `native-input.dll`；Unity 需已有匹配的 BepInEx 5、Doorstop 与 `GameQaBridge.dll`，新输入构建还需同次构建的 `GameQaInputSystem.dll`，组件目录形状见 [Unity 插件说明](../plugins/unity/README.md)。MV／MZ 选择已登记的完整 NW.js 运行时目录，见 [RPG Maker JS 接入](../plugins/rpgmaker_js/README.md)；VX Ace 选择已有已登记 `RGSS301.dll` 所在目录，见 [RGSS3 接入](../plugins/rgss3/README.md)。检查会核对已登记工程、程序和组件摘要，不自动下载或安装。
+当前完整启动流程覆盖已登记哈希的 SRPG Studio x86 构建、Unity Mono／旧 Input 的《Taimashi》及新 Input System 的《OmaNeko-Seikatsu》构建、Unity IL2CPP／新 Input System 的固定《Novice Succubus Lillia》构建、MV 1.6.1／MZ 1.8.0 SDK 空白工程，以及固定 VX Ace SDK＋RGSS301 组合。原生后端需已有 `native-host.exe` 与 `native-input.dll`；Unity 需已有匹配的 BepInEx 5、Doorstop 与 `GameQaBridge.dll`，新输入构建还需同次构建的 `GameQaInputSystem.dll`；IL2CPP 使用匹配的 BepInEx 6、64 位 Doorstop 与已登记离线 interop／unity-libs／dotnet 组件，组件目录形状见 [Unity 插件说明](../plugins/unity/README.md)。MV／MZ 选择已登记的完整 NW.js 运行时目录，见 [RPG Maker JS 接入](../plugins/rpgmaker_js/README.md)；VX Ace 选择已有已登记 `RGSS301.dll` 所在目录，见 [RGSS3 接入](../plugins/rgss3/README.md)。检查会核对已登记工程、程序和组件摘要，不自动下载或安装。
 
 Unity 副本使用独立产品标识，私有 LocalLow 目录通过目录联接落在本次 QA 会话内；结束时核对原目录、原保存目录和 PlayerPrefs，移除私有联接。Taimashi、新 Input System 和 IL2CPP 固定构建从空白进度开始；Rewired 固定构建须复制原 `SaveData`／`OtherConfigData` 以保留原进度与首次初始化标记，操作摘要明确列出范围，原档保持只读。Unity 的暂停只暂停桥输入，不暂停整个引擎仿真。新 Input System 固定构建首图是 Live2D 启动画面，持续观察自然到达标题后，正常点击可进入房间并推进对白；Qt 当前预览、观察者关闭后创建者存活与最终回收均已核对。
 
-Rewired 的登记、32 位组件准备与暂停标题已迁入；正常新游戏和读档入图均超过现行 2 秒心跳判据，目标被回收，松键未确认，完整验收未通过。IL2CPP／新输入固定构建已补登记、64 位 Doorstop、BepInEx 6 与离线 interop／unity-libs／dotnet 目录摘要；一批正常进入剧情但后续验收未完成，另一批在 Loading 阶段超过现行 2 秒心跳判据，目标被回收、松键未确认，完整受管整链未通过。两条状态分别披露，不能由历史探测或准备通过推断完整启动可用。
+IL2CPP／新输入固定构建经正式受管 MCP 正常点击标题、确认难度、进入剧情并推进对白，Qt 当前预览一致；观察者关闭后创建者仍存活，最终暂停松键、目标退出、原目录／原存档／PlayerPrefs 核对和私有联接移除通过。异步 PNG 发布后的商业复验已解除本轮截图阻碍，历史失败批次原样保留；商业位移、存读档、长期运行和其他构建仍未验。Rewired 的登记、32 位组件准备与暂停标题已迁入；正常新游戏和读档入图均超过现行 2 秒心跳判据，目标被回收，松键未确认，完整验收仍未通过。
 
 Unity 受管启动在原有 15 秒期限内保持输入暂停，逐个校验新观察序号的候选首图；纯黑或纯白候选图及对应状态保存在会话的 `startup-candidates/`，自然出现符合原判据的有效图后才公布 `ready_paused`。同一序号不重复放行，候选图刷新不延长期限；取消、目标退出、身份／保存路径异常、未暂停松键、取图错误或后端就绪后断开仍立即失败。初始化占位心跳可能先于后端加载，在原期限内等待后端和有效画面；身份与松键检查不等待首图。此等待不发送游戏输入，不提高期限或放宽判据；已经就绪后的观察故障仍按原规则停止。
 

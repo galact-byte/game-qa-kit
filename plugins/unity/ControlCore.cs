@@ -101,11 +101,13 @@ namespace GameQaKit.Unity
             if(!consumed) { Fail("input_not_observed"); return false; }
             return true;
         }
-        public void Captured(string screenshot)
+        public void Captured(string screenshot) { Captured(screenshot,Frame); }
+        public void Captured(string screenshot,long captureFrame)
         {
             if(active==null) throw new InvalidOperationException("No active capture");
+            if(captureFrame<=active.AfterFrame || captureFrame>Frame) throw new ArgumentOutOfRangeException("captureFrame");
             PendingReceipt=new Receipt { Request=active, Ok=true, Consumed=consumed,
-                Frame=Frame, CaptureFrame=Frame, Screenshot=screenshot };
+                Frame=captureFrame, CaptureFrame=captureFrame, Screenshot=screenshot };
             held.Clear(); active=null;
         }
         public void Fail(string error)

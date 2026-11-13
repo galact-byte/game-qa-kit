@@ -74,6 +74,18 @@ namespace GameQaKit.Unity
             if(previous==null && completed.Count>=16) return;
             completed[name]=new Completion(duration,Math.Max(duration,previous==null ? 0 : previous.Maximum));
         }
+        internal void RecordDuration(string name,double milliseconds)
+        {
+            if(name==null || name.Length>64 || milliseconds<0 || double.IsNaN(milliseconds) || double.IsInfinity(milliseconds)) return;
+            lock(gate)
+            {
+                if(closed) return;
+                Completion previous;
+                completed.TryGetValue(name,out previous);
+                if(previous==null && completed.Count>=16) return;
+                completed[name]=new Completion(milliseconds,Math.Max(milliseconds,previous==null ? 0 : previous.Maximum));
+            }
+        }
         private void End(Scope scope)
         {
             lock(gate)

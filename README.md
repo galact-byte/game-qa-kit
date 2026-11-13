@@ -38,9 +38,9 @@ python -m pip install -r requirements.txt
 
 ## AI 后台操作（实验）
 
-主程序已增加“AI 后台接入”：选择原游戏、QA 数据与已有组件目录，先只读检查和审阅操作摘要，再确认准备启动；游戏初始暂停，结束由创建者回收。所选目录可记忆；也可连接已有受管会话或外部桥，仅观察画面与暂停，不占用 MCP 动作权。当前完整启动流程覆盖已登记的固定 SRPG Studio 构建、Unity Mono／旧 Input 的《Taimashi》及新 Input System 的《OmaNeko-Seikatsu》构建、MV 1.6.1／MZ 1.8.0 SDK 空白工程与固定 VX Ace SDK＋RGSS301 组合；分别需要已有的原生组件、匹配的 Unity 桥组件、已登记的完整 NW.js 运行时或 RGSS301.dll。其他引擎和 Unity 后端仍按各自已验接入方式使用，人工盯屏保留。操作步骤和 MCP／CLI 参数见[游戏接入说明](docs/GAME-ADMISSION.md)。
+主程序已增加“AI 后台接入”：选择原游戏、QA 数据与已有组件目录，先只读检查和审阅操作摘要，再确认准备启动；游戏初始暂停，结束由创建者回收。所选目录可记忆；也可连接已有受管会话或外部桥，仅观察画面与暂停，不占用 MCP 动作权。当前完整启动流程覆盖已登记的固定 SRPG Studio 构建、Unity Mono／旧 Input 的《Taimashi》及新 Input System 的《OmaNeko-Seikatsu》构建、Unity IL2CPP／新 Input System 的固定《Novice Succubus Lillia》构建、MV 1.6.1／MZ 1.8.0 SDK 空白工程与固定 VX Ace SDK＋RGSS301 组合；分别需要已有的原生组件、匹配的 Unity 桥组件、已登记的完整 NW.js 运行时或 RGSS301.dll。其他引擎和 Unity 后端仍按各自已验接入方式使用，人工盯屏保留。操作步骤和 MCP／CLI 参数见[游戏接入说明](docs/GAME-ADMISSION.md)。
 
-其他 Unity 固定后端的迁入结果单独列示：Rewired 已有登记和准备，但新游戏及读档入图均超过现行心跳判据，完整受管验收未通过；IL2CPP／新输入已补离线组件准备，受管复验一批进入剧情后未完成后续验收，另一批在入剧情的 Loading 阶段触发 2 秒心跳保护，完整整链未通过。原有控制通路与当前受管入口的范围以[覆盖表](docs/ENGINE-COVERAGE.md)为准。
+Unity IL2CPP／新输入的固定构建已通过正常标题点击、难度确认、剧情对白推进、Qt 当前预览、暂停松键及最终回收；此前失败批次保留，商业位移和存读档仍未验。Rewired 已有登记和准备，但新游戏及读档入图均超过现行心跳判据，完整受管验收仍未通过。原有控制通路与当前受管入口的范围以[覆盖表](docs/ENGINE-COVERAGE.md)为准。
 
 人工盯屏可按上面的步骤直接使用。AI 后台操作需先在测试副本接入对应引擎桥，
 再通过统一 MCP 连接和发送动作。当前还没有将任意游戏一键转为后台控制的入口。
