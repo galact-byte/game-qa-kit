@@ -1,34 +1,58 @@
-# AI / MCP 接入
+# 连接 AI 客户端
 
-本文面向连接 AI 客户端和复核证据的使用者，不涉及引擎控制插件实现。
+通过 MCP，AI 客户端可以查看游戏画面、管理盯屏记录，并在已接入的游戏中执行后台操作。先从 [README](../README.md)了解用途；后台操作的条件见[游戏接入说明](GAME-ADMISSION.md)。
 
-## 注册
+## 使用 Windows 便携包
 
-将下列配置加入客户端的 MCP 配置，替换仓库路径和游戏配置名称：
+在客户端的 MCP 设置中添加以下配置，将路径改成实际解压位置：
 
 ```json
 {
-  "gameqa": {
-    "command": "python",
-    "args": ["<仓库路径>/gameqakit/mcp_server.py"],
-    "env": {"GAMEQAKIT_PROFILE": "<profile 名称>"}
+  "mcpServers": {
+    "gameqa": {
+      "command": "E:/Apps/GameQA/GameQA-MCP.exe"
+    }
   }
 }
 ```
 
-先在 GUI 新建/编辑 profile，从进程列表选择游戏，或使用现有配置。新选择的配置保存程序路径，
-当前会话使用所选 PID；PID 不写进配置。最小化的程序也可选择，但此时窗口尺寸暂不确定。
-存档目录不自动猜测。老配置仍支持原有进程名/标题规则；标题兜底不应填宽泛的游戏名。
+客户端会自动启动 `GameQA-MCP.exe`，无需手动打开。`GameQA.exe` 是图形界面；移动安装位置时保留整个解压目录，并同步修改 MCP 配置中的路径。不同客户端的设置位置和配置结构可能不同，例如 VS Code 使用 `servers` 代替 `mcpServers`。
 
-更新代码后，需重新连接 MCP，客户端才能重新获取工具列表。当前共 29 项工具。只读 `processes` 可列出运行中的窗口/进程信息，不创建配置或操控游戏。
+如需固定使用某个已有游戏配置，可在服务条目下增加 `"env": {"GAMEQAKIT_PROFILE": "your-profile"}`，将 `your-profile` 改为实际配置名。
+
+## 源码方式
+
+已安装项目依赖时，可以执行 `python -m gameqakit.mcp_server`。客户端配置示例：
+
+```json
+{
+  "mcpServers": {
+    "gameqa": {
+      "command": "python",
+      "args": ["-m", "gameqakit.mcp_server"],
+      "env": {"PYTHONPATH": "E:/Projects/game-qa-kit"}
+    }
+  }
+}
+```
+
+请替换仓库路径；需要指定游戏配置时，再增加前述 `GAMEQAKIT_PROFILE`。使用虚拟环境时，`command` 应填写其中 Python 的路径。
+
+## 连接后先做什么
+
+先在 GUI 新建或选择游戏配置，再让 AI 调用 `profile`、`processes` 查看目标。选择进程时会保存程序路径，PID 仅用于当前会话；游戏退出后需要重新选择。最小化窗口的尺寸可能无法读取，存档目录也不会自动推断。
+
+可直接描述任务，例如：“开始盯屏，只记录画面和疑点，不操作游戏”，或“检查这个游戏能否后台操作，先告诉我缺少什么”。
+
+更新程序后重新连接 MCP，以取得最新工具列表。工具及参数以运行中的 `tools/list` 为准。
 
 ## 游戏接入与受管启动
 
-主程序“AI 后台接入”和 `game_inspect`、`game_prepare`、`game_start`、`game_status`、`game_bind`、`game_unbind`、`game_stop` 共用会话层；完整流程与参数见[游戏接入说明](GAME-ADMISSION.md)。初次就绪暂停输入，不自动绑定或操作游戏。当前新入口覆盖已登记的固定原生构建、《Taimashi》Unity Mono／旧 Input 与《OmaNeko-Seikatsu》Mono／新 Input System 构建、MV 1.6.1／MZ 1.8.0 SDK 空白工程与固定 VX Ace SDK＋RGSS301 组合；其余后端仍按既有通路使用。MV／MZ 的组件目录为已登记的完整 NW.js；VX Ace 的组件目录包含已登记的 RGSS301.dll。准备摘要与工程／运行时清单指纹绑定，原工程和原进度不改写；VX Ace 的转向与菜单实证不等同于该水面地图上的真实位移，见 [RGSS3 接入](../plugins/rgss3/README.md)。
+界面「AI 后台接入」与 MCP 的检查、准备、启动、连接和结束共用会话规则，具体步骤见[游戏接入说明](GAME-ADMISSION.md)。初次就绪保持输入暂停，不自动绑定或操作游戏。
 
-Rewired 固定构建已补受管登记、32 位组件和原 `SaveData`／`OtherConfigData` 的副本复制，但新游戏和读档入图均超过现行 2 秒心跳判据，完整验收未通过。IL2CPP／新输入固定构建已补 64 位 Doorstop、BepInEx 6 及离线互操作／.NET 组件准备；一批进入剧情但后续验收未完成，另一批 Loading 期间触发 2 秒心跳保护，目标被回收、松键未确认，完整 MCP／Qt／退出整链未通过。两条结果均与历史独立控制探测分开披露；复制原进度时只写副本，摘要清单完整核对，控制文件上限不变。
+可直接启动的目标和组件要求见[引擎支持范围](ENGINE-COVERAGE.md)。便携包的功能取决于发布时使用的源码提交，主分支的新功能需要重新打包后才会出现在下载包中。
 
-GUI／CLI／MCP 创建者须保持运行；只有创建者可回收自有树。另一 MCP 可显式绑定查询、暂停及取得单一动作权，但不能停止别的创建者的进程。绑定后旧桌面输入和存档等旁路被阻断，解绑／失效不回退旧 profile。不要把下文人工观察 worker 的独立生命周期与受管游戏 worker 混为一谈。
+启动游戏的 GUI、CLI 或 MCP 连接需要保持运行。其他客户端可以明确连接、观察、暂停并申请唯一动作权，结束游戏仍需回到创建它的入口。后台绑定后，旧桌面输入、存档恢复等旁路会被阻断；解绑或失联也不会自动回退原配置。人工盯屏会话与后台游戏会话分别管理。
 
 ## 推荐流程
 
@@ -41,7 +65,7 @@ GUI／CLI／MCP 创建者须保持运行；只有创建者可回收自有树。�
 
 原有 `capture`、`mark`、存档工具和输入工具继续可用。
 
-## 新工具参数
+## 盯屏工具参数
 
 | 工具 | 参数与默认值 |
 |---|---|
@@ -54,7 +78,7 @@ GUI／CLI／MCP 创建者须保持运行；只有创建者可回收自有树。�
 `analysis_mode`：
 
 - `rules`：只对窗口标题做报错/文字规则筛选，不识别自绘正文。
-- `ocr`：窗口标题加本地 OCR。需要可选 `rapidocr_onnxruntime` 依赖；本轮未安装该依赖或下载模型。加载失败时 `analysis_status=degraded`，`analysis_warning` 说明原因，留图和标题筛选继续。
+- `ocr`：窗口标题加本地 OCR。需要可选 `rapidocr_onnxruntime` 依赖和对应模型，默认安装不包含这些组件。加载失败时 `analysis_status=degraded`，`analysis_warning` 说明原因，留图和标题筛选继续。
 - `off`：仅普通画面留图，不启动分析。
 
 疑点返回原图路径、窗口、时间、区域、OCR/原始文字及分类依据。`verdict="待复核"`；
@@ -94,18 +118,18 @@ GUI／CLI／MCP 创建者须保持运行；只有创建者可回收自有树。�
 `control_action` / `control_resume` 可设置 `include_image=true`，回执后附本次截图；`control_result` 同样支持返回图片。有有效新回执时，不再例行追加截图与结果查询。
 
 ```json
-{"directory":"D:/QA/bridge","action":"move","direction":"right","frames":1,"command_id":"walk-001","confirm":true,"include_image":true}
+{"directory":"E:/QA/bridge","action":"move","direction":"right","frames":1,"command_id":"walk-001","confirm":true,"include_image":true}
 ```
 
 动作统一命名，按 `capabilities` 限制。当前 RGSS3 只接受单帧输入；MV/MZ 和实验 Unity 桥额外提供按帧输入和画布坐标点击。Unity 的 Mono／IL2CPP、旧 Input／新 Input System／Rewired 组合及具体实测范围见[插件接入与限制](../plugins/unity/README.md)，须按目标构建，不能从一个组合推断其他组合可用。暂停验收须同时有 connected=true、paused=true、held=[]，读失败时返回的保守暂停不是游戏确认。桥接目录属于对应目标，不可与另一个进程混用。独立桌面游戏可能不在默认 `win` 清单中，不能据此要求重启或改走前台。
 
-固定构建的[原生输入桥](../plugins/native_input/README.md)已接入相同 MCP 工具。先启动受限宿主，再绑定本次副本路径／PID 和 `bridge/`；`control_status` 显式声明 `protocol=2`、`timing_mode=duration_ms`、`pause_scope=input`、`simulation_pause=false`。使用 `duration_ms=1..1000` 和 `observation_seq`，拒绝 `frames`，不能从回执推算游戏帧。仅支持方向移动、Z 确认／X 取消与等待；暂停不冻结游戏。固定标题菜单路线已逐图核对，正式后端实体并发和游戏玩法仍未验。
+固定构建的[原生输入桥](../plugins/native_input/README.md)已接入相同 MCP 工具。先启动受限宿主，再绑定本次副本路径／PID 和 `bridge/`；`control_status` 显式声明 `protocol=2`、`timing_mode=duration_ms`、`pause_scope=input`、`simulation_pause=false`。使用 `duration_ms=1..1000` 和 `observation_seq`，拒绝 `frames`，不能从回执推算游戏帧。仅支持方向移动、Z 确认／X 取消与等待；暂停不冻结游戏。固定标题菜单路线已逐图核对，自有窗口的实体键鼠并发已验证；正式游戏的实体并发、鼠标和玩法仍未验。
 
 可选的 PS1 方块键使用 `control_action(action="press", button="square", frames=12)`；先核对 `control_status.buttons` 数组包含 `square`，未声明的桥会在排队前拒绝。`ok/cancel/shift` 等既有按钮含义保持各引擎原映射，不能将 `shift` 当成 PS1 菜单键。
 
-超时先按原 `command_id` 查结果。`historical=true` 的旧回执不能指导当前操作，不换编号盲重发。暂停返回请求状态；再次查询，确认 `paused=true` 且 `held=[]` 后才能报告人工接管完成。恢复 AI 必须明确授权。
+超时先按原 `command_id` 查结果。`historical=true` 的旧回执不能指导当前操作，不换编号盲重发。暂停返回请求状态；再次查询，确认 `paused=true` 且 `held=[]` 后才能报告输入暂停完成；这不代表同进程真人手玩接管可用。恢复 AI 必须明确授权。
 
-当前是 SDK 实证后的开发接入能力，没有通用的一键安装/启动入口；商业游戏兼容和存档隔离逐样本验证。人工盯屏的启停不隐式恢复 AI 输入。
+直接准备和启动仅支持已登记且版本匹配的游戏。其他游戏的兼容性和存档位置需要分别核查，人工盯屏的启停不会恢复 AI 输入。
 
 ## 命令行
 

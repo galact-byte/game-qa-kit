@@ -1,6 +1,8 @@
 # Windows 便携版与 GitHub Release
 
-## 用户资产
+本页面向构建和发布维护者。下载后的使用方法见 [README](../README.md)；每个发布包的功能以对应标签的源码为准，不能把主分支后续改动视为已发布内容。
+
+## 交付文件
 
 - `game-qa-kit-v<版本>-windows-x64.zip`：完整解压后双击 `GameQA.exe`。
 - `GameQA-MCP.exe`：控制台型 MCP stdio 入口，与 GUI 共用 `_internal`，不需要外部 Python。
@@ -45,4 +47,4 @@ gh workflow run windows-release.yml --ref main -f version=v0.2.1
 
 项目源码 MIT；PyQt6 开源发行包适用 GPLv3，Qt 与其他组件也须遵守上游许可。便携包提供完整许可、固定依赖版本、上游对应源码地址与本项目标签源码／构建配方，详见 `tools/THIRD-PARTY.md`。不声称整个依赖集合是 MIT，不包含商业 Qt 许可。
 
-当前不进行代码签名，不提供安装器或自动更新。Windows 可能提示未知发布者，应核对下载来源和 SHA-256，不需要修改安全软件设置。未验收的 Wolf 受管接入分支不纳入本次便携版；已提交的显式首图兼容选项仍保持原有实验边界。
+当前不进行代码签名，不提供安装器或自动更新。Windows 可能提示未知发布者，应核对下载来源和 SHA-256，不需要修改安全软件设置。v0.2.1 最初触发的构建早于 Wolf 受管接入；该能力已合入主分支，后续便携包需基于包含它的提交重新构建和验收。

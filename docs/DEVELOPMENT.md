@@ -2,11 +2,9 @@
 
 ## 仓库职责
 
-本仓库集中维护游戏测试软件、MCP 和游戏测试 Skill。README 面向软件使用者；接口说明放在
-[MCP.md](MCP.md)，暂定思考放在 [ROADMAP.md](ROADMAP.md)，已验证改动放在根目录 `CHANGES.md`。
+本页面向维护者，介绍模块职责、数据文件和验证方法。软件使用见 [README](../README.md)，AI 客户端配置见 [MCP 使用说明](MCP.md)，构建与发布见 [便携包文档](PACKAGING.md)。开发方向放在 [路线图](ROADMAP.md)，历史改动放在根目录 `CHANGES.md`。
 
-`skills/localization-playtest/SKILL.md` 维护巡检方法，已同步长驻观察、后台控制回执与人工接管；`skills/game-control-adapter/SKILL.md` 维护插件开发步骤。本机全局入口已备份后改为读取这两个仓库源，不再维护第二套正文；实际名称、路径与重复项诊断经过 Pi 解析器核对。
-其他机器可用 `--skill <项目中的SKILL.md路径>` 显式加载或注册自己的入口；不要同时加载项目和全局同名正文。Pi 对同名 Skill 保留先发现的版本，不能假定项目内文件自动覆盖全局版本。本机原正文备份及还原路径记录在项目外的测试交付清单。
+巡检方法维护在 `skills/localization-playtest/SKILL.md`，插件开发步骤维护在 `skills/game-control-adapter/SKILL.md`。使用 Pi 时可用 `--skill <项目中的SKILL.md路径>` 显式加载，或将全局入口指向仓库源。避免同时加载两份同名正文；不能假定项目版本会自动覆盖全局版本。
 
 控制插件和独立桌面的实现与验证见 [后台控制实验](BACKGROUND-CONTROL.md)。观察链继续独立工作，不隐式开启 AI 输入。
 
@@ -22,7 +20,11 @@
 | `gui.py` | GUI 与分页疑点窗口；通过公共会话入口控制采集 |
 | `mcp_server.py` | stdio JSON-RPC 接口；stdout 仅协议、错误日志走 stderr |
 | `engines.py` / `control.py` | 只读引擎线索、统一命令与目标/会话/回执验证 |
-| `desktop.py` / `plugins/` | 实验独立桌面与进程树回收、各引擎独立输入桥 |
+| `admission.py` / `admission_runtime.py` | 只读检查、准备请求校验及受管接入的公共入口 |
+| `game_session.py` / `game_worker.py` | 受管游戏会话、观察连接及创建者生命周期 |
+| `admission_gui.py` | 游戏检查、后台启动和已有会话连接界面 |
+| `application.py` | 源码／便携包路径及冻结子进程入口分派 |
+| `desktop.py` / `plugins/` | 独立桌面与进程树回收、各引擎独立输入桥 |
 | `inputs.py` / `saves.py` | 保留既有输入机制/护栏和存档逻辑；支持显式窗口与按 PID 结束选定进程 |
 
 Profile 新增可选 `exe_path`（持久化）和 `target_pid`（仅当前对象/会话，不写配置）。GUI 从有窗口的
@@ -89,9 +91,13 @@ SDL 更新回调在模拟器暂停时仍运行，只用原生单步／帧号证�
 
 ## Wolf RPG
 
-正式实验桥见 [插件说明](../plugins/wolf/README.md)。只允许已测 Windows x86 官方范例完整 EXE 哈希，沿用 v1／INI／MCP；准备副本拒绝覆盖，不带原 Save／SaveData。构建 DLL 与加载器后，用 `tests/wolf_smoke.py --safety --mcp` 验完整循环计帧与安全生命周期；`--mcp-steps <JSON>` 可经真实 MCP 执行正常输入步骤。普通动作结束释放输入，再执行两轮观察，回执帧增量包含观察轮次；输入轮询次数不能当游戏帧。暂停验收需 connected、paused、held 为空且 `at_frame_boundary=true`，再比较完整循环与轮询计数。菜单动画和走完当前格需要读图确认，不以回执消费代替可见变化。
+构建、组件与已测范围见 [Wolf 插件说明](../plugins/wolf/README.md)。官方范例与商业构建使用各自登记的完整 EXE 哈希；未知构建拒绝。官方范例已接入通用受管入口，商业构建仍使用独立日文启动流程，不能混用准备与启动方式。
 
-`tests/test_wolf_control.py` 编译安全核心并验证副本边界，`tests/test_engines.py` 验只读识别；识别返回 `control_verified=false`。正式批次已覆盖标题、地图移动与菜单，及旧会话／代次、重复命令、运行中暂停、250 毫秒租约到期、截图失败停止／显式恢复。原始失败批次单独保留，不调整租约／新鲜度／截图时限。常规回归 117 项 Python、16 项 JavaScript 通过，实机与回收证据见 `<Wolf验证目录>/正式桥验收.md`。其他构建、商业游戏、存读档与战斗未验；独立桌面及本范例写入守卫不是完整数据沙箱。
+开发验证使用 `tests/test_wolf_control.py`、`tests/test_wolf_startup.py` 与 `tests/test_wolf_admission.py`，分别检查控制核心和副本边界、有界初始化及受管生命周期。真实游戏验证使用 `tests/wolf_smoke.py`，参数组合与组件名称以插件文档为准；`--mcp-steps <JSON>` 通过真实 MCP 执行正常输入。
+
+回执按完整游戏循环计帧，不能用输入轮询次数代替。普通动作释放后另有两轮观察；暂停需连接有效、保持键为空且 `at_frame_boundary=true`，再核对帧稳定。移动要等当前格走完，菜单退出要等动画完成，最终以操作后画面确认行为。
+
+官方范例的既有桥已验证移动、菜单及战斗；其受管入口只验证首图、标题切项、当前预览和生命周期。固定商业构建另有移动、菜单、第 1 槽保存与跨进程读档记录，尚未迁入受管入口。全流程、商业战斗和长期稳定性未验。失败记录、守卫和原有期限保留；独立桌面与写入守卫不等于完整数据沙箱。
 
 ## Skill 评估
 

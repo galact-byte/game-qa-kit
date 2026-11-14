@@ -6,11 +6,25 @@
 
 必须保留同目录的 `_internal`，不要只复制单个 EXE。配置位于 `profiles/`，未指定其他目录的新配置默认把记录写入 `data/<配置名>/`；显式设置的数据路径仍优先。升级请先解压到新目录，再复制自己的 `profiles/` 与 `data/`，不要覆盖旧进度。
 
-## MCP
+## AI 客户端配置
 
-将 MCP 客户端的 command 指向 `GameQA-MCP.exe`，无需 args 或 Python。可以继续通过 `GAMEQAKIT_PROFILE` 指定配置；AI 后台动作仍须显式接入、绑定已核查的游戏桥。不要把人工盯屏等同后台控制。
+在支持 MCP 的客户端设置中添加以下配置，将路径改成实际解压位置：
 
-## 边界
+```json
+{
+  "mcpServers": {
+    "gameqa": {
+      "command": "E:/Apps/GameQA/GameQA-MCP.exe"
+    }
+  }
+}
+```
+
+客户端会自动启动 `GameQA-MCP.exe`，无需手动打开，也无需安装 Python。`GameQA.exe` 用来打开图形界面。移动程序后，需要同步修改客户端中的路径。
+
+可通过 `GAMEQAKIT_PROFILE` 指定游戏配置。AI 后台操作还需要匹配的游戏适配组件，支持情况见 [引擎支持范围](https://github.com/galact-byte/game-qa-kit/blob/main/docs/ENGINE-COVERAGE.md)。
+
+## 使用条件
 
 - 系统：Windows 10／11 x64。便携包不带游戏、存档、第三方游戏运行时或个人配置。
 - AI 后台接入只对已登记构建开放，仍需匹配的原生组件／Unity 桥／NW.js／RGSS301 等既有产物；本包不会下载或安装这些组件。
