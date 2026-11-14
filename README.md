@@ -1,86 +1,93 @@
+<div align="center">
+
 # game-qa-kit
 
-游戏测试时自动留图、标记疑点、整理复核记录的 Windows 工具，配套 MCP 可供 AI 调用。
+游戏截图、疑点标记与 AI 测试工具 · Windows
 
-![game-qa-kit 界面](docs/images/screenshot.png)
+[**下载 Windows 版**](https://github.com/galact-byte/game-qa-kit/releases/latest) · [MCP 接入指南](docs/MCP.md) · [支持哪些游戏](docs/ENGINE-COVERAGE.md)
 
-## 开始使用
+</div>
 
-### Windows 便携版（推荐）
+给游戏开发者、测试人员和汉化校对者使用。正常玩游戏时自动留图，看到问题随手标记，结束后按时间线复核；也可以接入 AI 客户端，让 AI 查看画面、整理记录，操作已适配的游戏。
 
-从 [GitHub Releases](https://github.com/galact-byte/game-qa-kit/releases) 下载 Windows x64 ZIP，完整解压后双击 `GameQA.exe`。无需安装 Python 或运行 BAT；请保留 `_internal`。MCP 客户端可直接将 `command` 指向同目录 `GameQA-MCP.exe`。
+![game-qa-kit 主界面](docs/images/screenshot.png)
 
-便携版的配置在程序旁的 `profiles/`，默认记录在 `data/<配置名>/`；已有配置里显式指定的路径不变。升级先解压到新目录，再复制自己的配置与记录，不覆盖旧进度。游戏桥和外部引擎组件仍需另备，详见随包使用说明。
+## 能做什么
 
-### 从源码启动
+| 使用方式 | 可以做的事 |
+|---|---|
+| 手动测试 | 按画面变化留图，为疑点添加截图和备注，汇总复核日志 |
+| AI 协助 | 通过 MCP 查看游戏画面、读取疑点记录、整理测试结果 |
+| AI 后台操作 | 接入支持的游戏后，移动、操作菜单、暂停，并查看操作后的画面 |
 
-开发者或需要修改代码时，先安装 Python 和依赖：
+人工盯屏可以直接使用。AI 后台操作需要对应的游戏桥和组件，兼容范围见下文。
+
+## 下载后开始使用
+
+1. 从 [Releases](https://github.com/galact-byte/game-qa-kit/releases/latest) 下载 Windows x64 ZIP，完整解压，双击 **`GameQA.exe`**。不需要安装 Python。
+2. 打开游戏，在主程序中点「新建」，从运行中的程序列表选择游戏，保存并加载配置。
+3. 点「开始盯屏」，切回游戏正常玩。发现问题时，填写备注并点「标记疑点」。
+4. 结束后停止盯屏，等停止完成，再点「汇总复核日志」。
+
+记录保存在配置的「QA 数据目录」，可从侧栏打开。便携版默认使用程序旁的 `data/<配置名称>/`，配置文件在 `profiles/`。
+
+请保留完整解压目录，EXE 需要旁边的 `_internal`。升级时解压到新目录，再迁移自己的 `profiles/` 和 `data/`；配置中另行指定的数据目录继续使用原路径。
+
+## 让 AI 调用
+
+便携包内有两个入口：
+
+- **`GameQA.exe`**：双击打开主界面。
+- **`GameQA-MCP.exe`**：填入 AI 客户端的 MCP 配置，由客户端自动启动，无需手动打开，也不必同时运行主界面。
+
+下面是常见的 MCP 配置格式，把 `command` 改成实际解压路径：
+
+```json
+{
+  "mcpServers": {
+    "gameqa": {
+      "command": "E:/Apps/GameQA/GameQA-MCP.exe"
+    }
+  }
+}
+```
+
+配置好后重新连接 MCP。游戏配置、工具用法和源码启动方式见 [MCP 接入指南](docs/MCP.md)。
+
+需要 AI 操作游戏时，从主程序的「AI 后台接入」开始：选择游戏与所需组件，检查准备摘要，确认后启动测试副本。接入步骤见 [游戏接入说明](docs/GAME-ADMISSION.md)。
+
+## 游戏兼容范围
+
+截图能否在后台正常更新，取决于游戏和窗口状态。最小化或后台停帧可能导致采集失败。
+
+后台控制已在 RPG Maker MV／MZ、VX Ace、Unity、Wolf RPG、HSP3、SRPG Studio 和 DuckStation 的指定版本或样本上验证过。**支持某个引擎，不代表该引擎的所有游戏都能接入。** 不同游戏需要的组件、可执行的操作也有区别。
+
+接入前请查看 [引擎覆盖表](docs/ENGINE-COVERAGE.md)；准备组件和操作步骤见 [游戏接入说明](docs/GAME-ADMISSION.md)。
+
+使用时还需留意：
+
+- 人工盯屏不主动抢焦点。MCP 中的桌面点击／按键使用前台输入，后台操作请使用已接入的控制桥。
+- 自动疑点需要人工复核，没有疑点记录也不代表游戏没有问题。
+- 普通截图和标记无需模型。画面正文识别需另配 OCR；工具不自动下载模型或安装额外依赖。
+
+## 从源码运行
+
+安装 Python 和项目依赖，在仓库目录执行：
 
 ```bash
 python -m pip install -r requirements.txt
+python -m gameqakit.gui
 ```
 
-1. 双击 `start.bat`，或使用便携版的 `GameQA.exe` 打开控制台。
-2. 新建游戏配置（profile），从运行中的程序列表选择游戏，自动读取信息后保存并加载；也可手动填写。
-3. 打开游戏，点「开始盯屏」，切回游戏正常玩。
-4. 需要时点「标记疑点」，或用「查看自动疑点」优先复核候选。
-5. 玩完停止盯屏，等停止完成后点「汇总复核日志」。
+也可以使用仓库中的 `start.bat`。开发、测试和打包说明见下方文档。
 
-默认使用窗口标题筛选，无需模型。需要识别画面正文时，可选 OCR 模式；
-它需要额外的本地 OCR 依赖，未安装时会提示降级，不影响普通留图。
+## 文档
 
-## 记录在哪里
-
-保存在游戏配置的「QA 数据目录」中，可从侧栏打开。未设置时默认在
-`~/.gameqakit/<配置名称>/`（源码版）；便携版默认在程序旁的 `data/<配置名称>/`。
-
-每次盯屏单独保存：普通留图、人工标记、自动疑点原图及依据，以及 `复核日志.txt`。
-旧记录不会因为停止会话而删除。
-
-## 使用前请留意
-
-- **自动疑点只是候选，不是已确认缺陷。** 没有疑点也不代表没有问题。
-- 窗口后台截图是否可用取决于游戏；最小化、后台停帧等情况可能导致采集失败或遗漏。
-- 盯屏不主动抢焦点；旧 MCP 点击/按键仍可能抢前台。实验后台控制需接入对应插件，兼容范围见 [后台控制说明](docs/BACKGROUND-CONTROL.md)。
-- 工具不自动下载 YOLO、OCR 模型或安装额外依赖。
-
-## AI 后台操作（实验）
-
-主程序已增加“AI 后台接入”：选择原游戏、QA 数据与已有组件目录，先只读检查和审阅操作摘要，再确认准备启动；游戏初始暂停，结束由创建者回收。所选目录可记忆；也可连接已有受管会话或外部桥，仅观察画面与暂停，不占用 MCP 动作权。当前完整启动流程覆盖已登记的固定 SRPG Studio 构建、Unity Mono／旧 Input 的《Taimashi》及新 Input System 的《OmaNeko-Seikatsu》构建、Unity IL2CPP／新 Input System 的固定《Novice Succubus Lillia》构建、MV 1.6.1／MZ 1.8.0 SDK 空白工程与固定 VX Ace SDK＋RGSS301 组合；分别需要已有的原生组件、匹配的 Unity 桥组件、已登记的完整 NW.js 运行时或 RGSS301.dll。其他引擎和 Unity 后端仍按各自已验接入方式使用，人工盯屏保留。操作步骤和 MCP／CLI 参数见[游戏接入说明](docs/GAME-ADMISSION.md)。
-
-Unity IL2CPP／新输入的固定构建已通过正常标题点击、难度确认、剧情对白推进、Qt 当前预览、暂停松键及最终回收；此前失败批次保留，商业位移和存读档仍未验。Rewired 已有登记和准备，但新游戏及读档入图均超过现行心跳判据，完整受管验收仍未通过。原有控制通路与当前受管入口的范围以[覆盖表](docs/ENGINE-COVERAGE.md)为准。
-
-人工盯屏可按上面的步骤直接使用。AI 后台操作需先在测试副本接入对应引擎桥，
-再通过统一 MCP 连接和发送动作。当前还没有将任意游戏一键转为后台控制的入口。
-
-| 引擎／环境 | 已验范围摘要 |
-|---|---|
-| RPG Maker MV／MZ | SDK 工程的真实移动、菜单和暂停 |
-| RPG Maker VX Ace | SDK 与指定商业副本的读档、位移、菜单和暂停 |
-| Unity | Mono 旧 Input、新 Input System、IL2CPP／新输入及 Mono／Rewired 分别适配；已验范围因后端和样本而异，见[覆盖表](docs/ENGINE-COVERAGE.md) |
-| Wolf RPG | 两个固定构建；官方范例移动、菜单和战斗，商业构建移动、菜单、存读档及短时重复操作 |
-| HSP3 | 官方空白工程输入与点击；八星帝外置字节码的标题／读取菜单 |
-| SRPG Studio／x86 DirectInput | 一个固定构建；受限原生宿主和 DLL 经统一 MCP 完成标题 → 环境设置 → 返回，见[插件说明](plugins/native_input/README.md) |
-| DuckStation／PS1 | 一个固定模拟器构建；指定游戏移动、存读档和首战 |
-
-**常见引擎尚未全部适配。** XP／VX 等目前只有识别；Godot、Unreal、Ren'Py 等尚无已验控制通路。
-已列引擎也仅覆盖登记的构建和样本，不代表任意游戏兼容或已通过全流程、长期稳定性测试。
-
-接入步骤见[后台控制说明](docs/BACKGROUND-CONTROL.md)，完整边界见[引擎覆盖表](docs/ENGINE-COVERAGE.md)。
-基础适配按后台运行、输入隔离、新画面、真实操作与暂停释放收口；战斗、存读档、全流程等按具体任务追加验证。
-独立 Win32 Desktop 是当前已验后端，不是产品的必选技术，也不隔离文件系统或存档。
-轻量替代方案及限制见[后台控制方案调研](docs/BACKGROUND-ALTERNATIVES.md)。[受限正式后端设计](docs/superpowers/specs/2026-11-11-native-input-design.md)获批后，已实现 v2 协议、原生加载器和固定 SRPG Studio x86 构建的统一 MCP 菜单路线，见[原生输入桥说明](plugins/native_input/README.md)。v2 显式按毫秒执行，暂停只停止 AI 输入；现有 v1 桥保留帧语义。正式后端的自有窗口实体键鼠并发已通过并获参与者确认；正式游戏实体并发仍待独立批次验收，已有真人见证入口与自动预检，见插件说明；游戏鼠标、存读档、玩法与其他构建也未验。本机 Windows 家庭版不支持 Sandbox。
-
-## 进一步了解
-
-- [AI / MCP 接入](docs/MCP.md)
-- [开发与验证](docs/DEVELOPMENT.md)
-- [Windows 打包与 Release 工作流](docs/PACKAGING.md)
-- [引擎覆盖与未验范围](docs/ENGINE-COVERAGE.md)
-- [暂定迭代路线](docs/ROADMAP.md)
-- [已测 Wolf RPG 实验控制桥](plugins/wolf/README.md)
-- [修改记录](CHANGES.md)
+- [MCP 接入指南](docs/MCP.md) · [游戏接入说明](docs/GAME-ADMISSION.md)
+- [引擎覆盖表](docs/ENGINE-COVERAGE.md) · [后台控制说明](docs/BACKGROUND-CONTROL.md)
+- [开发与测试](docs/DEVELOPMENT.md) · [Windows 打包](docs/PACKAGING.md)
+- [迭代路线](docs/ROADMAP.md) · [修改记录](CHANGES.md)
 
 ## 许可证
 
-[MIT](LICENSE)
+项目代码使用 [MIT](LICENSE) 许可证。第三方组件遵循各自许可，见 [第三方组件说明](tools/THIRD-PARTY.md)。
