@@ -45,6 +45,28 @@ python tests/wolf_smoke.py --source "<已核查范例目录>" --workspace E:/Dev
 
 传 `--steps` 指向空数组可只做初始恢复与 MCP 步骤。步骤中的等待不是就绪判定，须查看实际画面；不同阶段需要正常推进对话后再移动。`result.json`、`status-trace.json`、`bridge/results/`、`bridge/screenshots/`、来源前后哈希与运行副本哈希均保留在工作区。结束后核对证据与来源哈希，再回收运行副本。
 
+## 显式有界启动出图（官方固定构建；可选进程策略下首图单批通过）
+
+正式 DLL 在创建时显式禁用旧扩展点的隔离宿主中，已于第 1 个完整循环取得 640×480 有效角色图形并暂停，保持键为空、合成保持键轮询为 0，目标已回收。此批只验证首次出图，不证明标题菜单可操作、长期稳定或受管 UI／MCP 入口已接通。搜狗模块仍在进程中，不能称为完全禁止输入法加载。
+
+历史首批有验收等待竞态（已修），后续批次曾因守卫拒绝失败；联合时序诊断确认一批由 SogouPY 的 `sgppPopup2` 管道访问触发，而非该批的注册表增量。此前三种未奏效的 IME 窗口／上下文方案已撤回。所有失败证据保留，不追认为通过。
+
+默认入口仍停在第 0 个完整循环，状态查询和普通取图不会隐式推进初始化。官方固定构建在该状态可能尚未绘制；需要首图时，宿主须在注入前将连接字段 `wolf_initialize=1` 写入，并调用 `plugins.wolf.startup.initialize(process, client)`。仅接受宿主自建的独立桌面 Job；该阶段保持零合成键，每个完整循环后冻结检查，首张有效图出现即暂停。上限为 120 个完整循环／3 秒，先到即停止；宿主独立看门狗覆盖游戏循环或取图阻塞。
+
+单独验证该入口：
+
+```powershell
+python tests/wolf_smoke.py --source "<已核查范例目录>" --workspace E:/DevData/wolf-startup-01 --dll E:/DevData/wolf-build/GameQaWolf.dll --injector E:/DevData/wolf-build/GameQaWolfInjector.exe --initialize-only
+```
+
+本机验证通过的兼容组合是在上述命令末尾追加 `--disable-extension-points`。该开关仅允许与 `--initialize-only` 同用，且沿用固定官方 EXE 哈希检查；它通过 `DesktopProcess(..., disable_extension_points=True)` 在创建此子进程时启用 Windows 旧扩展点禁用策略，不修改系统 Exploit Protection、注册表或默认输入法。策略建立失败直接回收，不悄悄降级；不传时沿用原行为，其他引擎不自动启用。此策略也会影响旧式 IME 之外的旧扩展点，不能推广到未验证游戏。关闭测试进程即可撤销本次效果，不在同一存活进程中反向切换。
+
+新宿主实现与成功真实批次使用的隔离宿主逐字节相同；CLI 开关在成功试验后接入，未额外重开第二批真实样本。真实回执、图像和源码摘要见 `<接入验证目录>/validation/WOLF-EXTENSION-MITIGATION-REVIEW.md`。
+
+此选项不能与区域启动、玩法步骤或安全／MCP 跑批混用。它只验证首次出图并结束，不宣称标题菜单已就绪。守卫文件／注册表拒绝新增、租约失效、人工暂停、失联、截图失败或目标退出均保留失败并回收，不自动重试，也不改变守卫、黑帧阈值或其他引擎协议。商用构建不启用此配置。
+
+`tests/test_wolf_startup.py` 使用真实自有窗口、生产桥循环、共享内存与 Job，覆盖默认零帧暂停、首图即停、空白预算、阻塞截图／循环、守卫失败和退出。回退时成对恢复 Wolf DLL 与启动宿主并重建会话；不混用新旧组件。
+
 ## 显式日文启动（商业构建实验）
 
 复用已经安装且哈希匹配的 Locale Emulator 两份 DLL，不安装软件、不更改全局设置、不提权。另构建日文宿主：

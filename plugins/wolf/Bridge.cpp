@@ -27,6 +27,8 @@ void* keyboard=nullptr;
 using GetState=HRESULT (WINAPI*)(void*,DWORD,void*);
 GetState original_get_state=nullptr;
 double expiry=0;
+unsigned startup_denied=0,startup_registry_denied=0;
+ULONGLONG startup_started=0;
 ULONG_PTR imaging=0;
 
 gameqa::Fields read(const char* name) { return gameqa::ini(wolf::text(directory/(std::string(name)+".ini"))); }
@@ -45,6 +47,11 @@ void guard() {
     const auto pause=gameqa::ini(realtime->read(wolf::Realtime::Pause));
     expiry=gameqa::lease_expiry(expiry,session,lease);
     if(gameqa::get(pause,"session_id")==session) generation=gameqa::get(pause,"id");
+    if(core->startup_active()) {
+        if(wolf_guard::denied.load()!=startup_denied || wolf_guard::registry_denied.load()!=startup_registry_denied)
+            core->fail("startup_guard_changed");
+        else if(GetTickCount64()-startup_started>=3000) core->fail("startup_timeout");
+    }
     core->tick(completed.load(),now(),expiry,generation);
 }
 HRESULT WINAPI get_state(void* device,DWORD size,void* buffer) {
@@ -132,9 +139,11 @@ void patch_call(uintptr_t address,void* hook) {
     unsigned char bytes[5]={0xe8};const auto offset=static_cast<int32_t>(reinterpret_cast<uintptr_t>(hook)-(address+5));
     std::memcpy(bytes+1,&offset,4);wolf::replace(reinterpret_cast<void*>(address),bytes,5);
 }
+void audit_guard();
 void receipt() {
     gameqa::Receipt r;
     { std::lock_guard<std::mutex> lock(mutex);if(!core->receipt.ready) return;r=core->receipt; }
+    if(r.error=="startup_guard_changed") audit_guard();
     const auto& q=r.request;using gameqa::quote;
     std::ostringstream out;out<<"{\"protocol\":1,\"session_id\":"<<quote(session)<<",\"id\":"<<quote(q.id)
         <<",\"ok\":"<<(r.ok?"true":"false")<<",\"consumed\":"<<(r.consumed?"true":"false")
@@ -160,6 +169,8 @@ std::string status_text() {
        <<",\"at_frame_boundary\":"<<(at_boundary?"true":"false")
        <<",\"held\":["<<(core->held.empty()?"":quote(core->held))<<"],\"error\":"<<quote(core->error)
        <<",\"busy\":"<<(core->active?"true":"false")<<",\"input_polls\":"<<polls.load()<<",\"held_polls\":"<<held_polls.load()
+       <<",\"startup_pending\":"<<(core->startup_pending()?"true":"false")
+       <<",\"startup_active\":"<<(core->startup_active()?"true":"false")
        <<",\"expiry\":"<<expiry<<",\"capture_pending\":"<<(core->capture_pending?"true":"false")
        <<",\"denied_writes\":"<<wolf_guard::denied.load()<<",\"denied_registry_writes\":"<<wolf_guard::registry_denied.load()<<"}";
     return out.str();
@@ -180,8 +191,14 @@ void control_cycle() {
         const auto request=gameqa::ini(realtime->read(wolf::Realtime::Request));
         guard();
         if(ready && at_boundary && !core->active && !core->receipt.ready &&
-           gameqa::get(request,"session_id")==session && gameqa::get(request,"protocol")=="1")
+           gameqa::get(request,"session_id")==session && gameqa::get(request,"protocol")=="1") {
+            const bool startup=core->startup_pending();
+            if(startup) {
+                startup_denied=wolf_guard::denied.load();startup_registry_denied=wolf_guard::registry_denied.load();
+                startup_started=GetTickCount64();
+            }
             core->accept(gameqa::parse_command(request),now(),expiry);
+        }
         realtime->write(wolf::Realtime::Status,status_text());
     } catch(const std::exception& e) { core->fail(e.what()); }
 }
@@ -282,7 +299,11 @@ DWORD WINAPI run(void*) {
         input_function=base+profile.input_function;tail_function=base+profile.tail_function;tail_resume=base+profile.tail_call+5;
         validate_call(base+profile.input_call,input_function);validate_call(base+profile.tail_call,tail_function);
         fs::create_directories(directory/L"results");fs::create_directories(directory/L"screenshots");
-        core.reset(new gameqa::Core(session));
+        const auto initialize=gameqa::get(binding,"wolf_initialize");
+        if(!initialize.empty() && initialize!="0" && initialize!="1") throw std::runtime_error("invalid_wolf_initialize");
+        if(initialize=="1" && wolf::hash(executable)!="90800e5dff9fa992a1fa78be5b2d5158baf2e9cc9603a45d964358e919f6868a")
+            throw std::runtime_error("unsupported_wolf_startup_binary");
+        core.reset(new gameqa::Core(session,initialize=="1"));
         realtime.reset(new wolf::Realtime(GetCurrentProcessId(),session));
         wolf_guard::install(directory.parent_path());
         Gdiplus::GdiplusStartupInput startup;

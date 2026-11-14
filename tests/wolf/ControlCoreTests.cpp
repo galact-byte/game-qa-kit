@@ -115,5 +115,46 @@ int wmain(int argc,wchar_t** argv) {
     assert(parse_command(f).action=="resume");bool rejected=false;
     try {ini("[bridge]\nid=a\nid=b\n");} catch(...) {rejected=true;}assert(rejected);
     assert(lease_expiry(100,"test",ini("[bridge]\nsession_id=old\nexpires_at=200\n"))==100);
+    // A startup request must freeze after each complete loop, without normal settle frames.
+    Core startup("test",true);
+    assert(startup.accept(request("startup"),1,100));
+    startup.tick(1,1.01,100,"");
+    if(!startup.capture_pending) {
+        std::cerr<<"startup did not capture at the first complete loop\n";
+        return 1;
+    }
+    startup.captured("screenshots/startup.png",1.02);
+    assert(startup.paused && !startup.active && startup.receipt.ok && startup.frame==1);
+    startup.tick(1,2,100,"");assert(startup.frame==1 && startup.paused);
+    startup.acknowledge();assert(startup.accept(request("normal-resume"),2,100));
+    run(startup,1,2.01);assert(!startup.capture_pending);run(startup,2,2.02);assert(startup.capture_pending);
+
+    Core blank("test",true);assert(blank.accept(request("blank"),1,100));
+    for(unsigned i=1;i<=120;++i) {
+        blank.tick(i,1+i*.001,100,"");
+        assert(blank.capture_pending && blank.held.empty());
+        blank.captured("",1+i*.001);
+        if(i<120) assert(blank.active && !blank.capture_pending);
+    }
+    assert(blank.paused && blank.frame==120 && blank.receipt.error=="startup_frame_limit");
+    for(const auto* failure:{"lease","pause","stalled","rewind","jump","capture"}) {
+        Core stopped("test",true);assert(stopped.accept(request(failure),1,100));
+        if(std::string(failure)=="lease") stopped.tick(0,1.1,1,"");
+        if(std::string(failure)=="pause") stopped.tick(0,1.1,100,"manual");
+        if(std::string(failure)=="stalled") stopped.tick(0,2.01,100,"");
+        if(std::string(failure)=="rewind") {stopped.tick(1,1.01,100,"");stopped.tick(0,1.02,100,"");}
+        if(std::string(failure)=="jump") stopped.tick(2,1.01,100,"");
+        if(std::string(failure)=="capture") stopped.fail("capture_failed");
+        assert(stopped.paused && !stopped.active && stopped.held.empty() && !stopped.receipt.ok);
+    }
+    Core deadline("test",true);assert(deadline.accept(request("deadline"),1,100));
+    deadline.tick(1,1.01,100,"");deadline.captured("screenshots/late.png",4);
+    assert(deadline.receipt.error=="startup_timeout" && deadline.paused);
+    Core backward("test",true);assert(backward.accept(request("backward"),1,100));
+    backward.tick(0,.5,100,"");assert(backward.receipt.error=="startup_timeout");
+    Core input("test",true);c=request("input","press");c.button="ok";
+    assert(!input.accept(c,1,100) && input.held.empty());
+    assert(input.receipt.error=="startup_requires_resume");
+    std::cout<<"Wolf startup: first-image pause, blank budget, deadlines and safety passed\n";
     std::cout<<"Wolf core: all safety checks passed\n";
 }

@@ -86,6 +86,12 @@ time.sleep(30)
         self.assertGreater(os.getpid(), 0)
 
     def test_capture_contains_entire_client_without_title_bar(self):
+        self.exercise_capture()
+
+    def test_extension_policy_still_allows_real_window_capture(self):
+        self.exercise_capture(disable_extension_points=True)
+
+    def exercise_capture(self, *, disable_extension_points=False):
         marker = self.root / 'painted.json'
         code = '''
 import json,os,tkinter as tk
@@ -101,7 +107,8 @@ root.mainloop()
 '''
         from gameqakit.win32 import grab_image
         with self.desktop.DesktopProcess([sys.executable, '-c', code], cwd=self.root,
-                                         env={'GAMEQA_TEST_MARKER': str(marker)}) as child:
+                                         env={'GAMEQA_TEST_MARKER': str(marker)},
+                                         disable_extension_points=disable_extension_points) as child:
             child.run()
             self.wait_file(marker)
             windows = [w for w in child.windows() if w['client'] == [160, 100]]
@@ -111,6 +118,49 @@ root.mainloop()
             # 避开 DPI 虚拟化在顶边产生的插值，精确校验上下客户区色块。
             self.assertEqual(image.getpixel((80, 5)), (255, 0, 0))
             self.assertEqual(image.getpixel((80, 99)), (0, 255, 0))
+
+    def test_extension_policy_is_enabled_at_creation_and_only_for_opted_in_child(self):
+        k = ctypes.WinDLL('kernel32', use_last_error=True)
+        k.GetProcessMitigationPolicy.argtypes = [wintypes.HANDLE, ctypes.c_int,
+                                                ctypes.c_void_p, ctypes.c_size_t]
+        k.GetCurrentProcess.restype = wintypes.HANDLE
+
+        def policy(handle):
+            flags = wintypes.DWORD()
+            if not k.GetProcessMitigationPolicy(handle, 6, ctypes.byref(flags), ctypes.sizeof(flags)):
+                raise ctypes.WinError(ctypes.get_last_error())
+            return flags.value & 1
+
+        original = policy(k.GetCurrentProcess())
+        for enabled in (False, True, False):
+            with self.subTest(enabled=enabled):
+                options = {'disable_extension_points': True} if enabled else {}
+                with self.desktop.DesktopProcess([sys.executable, '-c', 'pass'], cwd=self.root,
+                                                 **options) as child:
+                    self.assertEqual(policy(child.process), int(enabled))
+                    self.assertEqual(policy(k.GetCurrentProcess()), original)
+                self.assertFalse(child.alive())
+
+    def test_extension_policy_rejects_non_boolean_input(self):
+        with self.assertRaises(ValueError):
+            self.desktop.DesktopProcess([sys.executable, '-c', 'pass'], cwd=self.root,
+                                        disable_extension_points='yes')
+
+    def test_extension_policy_setup_failure_cleans_resources_without_fallback(self):
+        child = self.desktop.DesktopProcess([sys.executable, '-c', 'pass'], cwd=self.root,
+                                            disable_extension_points=True)
+
+        def fail(*_args):
+            ctypes.set_last_error(5)
+            return False
+
+        with mock.patch.object(self.desktop.k, 'UpdateProcThreadAttribute', side_effect=fail):
+            with self.assertRaises(OSError) as caught:
+                child.__enter__()
+        self.assertEqual(caught.exception.winerror, 5)
+        self.assertIsNone(child.process)
+        self.assertIsNone(child.job)
+        self.assertIsNone(child.desktop)
 
     def test_new_desktop_without_windows_is_a_valid_empty_result(self):
         with self.desktop.DesktopProcess([sys.executable, '-c', 'pass'], cwd=self.root) as child:

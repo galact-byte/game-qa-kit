@@ -33,7 +33,12 @@ def wait(check, seconds, process):
             code = wintypes.DWORD()
             ctypes.WinDLL('kernel32').GetExitCodeProcess(process.process, ctypes.byref(code))
             raise RuntimeError('owned_game_exited:' + hex(code.value))
-        if value := check():
+        try:
+            value = check()
+        except FileNotFoundError:
+            # A stage file may not exist yet; keep the original outer deadline.
+            value = None
+        if value:
             return value
         time.sleep(.02)
     raise TimeoutError('condition_not_reached')
@@ -51,21 +56,33 @@ def main():
     parser.add_argument('--safety', action='store_true')
     parser.add_argument('--mcp', action='store_true')
     parser.add_argument('--mcp-steps', type=Path, help='通过真实 MCP 子进程执行的正常输入步骤 JSON')
+    parser.add_argument('--initialize-only', action='store_true', help='显式零按键启动出图后暂停并结束；限官方固定构建')
+    parser.add_argument('--disable-extension-points', action='store_true',
+                        help='仅显式启动出图时，在目标进程创建前禁用旧扩展点；不修改系统配置')
     args = parser.parse_args()
+    if args.disable_extension_points and not args.initialize_only:
+        parser.error('--disable-extension-points 仅能与 --initialize-only 一起使用')
+    if args.initialize_only and any((args.locale_dir, args.locale_host, args.steps, args.safety, args.mcp, args.mcp_steps)):
+        parser.error('--initialize-only 不能与区域启动或玩法/安全验收步骤混用')
     dll, injector = args.dll.resolve(strict=True), args.injector.resolve(strict=True)
     spec = importlib.util.spec_from_file_location('wolf_prepare', ROOT / 'plugins/wolf/prepare.py')
     prepare = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(prepare)
     source, workspace = args.source.resolve(strict=True), args.workspace.resolve()
+    if args.initialize_only and prepare.validate_image(source / 'Game.exe') != '90800e5dff9fa992a1fa78be5b2d5158baf2e9cc9603a45d964358e919f6868a':
+        raise ValueError('unsupported_wolf_startup_binary')
     before = inventory(source)
     record = prepare.prepare(source, workspace)
     write_json(workspace / 'source-before.json', before)
     runtime = Path(record['runtime'])
+    if args.initialize_only:
+        write_json(workspace / 'runtime-before.json', inventory(runtime))
     bridge = workspace / 'bridge'
     bridge.mkdir()
     session = uuid.uuid4().hex
     result = {'steps': [], 'session_id': session, 'dll_sha256': hashlib.sha256(dll.read_bytes()).hexdigest(),
-              'injector_sha256': hashlib.sha256(injector.read_bytes()).hexdigest()}
+              'injector_sha256': hashlib.sha256(injector.read_bytes()).hexdigest(),
+              'disable_extension_points': args.disable_extension_points}
     process = None
     stop = threading.Event()
     trace = []
@@ -77,7 +94,8 @@ def main():
                                     injector=injector, locale_dir=args.locale_dir, host_exe=args.locale_host)
         else:
             context = DesktopProcess([str(runtime / 'Game.exe')], cwd=runtime,
-                                     env={'GAMEQAKIT_BRIDGE_DIR': str(bridge), 'GAMEQAKIT_SESSION_ID': session})
+                                     env={'GAMEQAKIT_BRIDGE_DIR': str(bridge), 'GAMEQAKIT_SESSION_ID': session},
+                                     disable_extension_points=args.disable_extension_points)
         with context as process:
             result['pid'], result['desktop'] = process.pid, process.desktop_name
             if args.locale_dir:
@@ -86,6 +104,8 @@ def main():
                 meta = {'protocol': 1, 'session_id': session, 'pid': process.pid,
                         'owner_pid': os.getpid(), 'desktop': process.desktop_name,
                         'exe_path': process.argv[0], 'command_format': 'ini', 'control_transport': 'wolf-shm-v1'}
+                if args.initialize_only:
+                    meta['wolf_initialize'] = '1'
                 write_connection(bridge, meta)
                 loaded = subprocess.run([str(injector), str(process.pid), str(dll), str(bridge)],
                                         capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=8)
@@ -112,6 +132,20 @@ def main():
                                   win32.window_pid(win32.user32.GetForegroundWindow()) == process.pid})
             tracer = threading.Thread(target=sample, daemon=True)
             tracer.start()
+            if args.initialize_only:
+                from plugins.wolf.startup import initialize
+                try:
+                    result['startup'] = initialize(process, client)
+                finally:
+                    receipt = bridge / 'results/startup.json'
+                    if receipt.is_file():
+                        result['startup_receipt'] = json.loads(receipt.read_text(encoding='utf-8'))
+                result['paused'] = client.status()
+                time.sleep(.1)
+                assert client.status()['frame'] == result['paused']['frame']
+                assert not any(s['foreground_is_target'] for s in trace)
+                result['completed'] = True
+                return
             try:
                 result['resume'] = client.resume(command_id='resume')
             except Exception:

@@ -107,6 +107,19 @@ int wmain(int argc,wchar_t** argv) {
     Sleep(3100);control_cycle();
     const bool capture_stopped=core->paused && core->held.empty() && core->error=="screenshot_timeout";
     std::cout<<"capture_timeout: "<<(capture_stopped?"PASS":"FAIL")<<std::endl;passed=passed && capture_stopped;
+    for(const auto* mode:{"files","registry"}) {
+        core.reset(new gameqa::Core(session,true));completed=0;expiry=0;generation="";at_boundary=true;
+        realtime->write(wolf::Realtime::Pause,"[bridge]\nsession_id=fixture\nid=\n");
+        std::ostringstream valid_lease;valid_lease<<"[bridge]\nsession_id=fixture\nexpires_at="<<std::setprecision(16)<<now()+10<<"\n";
+        realtime->write(wolf::Realtime::Lease,valid_lease.str());
+        realtime->write(wolf::Realtime::Request,"[bridge]\nprotocol=1\nsession_id=fixture\nid=startup-guard\npayload.action=resume\npayload.frames=1\nafter_frame=0\npause_id=\n");
+        control_cycle();
+        if(!core->startup_active()) return 5;
+        if(std::string(mode)=="files") ++wolf_guard::denied;else ++wolf_guard::registry_denied;
+        control_cycle();
+        const bool stopped=core->paused && !core->active && core->held.empty() && core->receipt.error=="startup_guard_changed";
+        std::cout<<"startup_guard_"<<mode<<": "<<(stopped?"PASS":"FAIL")<<std::endl;passed=passed && stopped;
+    }
     CloseHandle(publishing);CloseHandle(release_publish);
     return passed?0:1;
 }

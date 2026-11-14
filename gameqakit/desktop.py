@@ -25,6 +25,10 @@ class STARTUPINFO(ctypes.Structure):
                 ('hStdInput', W.HANDLE), ('hStdOutput', W.HANDLE), ('hStdError', W.HANDLE)]
 
 
+class STARTUPINFOEX(ctypes.Structure):
+    _fields_ = [('startup', STARTUPINFO), ('attributes', ctypes.c_void_p)]
+
+
 class PROCESS_INFORMATION(ctypes.Structure):
     _fields_ = [('process', W.HANDLE), ('thread', W.HANDLE), ('pid', W.DWORD), ('tid', W.DWORD)]
 
@@ -52,6 +56,15 @@ k.AssignProcessToJobObject.argtypes = [W.HANDLE, W.HANDLE]
 k.CreateProcessW.argtypes = [W.LPCWSTR, W.LPWSTR, ctypes.c_void_p, ctypes.c_void_p, W.BOOL,
                              W.DWORD, ctypes.c_void_p, W.LPCWSTR,
                              ctypes.POINTER(STARTUPINFO), ctypes.POINTER(PROCESS_INFORMATION)]
+k.InitializeProcThreadAttributeList.argtypes = [ctypes.c_void_p, W.DWORD, W.DWORD,
+                                               ctypes.POINTER(ctypes.c_size_t)]
+k.InitializeProcThreadAttributeList.restype = W.BOOL
+k.UpdateProcThreadAttribute.argtypes = [ctypes.c_void_p, W.DWORD, ctypes.c_size_t,
+                                       ctypes.c_void_p, ctypes.c_size_t,
+                                       ctypes.c_void_p, ctypes.c_void_p]
+k.UpdateProcThreadAttribute.restype = W.BOOL
+k.DeleteProcThreadAttributeList.argtypes = [ctypes.c_void_p]
+k.DeleteProcThreadAttributeList.restype = None
 k.ResumeThread.argtypes = [W.HANDLE]
 k.ResumeThread.restype = W.DWORD
 k.GetExitCodeProcess.argtypes = [W.HANDLE, ctypes.POINTER(W.DWORD)]
@@ -61,7 +74,10 @@ k.CloseHandle.argtypes = [W.HANDLE]
 
 
 class DesktopProcess:
-    def __init__(self, argv, *, cwd, env=None, isolated_desktop=True):
+    def __init__(self, argv, *, cwd, env=None, isolated_desktop=True, disable_extension_points=False):
+        if not isinstance(disable_extension_points, bool):
+            raise ValueError('disable_extension_points 必须是布尔值')
+        self.disable_extension_points = disable_extension_points
         if (not isinstance(argv, (list, tuple)) or not argv
                 or any(not isinstance(arg, str) or '\0' in arg for arg in argv)):
             raise ValueError('argv 必须是非空的字符串数组')
@@ -112,9 +128,36 @@ class DesktopProcess:
             environment = ctypes.create_unicode_buffer('\0'.join(
                 key + '=' + value for key, value in sorted(self.env.items(), key=lambda row: row[0].casefold())) + '\0')
             # Python 的 subprocess.STARTUPINFO 不传递 lpDesktop，必须用真实原生结构。
-            if not k.CreateProcessW(self.argv[0], command, None, None, False, 0x0404,
-                                    environment, str(self.cwd), ctypes.byref(si), ctypes.byref(pi)):
-                raise ctypes.WinError(ctypes.get_last_error())
+            attributes = None
+            flags = 0x0404
+            startup_pointer = ctypes.pointer(si)
+            try:
+                if self.disable_extension_points:
+                    size = ctypes.c_size_t()
+                    k.InitializeProcThreadAttributeList(None, 1, 0, ctypes.byref(size))
+                    if not size.value:
+                        raise ctypes.WinError(ctypes.get_last_error())
+                    storage = ctypes.create_string_buffer(size.value)
+                    if not k.InitializeProcThreadAttributeList(storage, 1, 0, ctypes.byref(size)):
+                        raise ctypes.WinError(ctypes.get_last_error())
+                    attributes = storage
+                    # 仅此子进程禁用旧扩展点；不写入系统 Exploit Protection 配置。
+                    policy = ctypes.c_uint64(1 << 32)
+                    if not k.UpdateProcThreadAttribute(attributes, 0, 0x20007, ctypes.byref(policy),
+                                                       ctypes.sizeof(policy), None, None):
+                        raise ctypes.WinError(ctypes.get_last_error())
+                    extended = STARTUPINFOEX()
+                    extended.startup = si
+                    extended.startup.cb = ctypes.sizeof(extended)
+                    extended.attributes = ctypes.cast(attributes, ctypes.c_void_p)
+                    startup_pointer = ctypes.cast(ctypes.byref(extended), ctypes.POINTER(STARTUPINFO))
+                    flags |= 0x00080000
+                if not k.CreateProcessW(self.argv[0], command, None, None, False, flags,
+                                        environment, str(self.cwd), startup_pointer, ctypes.byref(pi)):
+                    raise ctypes.WinError(ctypes.get_last_error())
+            finally:
+                if attributes is not None:
+                    k.DeleteProcThreadAttributeList(attributes)
             self.process, self.thread, self.pid = pi.process, pi.thread, pi.pid
             if not k.AssignProcessToJobObject(self.job, self.process):
                 raise ctypes.WinError(ctypes.get_last_error())
