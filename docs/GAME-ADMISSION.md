@@ -18,7 +18,7 @@
 4. AI 通过 MCP 显式连接该会话，明确恢复后才执行动作。界面显示的“运行”指输入控制状态，不代表整个游戏仿真被暂停或恢复。
 5. 从创建该会话的窗口点“结束会话”，或关闭创建者窗口。程序请求暂停松键，回收自有进程树并核对数据。
 
-当前完整启动流程覆盖已登记哈希的 SRPG Studio x86 构建、Unity Mono／旧 Input 的《Taimashi》及新 Input System 的《OmaNeko-Seikatsu》构建、Unity IL2CPP／新 Input System 的固定《Novice Succubus Lillia》构建、MV 1.6.1／MZ 1.8.0 SDK 空白工程，以及固定 VX Ace SDK＋RGSS301 组合。原生后端需已有 `native-host.exe` 与 `native-input.dll`；Unity 需已有匹配的 BepInEx 5、Doorstop 与 `GameQaBridge.dll`，新输入构建还需同次构建的 `GameQaInputSystem.dll`；IL2CPP 使用匹配的 BepInEx 6、64 位 Doorstop 与已登记离线 interop／unity-libs／dotnet 组件，组件目录形状见 [Unity 插件说明](../plugins/unity/README.md)。MV／MZ 选择已登记的完整 NW.js 运行时目录，见 [RPG Maker JS 接入](../plugins/rpgmaker_js/README.md)；VX Ace 选择已有已登记 `RGSS301.dll` 所在目录，见 [RGSS3 接入](../plugins/rgss3/README.md)。检查会核对已登记工程、程序和组件摘要，不自动下载或安装。
+当前完整启动流程覆盖已登记哈希的 SRPG Studio x86 构建、Unity Mono／旧 Input 的《Taimashi》及新 Input System 的《OmaNeko-Seikatsu》构建、Unity IL2CPP／新 Input System 的固定《Novice Succubus Lillia》构建、MV 1.6.1／MZ 1.8.0 SDK 空白工程，以及固定 VX Ace SDK＋RGSS301 组合和 Wolf 官方固定范例。原生后端需已有 `native-host.exe` 与 `native-input.dll`；Unity 需已有匹配的 BepInEx 5、Doorstop 与 `GameQaBridge.dll`，新输入构建还需同次构建的 `GameQaInputSystem.dll`；IL2CPP 使用匹配的 BepInEx 6、64 位 Doorstop 与已登记离线 interop／unity-libs／dotnet 组件，组件目录形状见 [Unity 插件说明](../plugins/unity/README.md)。MV／MZ 选择已登记的完整 NW.js 运行时目录，见 [RPG Maker JS 接入](../plugins/rpgmaker_js/README.md)；VX Ace 选择已有已登记 `RGSS301.dll` 所在目录，见 [RGSS3 接入](../plugins/rgss3/README.md)。检查会核对已登记工程、程序和组件摘要，不自动下载或安装。
 
 Unity 副本使用独立产品标识，私有 LocalLow 目录通过目录联接落在本次 QA 会话内；结束时核对原目录、原保存目录和 PlayerPrefs，移除私有联接。Taimashi、新 Input System 和 IL2CPP 固定构建从空白进度开始；Rewired 固定构建须复制原 `SaveData`／`OtherConfigData` 以保留原进度与首次初始化标记，操作摘要明确列出范围，原档保持只读。Unity 的暂停只暂停桥输入，不暂停整个引擎仿真。新 Input System 固定构建首图是 Live2D 启动画面，持续观察自然到达标题后，正常点击可进入房间并推进对白；Qt 当前预览、观察者关闭后创建者存活与最终回收均已核对。
 
@@ -29,6 +29,8 @@ Unity 受管启动在原有 15 秒期限内保持输入暂停，逐个校验新�
 MV／MZ 完整复制固定 SDK 工程与 NW.js，排除原工程 `save/`，改用随机副本标识、会话内浏览器数据目录与临时目录。初次就绪仅观察自然初始化的标题，保持暂停且不发送输入；显式恢复后才可正常开始游戏、移动和打开菜单。结束核对原工程、原运行时和原浏览器数据；新存档或运行变化保留。商业游戏、自定义插件及其他 SDK／NW.js 构建尚未迁入本入口。
 
 VX Ace 完整复制固定 SDK，排除原存档，仅副本改用已登记 RGSS301 并在已核查 Main 前加载现有 Ruby 桥；PNG 使用引擎自带 Zlib 编码。初始暂停标题、正常开始、角色转向、菜单、Qt 当前预览、观察者关闭后创建者存活与最终回收已实证，原工程和 DLL 前后无差异。该 SDK 地图不可通行，不能据此宣称真实位移；存读档、商业游戏和其他 DLL 组合仍须另验。新存档只留在 QA 副本内，发生内容变化或清理失败时保留副本。原有适配器与控制工具保留，不能据识别成功宣称可启动任意游戏。
+
+Wolf 官方固定范例要求构建目录包含 `GameQaWolf.dll` 与 `WolfInjector.exe`，只接受已登记 EXE 和完整资源指纹，原存档、Tool／MTool 不带入副本。操作摘要明确列出仅作用于此子进程的旧扩展点禁用策略及零按键有界启动（120 完整循环／3 秒），首张有效图后暂停。真实 MCP／Qt 已验暂停首图、自然至标题、正常方向键切项、当前预览、暂停松键、观察者关闭与创建者回收；商业构建、受管玩法／存读档、长期稳定性和真人键鼠体验未验，见 [Wolf 插件说明](../plugins/wolf/README.md)。旧默认入口保持第 0 帧暂停，早期守卫拒绝记录独立保留。
 
 只回收数据核对通过且没有任何运行变化的可再生副本。出现存档、缓存或无法解释的变化时保留整个运行副本及清单，供复核。退出、取图或桥失败均不回退到前台键鼠。独立桌面或复制目录都不是文件系统沙箱。
 

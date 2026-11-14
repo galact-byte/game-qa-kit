@@ -117,7 +117,10 @@ int wmain(int argc,wchar_t** argv) {
         if(!core->startup_active()) return 5;
         if(std::string(mode)=="files") ++wolf_guard::denied;else ++wolf_guard::registry_denied;
         control_cycle();
-        const bool stopped=core->paused && !core->active && core->held.empty() && core->receipt.error=="startup_guard_changed";
+        const auto diagnostic=status_text();
+        const bool baselines=diagnostic.find("\"startup_guard_baseline_files\":"+std::to_string(startup_denied))!=std::string::npos &&
+            diagnostic.find("\"startup_guard_baseline_registry\":"+std::to_string(startup_registry_denied))!=std::string::npos;
+        const bool stopped=core->paused && !core->active && core->held.empty() && core->receipt.error=="startup_guard_changed" && baselines;
         std::cout<<"startup_guard_"<<mode<<": "<<(stopped?"PASS":"FAIL")<<std::endl;passed=passed && stopped;
     }
     CloseHandle(publishing);CloseHandle(release_publish);

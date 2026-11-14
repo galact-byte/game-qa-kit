@@ -267,7 +267,7 @@ class WolfControlTests(unittest.TestCase):
         from gameqakit.desktop import DesktopProcess
         source = (ROOT / 'plugins/wolf/Bridge.cpp').read_text(encoding='utf-8')
         begin = source.index('BOOL CALLBACK collect(')
-        end = source.index('void audit_guard()', begin)
+        end = source.index('void publish_observation(', begin)
         (self.root / 'BridgeCapture.inc').write_text(source[begin:end], encoding='utf-8')
         output = self.root / 'CaptureTests.exe'
         args = ['cl', '/nologo', '/EHsc', '/W4', '/WX', '/std:c++17', '/utf-8',

@@ -66,6 +66,12 @@ def inspect(path, *, artifacts=None):
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
         if not result['blockers']:
             result['profile_id'] = 'rpgmaker-vxace-sdk-rgss301-fixed'
+    elif result['engine'] == 'wolf_candidate':
+        from plugins.wolf import prepare as wolf
+        result['blockers'] = wolf.inspect(Path(result['root']), artifacts)
+        result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+        if not result['blockers']:
+            result['profile_id'] = 'wolf-official-fixed'
     elif result.get('profile_id') != 'srpgstudio-x86-fixed':
         result['launch_readiness'] = 'not_migrated'
         block('recipe_unavailable', '已识别引擎，但这个构建尚无已核查的产品启动流程。',
@@ -148,6 +154,18 @@ def make_plan(source, destination, *, artifacts):
                                 '初始暂停、松键并取得有效引擎首图；不自动输入，不宣称停止仿真',
                                 '结束自有进程并核对原工程与 DLL；新存档留在 QA 副本中'])
         return {**payload, 'fingerprint': fingerprint(payload)}
+    if result['engine'] == 'wolf_candidate':
+        from plugins.wolf import prepare as wolf
+        validate_destination(artifacts, destination)
+        payload = dict(schema_version=1, backend='wolf', source=str(source), destination=str(destination),
+                       artifacts=str(artifacts), source_digests=fingerprint(wolf.source_digests(source)),
+                       artifact_digests=wolf.artifact_digests(artifacts),
+                       data_policy='blank-official-wolf-preserve-progress', desktop='private',
+                       changes=['只修改全新官方范例副本，不带原存档、Tool 或 MTool，原目录只读',
+                                '加载已选择的 Wolf 原生桥和注入器；仅此子进程创建时禁用旧扩展点，不改系统设置',
+                                '显式零按键初始化，最多 120 完整循环／3 秒，首张有效图后暂停，不自动执行菜单',
+                                '默认旧入口不变；结束自有 Job 并核对原目录与产物，保留新进度和失败证据'])
+        return {**payload, 'fingerprint': fingerprint(payload)}
     keys = ('game.exe', 'game.ini', 'data.dts', 'runtime.rts', 'system.dat', 'environment.evs')
     payload = dict(schema_version=1, backend='native_input', source=str(source),
                    destination=str(destination), artifacts=str(artifacts),
@@ -163,7 +181,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3'):
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:

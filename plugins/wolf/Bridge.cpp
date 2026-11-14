@@ -30,6 +30,8 @@ double expiry=0;
 unsigned startup_denied=0,startup_registry_denied=0;
 ULONGLONG startup_started=0;
 ULONG_PTR imaging=0;
+unsigned long long observation_seq=0;
+std::string observation_error;
 
 gameqa::Fields read(const char* name) { return gameqa::ini(wolf::text(directory/(std::string(name)+".ini"))); }
 void write(const fs::path& name,const std::string& text) {
@@ -171,7 +173,11 @@ std::string status_text() {
        <<",\"busy\":"<<(core->active?"true":"false")<<",\"input_polls\":"<<polls.load()<<",\"held_polls\":"<<held_polls.load()
        <<",\"startup_pending\":"<<(core->startup_pending()?"true":"false")
        <<",\"startup_active\":"<<(core->startup_active()?"true":"false")
+       <<",\"observation_seq\":"<<observation_seq
+       <<",\"observation_screenshot\":\"screenshots/observation.png\",\"observation_error\":"<<quote(observation_error)
        <<",\"expiry\":"<<expiry<<",\"capture_pending\":"<<(core->capture_pending?"true":"false")
+       <<",\"startup_guard_baseline_files\":"<<startup_denied
+       <<",\"startup_guard_baseline_registry\":"<<startup_registry_denied
        <<",\"denied_writes\":"<<wolf_guard::denied.load()<<",\"denied_registry_writes\":"<<wolf_guard::registry_denied.load()<<"}";
     return out.str();
 }
@@ -270,6 +276,13 @@ std::string capture(const std::string& id) {
     if(usable && !saved) throw std::runtime_error("capture_save_failed");
     return usable?name:"";
 }
+void publish_observation(const std::string& path) {
+    const auto target=directory/L"screenshots/observation.png";auto temporary=target;temporary+=L".tmp";
+    if(!CopyFileW((directory/path).c_str(),temporary.c_str(),FALSE) ||
+       !MoveFileExW(temporary.c_str(),target.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))
+        throw std::runtime_error("observation_publish_failed");
+    std::lock_guard<std::mutex> lock(mutex);++observation_seq;observation_error.clear();
+}
 void audit_guard() {
     std::ostringstream out;out<<"{\"denied_files\":[";bool first=true;
     { std::lock_guard<std::mutex> lock(wolf_guard::audit_mutex);
@@ -326,14 +339,18 @@ DWORD WINAPI run(void*) {
             status();
             if(!capture_id.empty()) {
                 try {
-                    const auto path=capture(capture_id);
+                    const auto path=capture(capture_id);bool succeeded=false;
                     {
                         std::lock_guard<std::mutex> lock(mutex);guard();
-                        if(core->command_id()==capture_id) core->captured(path,now());
+                        if(core->command_id()==capture_id) {
+                            core->captured(path,now());succeeded=core->receipt.ready && core->receipt.ok;
+                        }
                     }
                     receipt();
+                    // 复用已确认的动作图，不重拍、不推进帧，且不延迟动作回执。
+                    if(succeeded) publish_observation(path);
                 } catch(const std::exception& e) {
-                    { std::lock_guard<std::mutex> lock(mutex);core->fail(e.what()); }
+                    { std::lock_guard<std::mutex> lock(mutex);observation_error=e.what();core->fail(e.what()); }
                     try {receipt();} catch(...) {}
                 }
                 status();

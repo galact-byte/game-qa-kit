@@ -70,6 +70,15 @@ class WolfStartupTests(unittest.TestCase):
                 self.assertTrue(result['ok'])
                 self.assertEqual(result['frame'], 2)
                 self.assertTrue(Path(result['screenshot']).is_file())
+                observed = client.status()
+                observe_until = time.monotonic() + 1
+                while not observed.get('observation_seq') and time.monotonic() < observe_until:
+                    time.sleep(.01)
+                    observed = client.status()
+                self.assertGreater(observed.get('observation_seq', 0), 0)
+                self.assertEqual(observed.get('observation_screenshot'), 'screenshots/observation.png')
+                self.assertEqual((bridge / 'screenshots/observation.png').read_bytes(),
+                                 Path(result['screenshot']).read_bytes())
                 time.sleep(.1)
                 state = client.status()
                 self.assertEqual(state['frame'], 2)
