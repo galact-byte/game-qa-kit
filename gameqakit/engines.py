@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import struct
 
 _NATIVE_SAMPLE = json.loads((Path(__file__).resolve().parents[1] /
                             'plugins/native_input/samples/srpgstudio-x86-fixed.json').read_text(encoding='utf-8'))
@@ -66,6 +67,22 @@ def inspect_game(path):
         with emulator.open('rb') as stream:
             if stream.read(2) == b'MZ':
                 return found('duckstation_windows', [emulator.name + ':MZ', 'SDL3.dll'], 'duckstation')
+    if (root / 'renpy/__init__.py').is_file() and (root / 'renpy/bootstrap.py').is_file():
+        return found('renpy', ['renpy/__init__.py', 'renpy/bootstrap.py'])
+    for pack in root.glob('*.pck'):
+        if not pack.is_file():
+            continue
+        with pack.open('rb') as stream:
+            header = stream.read(96)
+        if len(header) == 96:
+            magic, pack_version, major, _minor, _patch = struct.unpack('<4s4I', header[:20])
+            if magic == b'GDPC' and pack_version in (2, 3, 4) and major == 4:
+                return found('godot4', [pack.name + ':GDPC'])
+    project = root / 'project.godot'
+    if project.is_file() and project.stat().st_size <= 1048576:
+        text = project.read_text(encoding='utf-8-sig', errors='replace')
+        if re.search(r'(?m)^\s*config_version\s*=\s*5\s*$', text):
+            return found('godot4_candidate', ['project.godot:config_version=5'])
     if (root / 'Runtime.rts').is_file():
         image = root / 'game.exe'
         if image.is_file() and (root / 'data.dts').is_file():

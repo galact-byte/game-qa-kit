@@ -12,7 +12,9 @@
 | DuckStation／PS1 | 指定游戏的移动、存读档与首场战斗 | 仅验证指定模拟器版本，尚不支持从工具直接启动；不通用于其他 PS1 模拟器 |
 | SRPG Studio | 已测游戏的标题、环境设置与返回操作 | 仅支持已登记构建；游戏鼠标、移动与存读档未验 |
 | RPG Maker XP／VX、2000／2003 | 仅能识别引擎 | 暂不支持后台操作 |
-| Godot、Unreal、Ren'Py 等 | 暂无 | 暂不支持后台操作 |
+| Godot 4 | 实验：示例工程的移动、按钮点击与确认键 | 仅验证 4.5.1 的独立测试工程；尚不支持从工具直接启动游戏，见 [实验说明](../plugins/godot/README.md) |
+| Ren'Py | 仅能识别引擎 | 输入探针已跑通，正式后台操作尚未实现 |
+| Unreal 等 | 暂无 | 暂不支持后台操作 |
 
 从界面启动游戏的具体条件见 [游戏接入说明](GAME-ADMISSION.md)。同一引擎的不同版本或插件可能需要不同适配，不能用一个样本的结果推断所有游戏均可用。
 
@@ -36,7 +38,9 @@ Unity 的传统 Input、Input System 与 Rewired 在总表中合并展示；适�
 | DuckStation／PS1 | 一个固定 Windows x64 构建；原生帧计时、数字手柄，指定游戏移动、存读档和首战 | 这是模拟器适配；不是所有 PS1 模拟器通用。音频、换盘、其他构建未验；见 [说明](../plugins/duckstation/README.md) |
 | SRPG Studio／x86 DirectInput | 一个固定商业 EXE 哈希 `8e123a4c07cfbc9143c266faf87bb66ef3600ab1254ee6d294fbaf685bb502a7`；`plugins/native_input/` 受限宿主／DLL，v2 显式毫秒动作，经真实 MCP 完成副本后台标题 → 环境设置 → 返回标题并逐图核对；自有窗口安全生命周期通过 | 自有窗口实体键鼠并发已通过并获参与者确认，不能替代正式游戏实体并发，后者仍未验；游戏鼠标、存档、玩法、其他构建及长期运行未验。只读档案识别不自动启动，也不将 `control_verified` 改为 true；见 [插件说明](../plugins/native_input/README.md) |
 | RPG Maker XP／VX、2000／2003 | 仅按文件证据识别，无已验证的控制适配器 | XP／VX 当前缺本机可验运行样本；取得样本后先核查保存边界，再验证后台输入和取图 |
-| Godot、Unreal、Ren'Py、TyranoScript、KiriKiri 等其他引擎 | 当前仓库没有已验控制通路 | 不继承汉化工具的支持清单，不宣称已适配 |
+| Godot 4 | `plugins/godot/GameQaBridge.gd` 实验 v1 桥；4.5.1 自写工程通过 15 项真实运行检查：位移、正常 GUI 点击／确认、输入暂停时新预览、松键、租约、错误请求、黑图与写图失败、同帧输入消费回执、目标退出 | 尚无通用准备器或受管 GUI／MCP 启动入口；仅接受默认 SceneTree。另两个本机 4.6.3／4.7.2 运行时因 `disable_path_overrides` 拒绝当前入口，不外推其他构建；商业资源及保存边界未验，见 [实验说明](../plugins/godot/README.md) |
+| Ren'Py | 按成对运行时文件识别；8.3.2 自写空白场景探针验证引擎事件、内部横移 80 单位和松键，画面已读回 | 没有正式控制桥、协议计帧、暂停／租约和受管入口；不算可用适配器，商业游戏保存边界未验 |
+| Unreal、TyranoScript、KiriKiri 等其他引擎 | 当前仓库没有已验控制通路 | 不继承汉化工具的支持清单，不宣称已适配 |
 
 </details>
 

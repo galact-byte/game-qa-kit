@@ -2,6 +2,7 @@
 import hashlib
 import importlib
 import importlib.util
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -110,6 +111,42 @@ class EngineTests(unittest.TestCase):
         result = self.engines.inspect_game(executable)
         self.assertEqual(result['engine'], 'duckstation_windows')
         self.assertEqual(result['adapter'], 'duckstation')
+        self.assertFalse(result['control_verified'])
+
+    def test_godot_pack_requires_complete_header_and_stays_unmanaged(self):
+        pack = self.touch('demo.pck', b'GDPC')
+        self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+        for format_version, version in [(2, (4, 5, 1)), (3, (4, 6, 3)), (4, (4, 7, 2))]:
+            with self.subTest(version=version):
+                pack.write_bytes(struct.pack('<4s5IQ16I', b'GDPC', format_version, *version, 2, 96, *([0] * 16)))
+                before = pack.read_bytes()
+                result = self.engines.inspect_game(self.root)
+                self.assertEqual(result['engine'], 'godot4')
+                self.assertIsNone(result['adapter'])
+                self.assertFalse(result['control_verified'])
+                self.assertIn('demo.pck:GDPC', result['evidence'])
+                self.assertEqual(pack.read_bytes(), before)
+        pack.write_bytes(b'not a resource pack' + bytes(128))
+        self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+
+    def test_godot_project_file_requires_version_evidence(self):
+        project = self.touch('project.godot', b'not a project')
+        self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+        project.write_bytes(b'config_version=5\n[application]\nconfig/name="Fixture"\n')
+        result = self.engines.inspect_game(self.root)
+        self.assertEqual(result['engine'], 'godot4_candidate')
+        self.assertIsNone(result['adapter'])
+        self.assertFalse(result['control_verified'])
+
+    def test_renpy_requires_runtime_pair_and_keeps_control_unverified(self):
+        self.touch('game/script.rpy', b'label start:\n    return\n')
+        self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+        self.touch('renpy/__init__.py')
+        self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+        self.touch('renpy/bootstrap.py')
+        result = self.engines.inspect_game(self.root)
+        self.assertEqual(result['engine'], 'renpy')
+        self.assertIsNone(result['adapter'])
         self.assertFalse(result['control_verified'])
 
     def test_scan_obeys_directory_budget_and_does_not_descend_into_assets(self):
