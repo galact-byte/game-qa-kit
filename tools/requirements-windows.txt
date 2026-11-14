@@ -1,0 +1,7 @@
+# 对应本机已验证的便携构建；不包含可选 OCR／YOLO 模型依赖。
+Pillow==11.1.0
+PyQt6==6.10.0
+PyQt6-Qt6==6.10.0
+PyQt6-sip==13.10.2
+rubymarshal==1.2.10
+pyinstaller==6.16.0

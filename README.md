@@ -6,13 +6,21 @@
 
 ## 开始使用
 
-首次使用需安装 Python 和依赖：
+### Windows 便携版（推荐）
+
+从 [GitHub Releases](https://github.com/galact-byte/game-qa-kit/releases) 下载 Windows x64 ZIP，完整解压后双击 `GameQA.exe`。无需安装 Python 或运行 BAT；请保留 `_internal`。MCP 客户端可直接将 `command` 指向同目录 `GameQA-MCP.exe`。
+
+便携版的配置在程序旁的 `profiles/`，默认记录在 `data/<配置名>/`；已有配置里显式指定的路径不变。升级先解压到新目录，再复制自己的配置与记录，不覆盖旧进度。游戏桥和外部引擎组件仍需另备，详见随包使用说明。
+
+### 从源码启动
+
+开发者或需要修改代码时，先安装 Python 和依赖：
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-1. 双击 `start.bat` 打开控制台。
+1. 双击 `start.bat`，或使用便携版的 `GameQA.exe` 打开控制台。
 2. 新建游戏配置（profile），从运行中的程序列表选择游戏，自动读取信息后保存并加载；也可手动填写。
 3. 打开游戏，点「开始盯屏」，切回游戏正常玩。
 4. 需要时点「标记疑点」，或用「查看自动疑点」优先复核候选。
@@ -24,7 +32,7 @@ python -m pip install -r requirements.txt
 ## 记录在哪里
 
 保存在游戏配置的「QA 数据目录」中，可从侧栏打开。未设置时默认在
-`~/.gameqakit/<配置名称>/`。
+`~/.gameqakit/<配置名称>/`（源码版）；便携版默认在程序旁的 `data/<配置名称>/`。
 
 每次盯屏单独保存：普通留图、人工标记、自动疑点原图及依据，以及 `复核日志.txt`。
 旧记录不会因为停止会话而删除。
@@ -67,6 +75,7 @@ Unity IL2CPP／新输入的固定构建已通过正常标题点击、难度确�
 
 - [AI / MCP 接入](docs/MCP.md)
 - [开发与验证](docs/DEVELOPMENT.md)
+- [Windows 打包与 Release 工作流](docs/PACKAGING.md)
 - [引擎覆盖与未验范围](docs/ENGINE-COVERAGE.md)
 - [暂定迭代路线](docs/ROADMAP.md)
 - [已测 Wolf RPG 实验控制桥](plugins/wolf/README.md)

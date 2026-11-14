@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -38,7 +39,8 @@ class GameProfile:
     def data_path(self) -> Path:
         d = (self.data_dir
              or os.environ.get("GAMEQAKIT_DATA")
-             or str(Path.home() / ".gameqakit" / self.name))
+             or str(Path(sys.executable).resolve().parent / 'data' / self.name
+                    if getattr(sys, 'frozen', False) else Path.home() / ".gameqakit" / self.name))
         return Path(d)
 
     @property
@@ -78,10 +80,10 @@ def load_profile(path_or_name: str) -> GameProfile:
     p = Path(path_or_name)
     if p.suffix.lower() == ".json" and p.exists():
         return from_dict(json.loads(p.read_text(encoding="utf-8")))
-    cand = _PROFILES_DIR / f"{path_or_name}.json"
+    cand = profiles_dir() / f"{path_or_name}.json"
     if cand.exists():
         return from_dict(json.loads(cand.read_text(encoding="utf-8")))
-    raise FileNotFoundError(f"找不到 profile：{path_or_name}（也不在 {_PROFILES_DIR}）")
+    raise FileNotFoundError(f"找不到 profile：{path_or_name}（也不在 {profiles_dir()}）")
 
 
 def active_profile() -> GameProfile:
@@ -89,7 +91,8 @@ def active_profile() -> GameProfile:
     name = os.environ.get("GAMEQAKIT_PROFILE")
     if name:
         return load_profile(name)
-    jsons = sorted(_PROFILES_DIR.glob("*.json")) if _PROFILES_DIR.exists() else []
+    directory = profiles_dir()
+    jsons = sorted(directory.glob("*.json")) if directory.exists() else []
     if len(jsons) == 1:
         return from_dict(json.loads(jsons[0].read_text(encoding="utf-8")))
     raise RuntimeError(
@@ -98,18 +101,22 @@ def active_profile() -> GameProfile:
 
 
 def list_profiles() -> list[str]:
-    if not _PROFILES_DIR.exists():
+    directory = profiles_dir()
+    if not directory.exists():
         return []
-    return [p.stem for p in sorted(_PROFILES_DIR.glob("*.json"))]
+    return [p.stem for p in sorted(directory.glob("*.json"))]
 
 
 def save_profile(p: GameProfile) -> Path:
     """把 profile 写到 profiles/<name>.json（新建或覆盖），返回路径。"""
-    _PROFILES_DIR.mkdir(parents=True, exist_ok=True)
-    fp = _PROFILES_DIR / f"{p.name}.json"
+    directory = profiles_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    fp = directory / f"{p.name}.json"
     fp.write_text(json.dumps(p.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
     return fp
 
 
 def profiles_dir() -> Path:
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).resolve().parent / 'profiles'
     return _PROFILES_DIR

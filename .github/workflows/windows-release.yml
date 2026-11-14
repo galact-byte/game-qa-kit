@@ -1,0 +1,116 @@
+name: Windows portable release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '发布版本；必须有对应 docs/releases/<版本>.md，例如 v0.2.1'
+        required: true
+        default: v0.2.1
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    env:
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12.7'
+          architecture: x64
+          cache: pip
+          cache-dependency-path: tools/requirements-windows.txt
+      - name: Validate version and hand-written release notes
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_VERSION -notmatch '^v\d+\.\d+\.\d+(-[A-Za-z0-9.-]+)?$') {
+            throw 'Invalid release version'
+          }
+          $notes = "docs/releases/$env:RELEASE_VERSION.md"
+          if (!(Test-Path $notes -PathType Leaf)) { throw "Missing hand-written notes: $notes" }
+      - name: Install pinned build requirements
+        run: python -m pip install --disable-pip-version-check -r tools/requirements-windows.txt
+      - name: Run portable-entry and product lifecycle regressions
+        env:
+          PYTHONPATH: ${{ github.workspace }}/tests
+        run: >-
+          python -X utf8 -W error::ResourceWarning -m unittest
+          tests.test_application tests.test_release_build tests.test_core tests.test_admission
+          tests.test_admission_cli tests.test_admission_directories tests.test_game_session
+          tests.test_game_worker tests.test_game_mcp tests.test_sessions
+          tests.test_admission_gui tests.test_gui -v
+      - name: Build and self-test actual EXEs in a private desktop
+        run: python -X utf8 tools/build_windows.py --version "$env:RELEASE_VERSION" --output "$env:RUNNER_TEMP/portable-build"
+      - name: Upload release assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-portable-release
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/portable-build/game-qa-kit-*-windows-x64.zip
+            ${{ runner.temp }}/portable-build/SHA256SUMS.txt
+      - name: Upload build self-test evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-portable-self-test
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/portable-build/self-test.json
+            ${{ runner.temp }}/portable-build/worker-self-test.json
+            ${{ runner.temp }}/portable-build/portable-gui.png
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      BUILD_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: windows-portable-release
+          path: release-assets
+      - name: Publish immutable version with authored notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]
+          notes="docs/releases/${RELEASE_VERSION}.md"
+          test -s "$notes"
+          cd release-assets
+          sha256sum -c SHA256SUMS.txt
+          cd ..
+          if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
+            echo 'Release already exists; refusing to overwrite assets or notes.' >&2
+            exit 1
+          fi
+          if tag_commit=$(gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_VERSION" --jq '.object.sha' 2>/dev/null); then
+            test "$tag_commit" = "$BUILD_COMMIT" || { echo 'Existing tag does not match build commit.' >&2; exit 1; }
+          else
+            gh api "repos/$GH_REPO/git/refs" --method POST -f "ref=refs/tags/$RELEASE_VERSION" -f "sha=$BUILD_COMMIT"
+          fi
+          flags=()
+          if [[ "$RELEASE_VERSION" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "$RELEASE_VERSION" release-assets/*.zip release-assets/SHA256SUMS.txt \
+            --verify-tag --title "$RELEASE_VERSION · Windows 便携版" --notes-file "$notes" "${flags[@]}"
