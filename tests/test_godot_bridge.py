@@ -81,7 +81,8 @@ func _process(_delta):
         marker.position.x += 4
     if Input.is_action_pressed("ui_left"):
         marker.position.x -= 4
-    var output = FileAccess.open(OS.get_environment("GAMEQA_FIXTURE_STATE"), FileAccess.WRITE)
+    var fixture_path = OS.get_environment("GAMEQA_FIXTURE_STATE")
+    var output = FileAccess.open(fixture_path + ".part", FileAccess.WRITE)
     output.store_string(JSON.stringify({"x": marker.position.x,
         "right_pressed": Input.is_action_pressed("ui_right"),
         "left_pressed": Input.is_action_pressed("ui_left"),
@@ -89,6 +90,7 @@ func _process(_delta):
         "clicks": clicks, "confirms": confirms,
         "user_data_dir": OS.get_user_data_dir()}))
     output.close()
+    DirAccess.rename_absolute(fixture_path + ".part", fixture_path)
 ''' % ('true' if black else 'false', 'true' if black else 'false',
        'true' if black else 'false', 'true' if bright_speck else 'false')).encode(),
     }
@@ -205,8 +207,11 @@ class GodotBridgeTests(unittest.TestCase):
     def test_observation_keeps_updating_while_input_is_paused(self):
         self.start()
         before = self.client.status()
-        self.until(lambda: self.client.status()['observation_seq'] > before['observation_seq'])
-        state = self.client.status()
+        def refreshed():
+            state = self.client.status()
+            if state['observation_seq'] > before['observation_seq'] and state['frame'] > before['frame']:
+                return state
+        state = self.until(refreshed)
         self.assertGreater(state['frame'], before['frame'])
         self.assertTrue(state['paused'])
         self.assertEqual(self.fixture()['x'], 60)
