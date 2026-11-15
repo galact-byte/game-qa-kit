@@ -18,6 +18,38 @@ _RESOURCE_DIRS = {'audio', 'graphics', 'fonts', 'system', 'save', 'saves', 'save
                   'venv', '.venv', 'site-packages', 'custom_nodes', 'bepinex'}
 
 
+_TYRANO_SCRIPTS = ('tyrano/tyrano.js', 'tyrano/plugins/kag/kag.js')
+
+
+def _tyrano_asar_markers(archive):
+    """只读有界 ASAR 索引；不解包、执行脚本或跟随归档链接。"""
+    with archive.open('rb') as stream:
+        prefix = stream.read(16)
+        if len(prefix) != 16:
+            return []
+        size_pickle, header_size, payload_size, json_size = struct.unpack('<4I', prefix)
+        file_size = archive.stat().st_size
+        if (size_pickle != 4 or not 0 < json_size <= 16 * 1024 * 1024
+                or payload_size != 4 + json_size + (-json_size % 4)
+                or header_size != payload_size + 4 or 8 + header_size > file_size):
+            return []
+        try:
+            tree = json.loads(stream.read(json_size))
+            for marker in _TYRANO_SCRIPTS:
+                node = tree
+                for name in marker.split('/'):
+                    node = node['files'][name]
+                offset, size = node.get('offset'), node.get('size')
+                if (not isinstance(offset, str) or not re.fullmatch('[0-9]{1,20}', offset)
+                        or type(size) is not int or size <= 0
+                        or any(key in node for key in ('link', 'files', 'unpacked'))
+                        or int(offset) + size > file_size - 8 - header_size):
+                    return []
+        except (ValueError, TypeError, KeyError, AttributeError, RecursionError):
+            return []
+    return [f'resources/app.asar:{marker}' for marker in _TYRANO_SCRIPTS]
+
+
 def inspect_game(path):
     root = Path(path)
     if root.is_file():
@@ -69,6 +101,15 @@ def inspect_game(path):
                 return found('duckstation_windows', [emulator.name + ':MZ', 'SDL3.dll'], 'duckstation')
     if (root / 'renpy/__init__.py').is_file() and (root / 'renpy/bootstrap.py').is_file():
         return found('renpy', ['renpy/__init__.py', 'renpy/bootstrap.py'])
+    for prefix in ('', 'resources/app/', 'resources/app/src/'):
+        markers = [prefix + marker for marker in _TYRANO_SCRIPTS]
+        if all((root / marker).is_file() for marker in markers):
+            return found('tyranoscript_candidate', markers)
+    archive = root / 'resources/app.asar'
+    if archive.is_file():
+        markers = _tyrano_asar_markers(archive)
+        if markers:
+            return found('tyranoscript_candidate', markers)
     for pack in root.glob('*.pck'):
         if not pack.is_file():
             continue

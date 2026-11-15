@@ -14,6 +14,7 @@
 | RPG Maker XP／VX、2000／2003 | 仅能识别引擎 | 暂不支持后台操作 |
 | Godot 4 | 实验：示例工程的移动、按钮点击与确认键 | 仅验证 4.5.1 的独立测试工程；尚不支持从工具直接启动游戏，见 [实验说明](../plugins/godot/README.md) |
 | Ren'Py | 实验：示例工程的移动、确认／取消与存读档 | 仅验证 8.3.2 的独立测试工程；暂停只停止合成输入，尚不支持从工具直接启动游戏，见 [实验说明](../plugins/renpy/README.md) |
+| TyranoScript | 仅识别候选；示例工程的 Enter／鼠标点击探针通过 | 尚无统一协议桥、失联保护或工具启动入口，见 [盘点记录](LOCAL-ENGINE-INVENTORY.md) |
 | Unreal 等 | 暂无 | 暂不支持后台操作 |
 
 从界面启动游戏的具体条件见 [游戏接入说明](GAME-ADMISSION.md)。同一引擎的不同版本或插件可能需要不同适配，不能用一个样本的结果推断所有游戏均可用。
@@ -40,7 +41,8 @@ Unity 的传统 Input、Input System 与 Rewired 在总表中合并展示；适�
 | RPG Maker XP／VX、2000／2003 | 仅按文件证据识别，无已验证的控制适配器 | XP／VX 当前缺本机可验运行样本；取得样本后先核查保存边界，再验证后台输入和取图 |
 | Godot 4 | `plugins/godot/GameQaBridge.gd` 实验 v1 桥；4.5.1 自写工程通过 15 项真实运行检查：位移、正常 GUI 点击／确认、输入暂停时新预览、松键、租约、错误请求、黑图与写图失败、同帧输入消费回执、目标退出 | 尚无通用准备器或受管 GUI／MCP 启动入口；仅接受默认 SceneTree。另两个本机 4.6.3／4.7.2 运行时因 `disable_path_overrides` 拒绝当前入口，不外推其他构建；商业资源及保存边界未验，见 [实验说明](../plugins/godot/README.md) |
 | Ren'Py | `plugins/renpy/GameQaBridge.rpy` 实验 v2 毫秒桥；8.3.2.24090902 自写工程验证正常事件位移、确认／取消、暂停时新预览、场景读到松键、租约／停滞、黑图／发布失败、短时文件共享冲突恢复，以及正常存读档后桥状态独立 | 仅输入暂停，不提供仿真暂停、帧数或鼠标动作；没有通用准备器或受管 GUI／MCP 启动入口。自写工程的普通存档、游戏目录存档、持久数据及签名密钥落点已核对，不代表商业游戏任意写入已隔离。其他版本、商业玩法及真人并发未验，见 [实验说明](../plugins/renpy/README.md) |
-| Unreal、TyranoScript、KiriKiri 等其他引擎 | 当前仓库没有已验控制通路 | 不继承汉化工具的支持清单，不宣称已适配 |
+| TyranoScript | 松散脚本对与 ASAR 根层脚本对的只读候选识别；Ver5／Electron 7.1.2 自写工程中 Enter 经引擎原有键盘处理推进场景并确认松键，鼠标点击再次推进，前后图可见位移与变色 | 目前仅探针，无统一协议桥、失联保护、受管入口或商业游戏实证；五个候选的识别成功不改变 `adapter=null`、`control_verified=false`，见 [盘点记录](LOCAL-ENGINE-INVENTORY.md) |
+| Unreal、KiriKiri、Emuera、Bakin、GameMaker、Artemis、Flash 等其他引擎 | 当前仓库没有已验控制通路；本机盘点只保留目录证据 | 不继承汉化工具的支持清单，不宣称已适配 |
 
 </details>
 

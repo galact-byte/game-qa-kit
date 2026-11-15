@@ -2,6 +2,7 @@
 import hashlib
 import importlib
 import importlib.util
+import json
 import struct
 import tempfile
 import unittest
@@ -148,6 +149,90 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(result['engine'], 'renpy')
         self.assertIsNone(result['adapter'])
         self.assertFalse(result['control_verified'])
+
+    def tyrano_archive(self, *, members=None):
+        members = members or {'tyrano/tyrano.js': b'engine', 'tyrano/plugins/kag/kag.js': b'kag'}
+        tree = {'files': {}}
+        body = bytearray()
+        for name, content in members.items():
+            node = tree
+            *parents, leaf = name.split('/')
+            for parent in parents:
+                node = node['files'].setdefault(parent, {'files': {}})
+            node['files'][leaf] = {'size': len(content), 'offset': str(len(body))}
+            body.extend(content)
+        raw = json.dumps(tree, separators=(',', ':')).encode()
+        padding = bytes(-len(raw) % 4)
+        payload_size = 4 + len(raw) + len(padding)
+        return self.touch('resources/app.asar', struct.pack('<4I', 4, payload_size + 4,
+                          payload_size, len(raw)) + raw + padding + body)
+
+    def test_tyrano_requires_both_engine_scripts_in_the_same_web_root(self):
+        for prefix in ('', 'resources/app/', 'resources/app/src/'):
+            with self.subTest(prefix=prefix):
+                core = self.touch(prefix + 'tyrano/tyrano.js')
+                self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+                kag = self.touch(prefix + 'tyrano/plugins/kag/kag.js')
+                result = self.engines.inspect_game(self.root)
+                self.assertEqual(result['engine'], 'tyranoscript_candidate')
+                self.assertIsNone(result['adapter'])
+                self.assertFalse(result['control_verified'])
+                self.assertEqual(result['evidence'], [prefix + 'tyrano/tyrano.js',
+                                                     prefix + 'tyrano/plugins/kag/kag.js'])
+                core.unlink()
+                kag.unlink()
+        self.touch('tyrano/tyrano.js')
+        self.touch('resources/app/tyrano/plugins/kag/kag.js')
+        self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+
+    def test_tyrano_asar_index_is_read_only_and_not_control_support(self):
+        archive = self.tyrano_archive()
+        before = archive.read_bytes()
+        result = self.engines.inspect_game(self.root)
+        self.assertEqual(result['engine'], 'tyranoscript_candidate')
+        self.assertIsNone(result['adapter'])
+        self.assertFalse(result['control_verified'])
+        self.assertEqual(result['evidence'], ['resources/app.asar:tyrano/tyrano.js',
+                                             'resources/app.asar:tyrano/plugins/kag/kag.js'])
+        self.assertEqual(archive.read_bytes(), before)
+        self.assertEqual(list(archive.parent.iterdir()), [archive])
+
+    def test_tyrano_asar_rejects_missing_scripts_and_non_engine_electron(self):
+        for members in ({'tyrano/tyrano.js': b'engine'}, {'main.js': b'Electron application'},
+                        {'backup/tyrano/tyrano.js': b'engine', 'backup/tyrano/plugins/kag/kag.js': b'kag'}):
+            with self.subTest(members=list(members)):
+                self.tyrano_archive(members=members)
+                self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+
+    def test_tyrano_asar_rejects_truncation_and_unbounded_headers(self):
+        archive = self.tyrano_archive()
+        valid = archive.read_bytes()
+        for broken in (b'', valid[:12], valid[:40], valid[:-1],
+                       struct.pack('<4I', 4, 0xffffffff, 0xfffffffb, 0xfffffff7),
+                       struct.pack('<4I', 4, 12, 8, 4) + b'null',
+                       struct.pack('<4I', 4, 12, 8, 4) + b'{bad',
+                       struct.pack('<I', 8) + valid[4:]):
+            with self.subTest(prefix=broken[:16], size=len(broken)):
+                archive.write_bytes(broken)
+                self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+
+    def test_tyrano_asar_rejects_links_and_invalid_member_ranges(self):
+        archive = self.tyrano_archive()
+        valid = archive.read_bytes()
+        tree = json.loads(valid[16:16 + struct.unpack('<4I', valid[:16])[3]])
+        leaf = tree['files']['tyrano']['files']['tyrano.js']
+        for entry in ({'link': 'outside.js'}, {'unpacked': True, 'size': 6},
+                      {'offset': '-1', 'size': 6}, {'offset': '0', 'size': True},
+                      {'offset': '999999', 'size': 6}, {'offset': '0', 'size': 999999}):
+            with self.subTest(entry=entry):
+                leaf.clear()
+                leaf.update(entry)
+                raw = json.dumps(tree).encode()
+                padding = bytes(-len(raw) % 4)
+                payload_size = 4 + len(raw) + len(padding)
+                archive.write_bytes(struct.pack('<4I', 4, payload_size + 4, payload_size, len(raw))
+                                    + raw + padding + b'enginekag')
+                self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
 
     def test_scan_obeys_directory_budget_and_does_not_descend_into_assets(self):
         self.touch('game/js/rpg_core.js')
