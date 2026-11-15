@@ -234,6 +234,52 @@ class EngineTests(unittest.TestCase):
                                     + raw + padding + b'enginekag')
                 self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
 
+    def test_emuera_candidate_requires_runtime_and_era_data_without_claiming_control(self):
+        self.touch('CSV/FLAG.csv', b'0,Test\n')
+        self.touch('ERB/probe.erb', b'@SYSTEM_TITLE\nWAIT\n')
+        for name in ('Emuera.exe', 'Emuera_skiaV10_x64.exe', 'EmueraFL_v1.45-preview.exe'):
+            with self.subTest(runtime=name):
+                image = self.touch(name, b'MZ' + bytes(64))
+                before = {str(p.relative_to(self.root)): p.read_bytes()
+                          for p in self.root.rglob('*') if p.is_file()}
+                result = self.engines.inspect_game(image)
+                self.assertEqual(result['engine'], 'emuera_candidate')
+                self.assertIsNone(result['adapter'])
+                self.assertFalse(result['control_verified'])
+                self.assertEqual(result['evidence'], ['CSV/FLAG.csv', 'ERB/', name + ':MZ'])
+                self.assertEqual(before, {str(p.relative_to(self.root)): p.read_bytes()
+                                         for p in self.root.rglob('*') if p.is_file()})
+                image.unlink()
+
+    def test_emuera_rejects_partial_layouts_and_non_runtime_images(self):
+        cases = [(['Emuera.exe'], b'MZ'),
+                 (['Emuera.exe', 'CSV/FLAG.csv'], b'MZ'),
+                 (['Emuera.exe', 'ERB/probe.erb'], b'MZ'),
+                 (['CSV/FLAG.csv', 'ERB/probe.erb'], b'MZ'),
+                 (['update.exe', 'CSV/FLAG.csv', 'ERB/probe.erb'], b'MZ'),
+                 (['Emuera.exe', 'CSV/FLAG.csv', 'ERB/probe.erb'], b'not executable')]
+        for index, (names, header) in enumerate(cases):
+            with self.subTest(names=names, header=header):
+                for name in names:
+                    self.touch(f'case-{index}/{name}', header if name.endswith('.exe') else b'fixture')
+                self.assertEqual(self.engines.inspect_game(self.root / f'case-{index}')['engine'], 'unknown')
+
+    def test_emuera_runtime_directory_is_not_an_executable(self):
+        self.touch('Emuera.exe/not-an-image')
+        self.touch('CSV/FLAG.csv')
+        self.touch('ERB/probe.erb')
+        self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+
+    def test_scan_finds_emuera_but_keeps_it_unmanaged(self):
+        self.touch('nested/Emuera.exe', b'MZ')
+        self.touch('nested/CSV/FLAG.csv')
+        self.touch('nested/ERB/probe.erb')
+        result = self.engines.scan_games([self.root], max_depth=2, max_dirs=5)
+        self.assertEqual(len(result['games']), 1)
+        self.assertEqual(result['games'][0]['engine'], 'emuera_candidate')
+        self.assertIsNone(result['games'][0]['adapter'])
+        self.assertFalse(result['games'][0]['control_verified'])
+
     def test_scan_obeys_directory_budget_and_does_not_descend_into_assets(self):
         self.touch('game/js/rpg_core.js')
         self.touch('Graphics/not_a_game/js/rmmz_core.js')

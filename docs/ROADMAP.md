@@ -16,12 +16,14 @@
 - **集中真人验收**：按 [验收清单](GAME-ADMISSION-ACCEPTANCE.md) 检查九个固定目标运行时是否影响其他应用中的打字、按键和拖动。真人体验尚未执行，合成输入不能替代确认。
 - **HSP／DuckStation 迁入通用入口**：D／G 下载目录补查仍未找到匹配固定构建与组件；识别到其他引擎样本不消除此缺口。两者已有独立桥实证，尚不能据此认定通用入口可用。
 - **Godot／Ren'Py／TyranoScript 接入**：三者均有固定版本自写工程实验桥，尚未迁入通用入口。Godot 为 4.5.1；Ren'Py 8.3.2 与 TyranoScript Ver5／Electron 7.1.2 复用现有 v2 毫秒动作，只暂停输入，正常存读档不恢复旧桥会话。TyranoScript 另由独立 Python／Job 宿主处理 Electron 卡死与未确认释放，保护期限保持。商业资源与任意保存写入边界仍需逐样本核查。另外两个本机 Godot 运行时拒绝当前外部工程入口，更换运行时或资源补丁需先确定方案。具体见下方记录，不将样本识别当作游戏适配通过。
-- **扩充盘中未覆盖的引擎**：两个下载目录全遍历补扫完成，49,950 个目录／2,046 个 EXE 无读取错误，但仍有 404 个含 EXE 目录未分类，不能宣称查全引擎。TyranoScript 五个候选已补只读识别，自写工程已由探针推进到实验桥，仍无受管入口或商业样本验收。继续核查 Emuera、Bakin、GameMaker、KiriKiri、Artemis、Unreal、Flash 等缺口，清单见[盘点表](LOCAL-ENGINE-INVENTORY.md)。
+- **扩充盘中未覆盖的引擎**：两个下载目录全遍历补扫完成，49,950 个目录／2,046 个 EXE 无读取错误，但仍有 404 个含 EXE 目录未分类，不能宣称查全引擎。TyranoScript 五个候选已补只读识别，自写工程已由探针推进到实验桥，仍无受管入口或商业样本验收。Emuera 六个候选已补只读识别；固定 1.824 自写场景完成数字输入／Enter 画面探针，松键消费未验；正式加载器按[待审设计](superpowers/specs/2026-11-15-emuera-bridge-design.md)获批后再做，数字／文本菜单仍是独立缺口。继续核查 Bakin、GameMaker、KiriKiri、Artemis、Unreal、Flash 等缺口，清单见[盘点表](LOCAL-ENGINE-INVENTORY.md)。
 - **按任务扩展玩法与长期验证**：各引擎的战斗、存读档、全流程和长期稳定性分别验收，不用单次菜单成功推断。现阶段不追加 Wolf 玩法跑批。
 
 ## 实现与验证记录
 
 以下保留阶段进度、当时的回归数量与证据入口，供维护者追溯；历史阶段的限制不代替当前支持表。
+
+- **Emuera 识别与隔离探针。** 六个候选通过 CSV／ERB／MZ 运行时联合只读识别，保持 `adapter=null`、`control_verified=false`。固定 1.824／.NET Framework 4.5 反编译确认原 WinForms 输入框与程序目录保存路径；独立桌面自写场景输入数字 7 并两次 Enter，三张图确认绿色接受与橙色完成提示，前台 HWND 不变、原 EXE 摘要一致。松键仅投递、没有目标消费确认，尚无正式桥或工具启动。识别测试先红后绿，23 项通过，含接入、CLI、目录、MCP、GUI 的受影响回归 70 项通过。原始证据见 `<Emuera验证目录>/engine-probe-03/` 与识别回归日志。正式桥的 C# STA 启动器／观察器和独立 Python／Job 宿主见[待审设计](superpowers/specs/2026-11-15-emuera-bridge-design.md)，批准前不实现；首版确认／等待不覆盖数字／文本菜单，不运行商业脚本或原存档。
 
 - **TyranoScript 实验桥。** 按[已批准设计](superpowers/specs/2026-11-15-tyranoscript-bridge-design.md)新增 `plugins/tyrano/`：固定 Ver5（500）／Electron 7.1.2，复用 v2 确认与等待；真实事件确认按下与松开，动作后的有效截图才计成功。独立 Python／Job 宿主持有原有启动、停滞、取图与释放期限，主进程卡死也能回收。文件保存与 localStorage 经正常键映射完成同进程和跨进程读档；关闭先确认释放、再请求 Electron 正常退出以刷盘，一秒兜底不变。支持范围、来源与验证方式见[实验说明](../plugins/tyrano/README.md)；鼠标协议、其他版本、通用入口、商业游戏与真人并发未验。完整回归及证据见 `<Tyrano验证目录>/final-review/`。
 

@@ -99,6 +99,13 @@ def inspect_game(path):
         with emulator.open('rb') as stream:
             if stream.read(2) == b'MZ':
                 return found('duckstation_windows', [emulator.name + ':MZ', 'SDL3.dll'], 'duckstation')
+    if (root / 'CSV/FLAG.csv').is_file() and (root / 'ERB').is_dir():
+        for image in root.iterdir():
+            name = image.name.casefold()
+            if name.startswith('emuera') and name.endswith('.exe') and image.is_file():
+                with image.open('rb') as stream:
+                    if stream.read(2) == b'MZ':
+                        return found('emuera_candidate', ['CSV/FLAG.csv', 'ERB/', image.name + ':MZ'])
     if (root / 'renpy/__init__.py').is_file() and (root / 'renpy/bootstrap.py').is_file():
         return found('renpy', ['renpy/__init__.py', 'renpy/bootstrap.py'])
     for prefix in ('', 'resources/app/', 'resources/app/src/'):
