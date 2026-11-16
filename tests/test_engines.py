@@ -234,6 +234,37 @@ class EngineTests(unittest.TestCase):
                                     + raw + padding + b'enginekag')
                 self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
 
+    def test_kirikiri_candidate_requires_xp3_header_and_runtime_marker(self):
+        self.touch('data.xp3', b'XP3\r\n \n\x1a\x8bg\x01' + bytes(8))
+        image = self.touch('Demo.eXe', b'MZ' + bytes(1237) + b'@TVP(kirikiri) for win32')
+        before = {p.name: p.read_bytes() for p in self.root.iterdir()}
+        result = self.engines.inspect_game(image)
+        self.assertEqual(result['engine'], 'kirikiri_candidate')
+        self.assertIsNone(result['adapter'])
+        self.assertFalse(result['control_verified'])
+        self.assertEqual(result['evidence'], ['data.xp3:XP3', 'Demo.eXe:MZ+TVP(kirikiri)'])
+        self.assertEqual(before, {p.name: p.read_bytes() for p in self.root.iterdir()})
+
+    def test_kirikiri_rejects_extension_only_and_unrelated_executables(self):
+        archive = self.touch('data.xp3')
+        image = self.touch('krkr.exe', b'MZ' + b'@TVP(kirikiri) for win32')
+        for body in (b'', b'XP3', b'XP3\r\n \n\x1a\x8bg\x00'):
+            with self.subTest(archive=body):
+                archive.write_bytes(body)
+                self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+        archive.write_bytes(b'XP3\r\n \n\x1a\x8bg\x01' + bytes(8))
+        for body in (b'', b'MZ' + bytes(128), b'@TVP(kirikiri) for win32'):
+            with self.subTest(image=body):
+                image.write_bytes(body)
+                self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+        image.unlink()
+        self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+
+    def test_kirikiri_runtime_scan_does_not_read_unbounded_executable_data(self):
+        self.touch('data.xp3', b'XP3\r\n \n\x1a\x8bg\x01' + bytes(8))
+        self.touch('Demo.exe', b'MZ' + bytes(65536) + b'@TVP(kirikiri) for win32')
+        self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+
     def test_emuera_candidate_requires_runtime_and_era_data_without_claiming_control(self):
         self.touch('CSV/FLAG.csv', b'0,Test\n')
         self.touch('ERB/probe.erb', b'@SYSTEM_TITLE\nWAIT\n')

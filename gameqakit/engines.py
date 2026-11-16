@@ -117,6 +117,20 @@ def inspect_game(path):
         markers = _tyrano_asar_markers(archive)
         if markers:
             return found('tyranoscript_candidate', markers)
+    archives = []
+    for pack in root.iterdir():
+        if pack.is_file() and pack.suffix.casefold() == '.xp3':
+            with pack.open('rb') as stream:
+                header = stream.read(19)
+            if len(header) == 19 and header[:11] == b'XP3\r\n \n\x1a\x8bg\x01':
+                archives.append(pack.name + ':XP3')
+    if archives:
+        for image in root.iterdir():
+            if image.is_file() and image.suffix.casefold() == '.exe':
+                with image.open('rb') as stream:
+                    header = stream.read(65536)
+                if header[:2] == b'MZ' and b'@TVP(kirikiri) for win32' in header:
+                    return found('kirikiri_candidate', [sorted(archives)[0], image.name + ':MZ+TVP(kirikiri)'])
     for pack in root.glob('*.pck'):
         if not pack.is_file():
             continue

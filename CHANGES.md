@@ -1,5 +1,25 @@
 # 修改记录 — game-qa-kit
 
+## 2026-11-16 — KiriKiri 候选识别与只读静态核查
+
+### 实现与影响
+
+- `gameqakit/engines.py` 联合检查 XP3 的 19 字节头长度／11 字节签名与 EXE 前 64 KiB 的 MZ／TVP 标记，返回 `kirikiri_candidate`；不解包、不执行文件，保持 `adapter=null`、`control_verified=false`，没有控制桥或受管启动入口。
+- `tests/test_engines.py` 新增三项行为测试，覆盖正向识别、混合大小写 EXE 扩展名、文件路径输入、只读不改源、扩展名／截断头／无运行时证据拒绝和 EXE 读取边界。
+- 同步支持表、盘点表、路线图，新增[静态核查](docs/KIRIKIRI-STATIC-REVIEW.md)记录固定 2.32.2.426／x86 样本的输入与保存展开证据。原 EXE、商业脚本、反编译产物与存档不提交、不分发；原始证据仅留 `<KiriKiri验证目录>/`。
+- 撤回本次识别、测试及文档即可回退，没有游戏数据迁移或存档改动。统一控制协议与既有桥没有修改。
+
+### 验证
+
+- 新增识别用例先因返回 `unknown` 失败，最小实现后识别模块 26 项通过；红阶段日志保留。
+- `python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_engines tests.test_admission tests.test_admission_cli tests.test_admission_directories tests.test_admission_gui tests.test_game_mcp -v`：73 项通过，无失败或跳过，涵盖识别、接入、CLI、目录、GUI 与 MCP；日志为 `<KiriKiri验证目录>/precommit-regression.log`。
+
+### 已知限制与后续
+
+- 本轮没有启动样本，没有输入、截图、松键、存读档或控制协议实证；候选识别不等于完整 PE、有效归档或版本认证。
+- KAG 兼用键盘事件与状态查询；引擎保存路径可展开到程序目录、文档目录或 AppData，并参与 `.cfu` 读取。EXE 内嵌选项区列有 `datapath` 排除项，其与配置／命令行的优先级尚未证实，因此不能仅凭相对保存目录或复制目录认定写入已隔离。
+- 后续先查清选项优先级、配置／日志／插件写入边界，再列清只复制运行时和自写场景的探针范围与恢复方式。正式加载器仍须先审设计并获批准。
+
 ## 2026-11-16 — Emuera 固定构建毫秒控制实验桥
 
 ### 背景与目标
