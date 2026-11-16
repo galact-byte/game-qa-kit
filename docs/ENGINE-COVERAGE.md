@@ -16,7 +16,7 @@
 | Ren'Py | 实验：示例工程的移动、确认／取消与存读档 | 仅验证 8.3.2 的独立测试工程；暂停只停止合成输入，尚不支持从工具直接启动游戏，见 [实验说明](../plugins/renpy/README.md) |
 | TyranoScript | 实验：示例工程的 Enter 确认与正常存读档 | 仅验证 Ver5／Electron 7.1.2；有独立宿主的失联保护，尚无工具启动入口，见 [实验说明](../plugins/tyrano/README.md) |
 | Emuera | 实验：自写场景的 Enter 确认与正常存读档 | 仅验证固定 1.824／.NET Framework 4.5 构建；数字菜单和工具启动入口未做，见 [实验说明](../plugins/emuera/README.md) |
-| KiriKiri | 仅能识别候选引擎 | 暂无后台控制与工具启动入口，见[静态核查](KIRIKIRI-STATIC-REVIEW.md) |
+| KiriKiri | 仅能识别候选引擎 | 自写工程事件／画面探针已运行，键状态查询不一致，暂无正式控制与工具启动入口，见[核查记录](KIRIKIRI-STATIC-REVIEW.md) |
 | Unreal 等 | 暂无 | 暂不支持后台操作 |
 
 从界面启动游戏的具体条件见 [游戏接入说明](GAME-ADMISSION.md)。同一引擎的不同版本或插件可能需要不同适配，不能用一个样本的结果推断所有游戏均可用。
@@ -45,7 +45,7 @@ Unity 的传统 Input、Input System 与 Rewired 在总表中合并展示；适�
 | Ren'Py | `plugins/renpy/GameQaBridge.rpy` 实验 v2 毫秒桥；8.3.2.24090902 自写工程验证正常事件位移、确认／取消、暂停时新预览、场景读到松键、租约／停滞、黑图／发布失败、短时文件共享冲突恢复，以及正常存读档后桥状态独立 | 仅输入暂停，不提供仿真暂停、帧数或鼠标动作；没有通用准备器或受管 GUI／MCP 启动入口。自写工程的普通存档、游戏目录存档、持久数据及签名密钥落点已核对，不代表商业游戏任意写入已隔离。其他版本、商业玩法及真人并发未验，见 [实验说明](../plugins/renpy/README.md) |
 | TyranoScript | `plugins/tyrano/` 实验 v2 毫秒桥及独立 Python／Job 宿主；Ver5（500）／Electron 7.1.2 自写工程验证真实 Enter 按下／松开、场景变化、暂停时新预览、重复命令、租约／停滞／释放确认、黑白图与截图失败，以及文件保存和 localStorage 的同进程／跨进程正常读取 | 只开放确认与等待，暂停仅停止输入；主进程、渲染页或取图停滞由独立宿主按原期限回收，正常关闭先确认松键并请求 Electron 刷盘退出。没有通用准备器、受管入口或商业游戏实证；鼠标只有早期探针，不属于本桥。识别仍为 `adapter=null`、`control_verified=false`，其他版本和真人并发未验，见 [实验说明](../plugins/tyrano/README.md)与[盘点记录](LOCAL-ENGINE-INVENTORY.md) |
 | Emuera | `plugins/emuera/` 实验 v2 毫秒桥；固定 1.824 私家构建的 C# STA 原入口启动器、目标内分发后输入观察器与独立 Python／Job 宿主；自写场景验证 Enter 按下／松开、画面推进、重复请求、暂停时新观察、租约／UI 卡死／释放确认、无效图像与截图失败，以及正常第 1 槽保存、同进程与新会话读取 | 只开放确认与等待，暂停只停止输入；15 秒启动、1.5 秒租约、1 秒 UI／释放／关闭、3 秒截图期限保持。数字／文本菜单、商业游戏、Skia 等其他版本、通用受管入口、长期稳定性和真人并发未验。六个候选识别仍为 `adapter=null`、`control_verified=false`；见 [实验说明](../plugins/emuera/README.md)和[来源限制](../plugins/emuera/SOURCES.md) |
-| KiriKiri | XP3 完整头长度与 EXE 前 64 KiB 内的 MZ／TVP 标记联合只读识别，返回 `kirikiri_candidate` | `adapter=null`、`control_verified=false`；无控制桥、受管入口或实机验证。固定 2.32.2.426／x86 样本已静态核查输入与保存路径展开；内嵌选项优先级及实际写入边界尚未证实，未启动样本，见[静态核查](KIRIKIRI-STATIC-REVIEW.md) |
+| KiriKiri | XP3 完整头长度与 EXE 前 64 KiB 内的 MZ／TVP 标记联合只读识别，返回 `kirikiri_candidate`；固定 2.32.2.426／x86 自写工程已核对路径优先级、后台 Enter 处理器和前后画面 | `adapter=null`、`control_verified=false`；原生按下事件中的 `System.getKeyState(13)` 仍为零，不能认定完整输入可用。无正式桥、受管入口或商业验收；路径探针只证明自写工程，见[核查记录](KIRIKIRI-STATIC-REVIEW.md)与[待审设计](superpowers/specs/2026-11-16-kirikiri-bridge-design.md) |
 | Unreal、Bakin、GameMaker、Artemis、Flash 等其他引擎 | 当前仓库没有已验控制通路；本机盘点只保留目录证据 | 不继承汉化工具的支持清单，不宣称已适配 |
 
 </details>
