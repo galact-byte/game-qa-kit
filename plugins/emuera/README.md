@@ -6,8 +6,8 @@
 
 - `build.py`：使用本机已有的 .NET Framework 4 C# 编译器构建 x86 启动器；不下载或安装工具。`--testing` 仅供故障夹具使用，生产构建不包含遮图或卡死开关。
 - `Launcher.cs`：STA 启动器通过原程序集入口运行引擎，在原入口设置 WinForms 默认值之后绑定目标输入框。只投递正常 Enter 消息；在原 `richTextBox1_KeyDown` 返回后的观察器中确认按下，在目标 UI 线程的 KeyUp 事件中确认松开。每次发送前重新核对处理器顺序；待处理输入期间不通过嵌套消息循环发布活性。
-- `host.py`：独立 Python 宿主复用 `DesktopProcess`，持有 Win32 Desktop／Job，管理 BridgeClient 会话、租约、暂停、真实输入回执和保护期限。
-- `capture_worker.py`：独立取图进程，连接本批桌面并沿用现有客户区取图和无效图像判据；阻塞时由宿主回收。
+- `host.py`：独立 Python 宿主入口，使用共用 `gameqakit/duration_host.py` 监督循环，持有 Win32 Desktop／Job，管理 BridgeClient 会话、租约、暂停、真实输入回执和保护期限。
+- `capture_worker.py`：保留的取图入口，转交共用 `gameqakit/capture_worker.py`；连接本批桌面并沿用现有客户区取图和无效图像判据，阻塞时由宿主回收。
 
 只开放 `confirm`、`wait` 与显式恢复，动作 `duration_ms` 为 1–1000 的整数，按钮仅声明 `ok`。初始输入暂停；`pause_scope=input`、`simulation_pause=false`。UI 观察序号不代表游戏帧，暂停时游戏仍可运行并持续生成新预览。只有实际按下、实际松开和操作后的有效新图齐备，才发布确认动作成功回执。
 
@@ -50,4 +50,4 @@ python plugins/emuera/host.py --runtime '<自写工程>/Emuera.exe' --launcher '
 
 独立桌面只隔离桌面输入，不隔离任意文件、注册表或网络。路径定向仅针对已核查的实验工程，不能把本桥直接放入原游戏当作安全启动器。
 
-仓库仅包含自有桥、构建脚本和夹具，不分发反编译输出、原运行时、商业资源或原存档。来源及许可限制见 [SOURCES.md](SOURCES.md)。移除本目录和对应测试即可撤回实验桥；共用协议、其他引擎桥和现有受管入口无接口变化。
+仓库仅包含自有桥、构建脚本和夹具，不分发反编译输出、原运行时、商业资源或原存档。来源及许可限制见 [SOURCES.md](SOURCES.md)。移除本目录和对应测试可撤回 Emuera 实验桥；共用监督器还服务 KiriKiri，不随单个插件删除。共用协议和现有受管入口无接口变化。

@@ -1,5 +1,40 @@
 # 修改记录 — game-qa-kit
 
+## 2026-11-16 — KiriKiri 固定构建自写工程实验桥
+
+### 背景与目标
+
+- 按批准设计将路径／事件探针推进到固定 2.32.2.426／x86 的实验桥。原生事件加仅合成 Enter 的 TJS 查询覆层，使正常按下／松开处理器读到 1／0，并由分发后记录、有效新图与摘要共同确认消费。
+
+### 影响与兼容性
+
+- 共用 v2 JSON 协议及现有保护期限保持；只开放 `confirm`／`wait` 与输入暂停，Timer 序号不当作游戏帧。候选 `adapter=null`、`control_verified=false` 保持，无 GUI、MCP 准备器或商业启动入口。
+- 将本项目 Emuera 监督循环与取图进程提取为共用模块，Emuera 保留原入口和默认行为，KiriKiri 不再依赖其插件目录。恢复需整体还原本轮提取及新增插件，不删除仍被其他插件使用的共用模块；无原数据迁移。
+
+### 文件与实现
+
+| 操作 | 路径 | 说明 |
+|---|---|---|
+| 新增 | `plugins/kirikiri/` | 显式 TJS 桥、固定摘要与自写布局入口、受限结构解析、用法和来源／许可声明 |
+| 新增 | `gameqakit/duration_host.py`、`gameqakit/capture_worker.py` | 提取既有 v2 生命周期、释放确认及独立取图监督 |
+| 修改 | `plugins/emuera/host.py`、`plugins/emuera/capture_worker.py`、`plugins/emuera/README.md` | 保留旧入口并复用共用模块，同步依赖与回退边界 |
+| 新增 | `tests/kirikiri_fixture/`、`tests/test_kirikiri_bridge.py`、`tests/test_kirikiri_data.py` | 纯自写输入／存读档／故障夹具、真实桥验证与数据解析拒绝用例 |
+| 修改 | 覆盖表、盘点、路线图、核查记录及实施计划 | 记录实测与未知范围，原始证据仅在本地 |
+
+### 验证
+
+- `python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_kirikiri_bridge tests.test_kirikiri_data -v`：`suite-15` 的 31 项通过；`publication-16` 另补 1 项状态发布失败回收检查，共 32 项（29 项真实桥、3 项解析），无跳过。
+- Emuera 共用宿主串行回归 21 项、Tyrano 串行复核 23 项、JavaScript 28 项通过。全量首轮 490 项中 4 项 Tyrano 失败、2 项缺少历史 Wolf 组件跳过；失败涉及文件占用、心跳与关闭耗时，后续不改代码和期限的串行完整套件通过。单独补录期间另有 Emuera 恢复超时，保留失败现场；后续串行 21 项通过。未把原全量命令记为全绿，也未证明并跑是唯一原因。
+- 交付核对：63 个会话、65 份回执 PNG 及摘要、264 处进程身份记录、89 处文档链接；7 份 KiriKiri 原文件前后摘要一致，Emuera 原组件和副本与既有基线一致。本任务进程无残留，前后及存读档拼图已读回，主代理自审不记为独立审查。
+- 正常 Enter 在自写第 1 槽保存 `123`、改值 `999` 后同进程与新会话均读回 `123`，存档没有桥会话或保持键；`storage-ledger.json` 记录文件、摘要、原状态及恢复。
+- 原处理器异常不报消费，解绑保留后来替换；黑白／杂点首图零输入，截图失败保留已有消费，快照短读不刷新活性或释放期限。早期失败现场保留，不放宽期限或判据。
+
+### 已知限制与后续
+
+- 仅固定 EXE 与自写 Window；商业 KAG、多窗口、其他版本、通用受管入口、长期运行及真人并发未验。原生查询本身仍不随投递事件改变，有限覆层不能推定为所有 KAG 兼容。
+- 源码不含运行时、XP3、原存档、商业内容或反编译产物；固定私有构建的完整许可证和上游 revision 尚未核实，不宣称再分发授权，见[来源声明](plugins/kirikiri/SOURCES.md)。
+- 原始记录在 `<KiriKiri验证目录>/bridge-review/`；目标文本按行加载后做长度检查，宿主有读取上限与独立超时，但不是任意游戏的文件系统／注册表沙箱。
+
 ## 2026-11-16 — KiriKiri 自写工程路径／输入探针与待审桥设计
 
 ### 背景与影响

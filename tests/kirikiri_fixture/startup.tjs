@@ -1,0 +1,95 @@
+// GAMEQAKIT_SELF_AUTHORED_FIXTURE_V1
+// Normal input handlers own gameplay and storage; the bridge only sends input.
+var mode = %[];
+if(Storages.isExistentStorage(System.exePath + "test-mode.tjs")) {
+    var settings = [];
+    settings.load(System.exePath + "test-mode.tjs");
+    for(var i = 0; i < settings.count; i++) {
+        if(settings[i] === "blank=black") mode.blank = "black";
+        else if(settings[i] === "blank=white") mode.blank = "white";
+        else if(settings[i] === "blank=speck") mode.blank = "speck";
+        else if(settings[i] === "action=blank-after") mode.action = "blank-after";
+        else if(settings[i] === "action=block-down") mode.action = "block-down";
+        else if(settings[i] === "action=block-up") mode.action = "block-up";
+        else if(settings[i] === "action=handler-error") mode.action = "handler-error";
+        else if(settings[i] === "action=replace-bindings") mode.action = "replace-bindings";
+        else throw new Exception("Invalid fixture mode");
+    }
+}
+System.exceptionHandler = function(e) {
+    var failure = %[message: e.message];
+    (Dictionary.saveStruct incontextof failure)(System.exePath + "fixture-error.tjs", "w");
+    System.exit();
+    return true;
+};
+var layer;
+function paint(label, color) {
+    layer.fillRect(0, 0, 640, 360, color);
+    layer.fillRect(32, 100, 576, 180, 0xff34495e);
+    layer.drawText(40, 35, label, 0xffffff);
+}
+function blank(kind) {
+    layer.fillRect(0, 0, 640, 360, kind === "white" ? 0xffffffff : 0xff000000);
+    if(kind === "speck") layer.fillRect(10, 10, 1, 1, 0xffffffff);
+}
+class FixtureWindow extends Window {
+    var handlerQuery = -1, value = 123, stage = 0;
+    function FixtureWindow() {
+        super.Window();
+        caption = "GameQA KiriKiri experimental bridge";
+        borderStyle = bsNone;
+        innerSunken = false;
+        setInnerSize(640, 360);
+        if(Storages.isExistentStorage(System.dataPath + "slot01.tjs")) stage = 2;
+    }
+    function onKeyDown(key, shift) {
+        if(key !== 13) return;
+        if(mode.action === "block-down") while(true) {}
+        if(mode.action === "handler-error") throw new Exception("Fixture original handler failed");
+        handlerQuery = System.getKeyState(13);
+        if(handlerQuery !== 1) return;
+        paint("ENTER DOWN", 0xff2874a6);
+    }
+    function onKeyUp(key, shift) {
+        if(key !== 13) return;
+        if(mode.action === "block-up") while(true) {}
+        handlerQuery = System.getKeyState(13);
+        if(handlerQuery !== 0) return;
+        if(stage == 0) {
+            var saved = %[value: value];
+            (Dictionary.saveStruct incontextof saved)(System.dataPath + "slot01.tjs", "w");
+            paint("SAVED 123 - ENTER UP", 0xff2ecc71);
+        } else if(stage == 1) {
+            value = 999;
+            paint("CHANGED 999", 0xffe14444);
+        } else {
+            var saved = Scripts.evalStorage(System.dataPath + "slot01.tjs");
+            value = saved.value;
+            paint("LOADED " + value, 0xff3498ed);
+        }
+        stage++;
+        if(mode.action === "blank-after") blank("black");
+        if(mode.action === "replace-bindings") {
+            var replacementQuery = function(key) { return key === 13 ? 37 : 0; };
+            var replacementDown = function(key, shift) {};
+            var replacementUp = function(key, shift) {};
+            System.getKeyState = replacementQuery;
+            this.onKeyDown = replacementDown;
+            this.onKeyUp = replacementUp;
+            bridge.detach();
+            var report = %[query: System.getKeyState(13), down: this.onKeyDown === replacementDown ? 1 : 0,
+                up: this.onKeyUp === replacementUp ? 1 : 0];
+            (Dictionary.saveStruct incontextof report)(System.exePath + "replacement-preserved.tjs", "w");
+            System.exit();
+        }
+    }
+}
+var fixture = new FixtureWindow();
+layer = new Layer(fixture, null);
+layer.setSize(640, 360);
+layer.visible = true;
+paint("WAITING - VALUE 123", 0xff6c3483);
+if(mode.blank !== void) blank(mode.blank);
+fixture.visible = true;
+Scripts.execStorage(System.exePath + "GameQaBridge.tjs");
+var bridge = new GameQaBridge(fixture, System.getArgument("-gameqadir"));

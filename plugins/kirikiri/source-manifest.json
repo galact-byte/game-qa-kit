@@ -1,0 +1,13 @@
+{
+  "component": "KiriKiri runtime",
+  "version_resource": "2.32.2.426",
+  "architecture": "x86",
+  "sha256": "8db00ce0cd63748296d4e13b6916a4f1b5b166078f806d731202d15b210efe11",
+  "source": "locally held sample; runtime not redistributed",
+  "upstream_commit": null,
+  "upstream_revision": null,
+  "runtime_license": "unverified for this exact build; no redistribution grant claimed",
+  "distributed": false,
+  "bridge_license": "MIT; see repository LICENSE",
+  "third_party_runtime_code_in_bridge": false
+}
