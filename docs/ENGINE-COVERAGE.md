@@ -16,7 +16,7 @@
 | Ren'Py | 实验：示例工程的移动、确认／取消与存读档 | 仅验证 8.3.2 的独立测试工程；暂停只停止合成输入，尚不支持从工具直接启动游戏，见 [实验说明](../plugins/renpy/README.md) |
 | TyranoScript | 实验：示例工程的 Enter 确认与正常存读档 | 仅验证 Ver5／Electron 7.1.2；有独立宿主的失联保护，尚无工具启动入口，见 [实验说明](../plugins/tyrano/README.md) |
 | Emuera | 实验：自写场景的 Enter 确认与正常存读档 | 仅验证固定 1.824／.NET Framework 4.5 构建；数字菜单和工具启动入口未做，见 [实验说明](../plugins/emuera/README.md) |
-| KiriKiri | 实验：自写 Window 的 Enter 确认与正常存读档 | 固定 2.32.2.426／x86，原生事件加有限键状态覆层；无通用工具入口，见[实验说明](../plugins/kirikiri/README.md) |
+| KiriKiri | 实验：自写 Window 的 Enter 确认与正常存读档 | 固定 2.32.2.426／x86，原生事件加有限键状态覆层；商业样本仅完成[只读写入边界审查](KIRIKIRI-COMMERCIAL-BOUNDARY.md)，无通用工具入口，见[实验说明](../plugins/kirikiri/README.md) |
 | Unreal 等 | 暂无 | 暂不支持后台操作 |
 
 从界面启动游戏的具体条件见 [游戏接入说明](GAME-ADMISSION.md)。同一引擎的不同版本或插件可能需要不同适配，不能用一个样本的结果推断所有游戏均可用。

@@ -2,6 +2,10 @@
 
 本桥只验 KiriKiri 2.32.2.426／x86 的固定运行时与本仓库自写 Window 工程。运行时必须匹配 [SOURCES.md](SOURCES.md) 中的 SHA-256；不分发 EXE、商业资源或原存档。没有 GUI、`game_prepare` 或商业启动入口，候选识别仍为 `adapter=null`、`control_verified=false`。
 
+## 商业样本前置审查
+
+[商业 KAG 写入边界审查](../../docs/KIRIKIRI-COMMERCIAL-BOUNDARY.md)记录了正常保存、自由文件选择、配置迁移及原生插件未知项，并列出待批准的副本与还原方案；本轮没有启动商业样本。当前宿主仍只接受自写夹具，不能直接把 `data.xp3` 加入目录运行。
+
 ## 输入与组件
 
 `GameQaBridge.tjs` 由夹具显式加载并绑定唯一 Window。它保留原查询和原事件处理器，通过原生 `postInputEvent` 发送 Enter；仅合成 Enter 期间包装单参数 `System.getKeyState(13)`，其他键委托原查询。原处理器返回并实际查询到按下／松开后才记录消费；处理器抛错、卡住或后续被替换均不能报告成功。解绑仅还原仍由桥持有的方法，保留游戏后续替换。

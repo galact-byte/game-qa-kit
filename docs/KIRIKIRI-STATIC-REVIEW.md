@@ -58,6 +58,10 @@ REA 对固定 EXE 的静态反编译显示：
 
 上述仅是固定构建、自写 Window 的实验结果；商业 KAG、多窗口、其他版本、通用受管入口、长期稳定性和真人并发未验。产品候选仍为 `adapter=null`、`control_verified=false`，不能直接将桥放入任意游戏宣称兼容。
 
+## 商业 KAG 写入边界复核
+
+只读审查及待批准的副本／还原方案见[商业样本写入边界](KIRIKIRI-COMMERCIAL-BOUNDARY.md)。常规保存与日志路径、当前关闭的自由保存旁路、条件式配置迁移窗口及 `wuvorbis.dll` 原生写入未知项已分开记录；原包 1,138 个文件的前后摘要一致。未启动商业脚本，不提升控制覆盖等级。
+
 ## 证据与恢复
 
 原始提取清单、转码脚本、REA evidence bundle 及地址对应反编译片段保存在 `<KiriKiri验证目录>/static-review/`；路径与输入探针及范围／还原账本分别位于 `path-probe-01/` 至 `path-probe-03/`、`input-probe-01/` 至 `input-probe-05/`。最新正确接口测量为 `input-probe-05/`，交付复核入口为 `probe-delivery/verification.json`。
