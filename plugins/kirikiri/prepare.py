@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 import shutil
 
+from plugins.kirikiri.unicode_patch import archive_scripts, patch_bytes, write_patch
+
 INPUTS = {
     'runtime.exe': '8db00ce0cd63748296d4e13b6916a4f1b5b166078f806d731202d15b210efe11',
     'data.xp3': 'b3c3d86d6e6a5c34100e1e2d8a6cde59ca7576fe1c6d8f0f0ff7c100a7ab045e',
@@ -39,7 +41,7 @@ def _contained(path, parent):
     return path == parent or parent in path.parents
 
 
-def prepare(source, destination, executable):
+def prepare(source, destination, executable, *, unicode_patch=False):
     source, destination = safe_path(source), safe_path(destination)
     if destination.exists() or _contained(destination, source) or _contained(source, destination):
         raise ValueError('必须使用与原目录分离的全新会话目录')
@@ -74,6 +76,8 @@ def prepare(source, destination, executable):
         records.append(dict(source=str(original), destination='game/' + name, sha256=expected,
                             size=target.stat().st_size))
     report = dict(version=1, source=str(source), session_root=str(destination), files=records)
+    if unicode_patch:
+        report['unicode_patch'] = write_patch(game / 'patch.xp3', archive_scripts(game / 'data.xp3'))
     (destination / 'preparation.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
     return report
 
@@ -85,6 +89,15 @@ def validate(root):
         raise ValueError('准备身份不匹配')
     expected = dict(INPUTS, **{name: digest(CODE / name) for name in BRIDGES})
     game = root / 'game'
+    if 'unicode_patch' in report:
+        # Derive the expected overlay from pinned bytes; metadata cannot authorize new content.
+        if digest(game / 'data.xp3') != INPUTS['data.xp3']:
+            raise ValueError('部署归档被替换')
+        payload, records = patch_bytes(archive_scripts(game / 'data.xp3'))
+        sha256 = hashlib.sha256(payload).hexdigest()
+        if report['unicode_patch'] != {'sha256': sha256, 'bytes': len(payload), 'entries': records}:
+            raise ValueError('Unicode 覆盖清单不匹配')
+        expected['patch.xp3'] = sha256
     if {p.name for p in game.iterdir()} != set(expected):
         raise ValueError('部署目录含缺失或额外文件')
     for name, sha256 in expected.items():
@@ -102,5 +115,6 @@ if __name__ == '__main__':
     parser.add_argument('--source', required=True, type=Path)
     parser.add_argument('--destination', required=True, type=Path)
     parser.add_argument('--executable', required=True)
+    parser.add_argument('--unicode-patch', action='store_true', help='额外生成原生 KAG Unicode 文本覆盖归档')
     args = parser.parse_args()
-    print(json.dumps(prepare(args.source, args.destination, args.executable), ensure_ascii=False, indent=2))
+    print(json.dumps(prepare(args.source, args.destination, args.executable, unicode_patch=args.unicode_patch), ensure_ascii=False, indent=2))

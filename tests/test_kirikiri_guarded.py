@@ -151,6 +151,50 @@ class GuardedKagTests(KagBridgeTests):
         from plugins.kirikiri.host import read_struct
         self.assertEqual(read_struct(self.root / 'savedata/original-init.tjs')['preserved'], 1)
 
+    def test_cp932_patch_loads_native_text_readers_and_input(self):
+        # Removing the Unicode overlay must reproduce the native ANSI conversion error.
+        from plugins.kirikiri.unicode_patch import write_patch
+        from plugins.kirikiri.host import read_struct
+        text = '半角ｱと日本語'
+        files = {
+            'system/encoding.tjs': ('// ｱ\n' + 'global.encodingProbe = "' + text + '";').encode('cp932'),
+            'scenario/encoding.ks': ('; ' + text + '\n[wait time=1]\n').encode('cp932'),
+            'others/encoding.txt': (text + '\n').encode('cp932'),
+        }
+        original_dir = self.runtime / 'original'
+        original_dir.mkdir()
+        for name, data in files.items():
+            path = original_dir / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_bytes(data)
+        startup = self.runtime / 'startup.tjs'
+        original = startup.read_text(encoding='ascii')
+        probe = '''
+Storages.addAutoPath(System.exePath + "original/system/");
+Storages.addAutoPath(System.exePath + "original/scenario/");
+Storages.addAutoPath(System.exePath + "original/others/");
+Storages.addAutoPath(System.exePath + "patch.xp3>");
+try {
+    Scripts.execStorage("encoding.tjs");
+    var scenario = new KAGParser(); scenario.loadScenario("encoding.ks");
+    var lines = []; lines.load("encoding.txt");
+    var encodingResult = %[script: global.encodingProbe, line: lines[0], scenario: scenario.getNextTag().tagname];
+    (Dictionary.saveStruct incontextof encodingResult)(System.dataPath + "encoding-result.tjs", "w");
+} catch(e) {
+    var encodingError = %[message: e.message];
+    (Dictionary.saveStruct incontextof encodingError)(System.dataPath + "encoding-error.tjs", "w");
+    throw e;
+}
+'''
+        startup.write_text(original.replace('var layer;', probe + '\nvar layer;'), encoding='ascii')
+        write_patch(self.runtime / 'patch.xp3', files)
+        self.test_full_input_changes_screen_and_deduplicates()
+        result = read_struct(self.root / 'savedata/encoding-result.tjs')
+        self.assertEqual(result, {'script': text, 'line': text, 'scenario': 'wait'})
+        self.assertFalse((self.root / 'savedata/encoding-error.tjs').exists())
+        for name, data in files.items():
+            self.assertEqual((original_dir / name).read_bytes(), data)
+
     def test_default_guard_keeps_shell_request_fatal_before_input(self):
         from gameqakit.sessions import read_json
         from gameqakit.win32 import _pid_path

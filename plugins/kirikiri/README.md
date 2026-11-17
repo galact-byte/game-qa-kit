@@ -4,9 +4,9 @@
 
 ## 商业样本前置审查
 
-[商业 KAG 写入边界审查](../../docs/KIRIKIRI-COMMERCIAL-BOUNDARY.md)记录了正常保存、自由文件选择、配置迁移及原生插件边界；插件 CRT 写入引用仍不能证明完整不可达。[已批准实现的商业接入设计](../../docs/superpowers/specs/2026-11-17-kirikiri-commercial-design.md)对应的专用准备器、主线程恢复前守卫、原 `AfterInit.tjs` 后的加载点与 KAG 接线已实现，并通过自写联合验收。商业首批已执行：守卫就绪，但宿主将目录作为项目传入，未加载 `data.xp3` 中的 `startup.tjs`，在首图前失败，零输入并已回收。项目选择现已修正为有 `data.xp3` 时显式选择归档，否则选择目录；自写归档夹具验证通过。经单独批准的第二批已正确读取归档并执行原 KAG 初始化，但随后加载 `KLayers.ks` 出现 ANSI 到 Unicode 转换异常，15 秒内未建立首图，零输入并已回收。只读转换对照显示该成员为有效 CP932，而当前 ANSI 代码页 936 无法严格转换；运行时内部转换路径和修复尚未通过自写夹具验证。两批授权均已消耗，不自动重跑，不增加商业适配覆盖。
+[商业 KAG 写入边界审查](../../docs/KIRIKIRI-COMMERCIAL-BOUNDARY.md)记录了正常保存、自由文件选择、配置迁移及原生插件边界；插件 CRT 写入引用仍不能证明完整不可达。[已批准实现的商业接入设计](../../docs/superpowers/specs/2026-11-17-kirikiri-commercial-design.md)对应的专用准备器、主线程恢复前守卫、原 `AfterInit.tjs` 后的加载点与 KAG 接线已实现，并通过自写联合验收。商业首批已执行：守卫就绪，但宿主将目录作为项目传入，未加载 `data.xp3` 中的 `startup.tjs`，在首图前失败，零输入并已回收。项目选择现已修正为有 `data.xp3` 时显式选择归档，否则选择目录；自写归档夹具验证通过。经单独批准的第二批已正确读取归档并执行原 KAG 初始化，但随后加载 `KLayers.ks` 出现 ANSI 到 Unicode 转换异常，15 秒内未建立首图，零输入并已回收。只读转换对照显示该成员为有效 CP932，而当前 ANSI 代码页 936 无法严格转换；运行时编码异常已由自写 CP932 工程复现；显式的 `--unicode-patch` 可从固定归档生成带 UTF-16LE BOM 的独立 `patch.xp3`，只覆盖需转换的脚本，不改 `data.xp3` 或系统代码页。补丁按 KAG 根目录检索规则使用平面文件名，同名冲突、解码错误及原归档校验失败直接拒绝；准备校验从固定原字节重新派生补丁摘要，不能用改写清单放行任意补丁。自写脚本执行、场景解析、文本读取和真实输入验证通过，商业修复版尚未启动。两批授权均已消耗，不自动重跑，不增加商业适配覆盖。
 
-`prepare.py` 限定三份原始输入的摘要与输出清单，拒绝已有输出、重解析点及篡改；`GuardHost.cpp` 负责挂起启动、初始化期守卫、目标与守卫身份、持续完整性与 Job 回收；`guarded.py` 将该目标接到 KAG 监督器。默认守卫对越界请求返回访问拒绝并终止批次，商业宿主拒绝实验守卫。
+`prepare.py` 限定三份原始输入的摘要与输出清单，拒绝已有输出、重解析点及篡改；Unicode 覆盖仅由显式选项生成，清单包含原归档成员路径、补丁条目名称及转换前后摘要。`GuardHost.cpp` 负责挂起启动、初始化期守卫、目标与守卫身份、持续完整性与 Job 回收；`guarded.py` 将该目标接到 KAG 监督器。默认守卫对越界请求返回访问拒绝并终止批次，商业宿主拒绝实验守卫。
 
 自写实验单独启用精确共享节打开／创建与 CNG 设备调用的非致命拒绝：仍返回访问拒绝、不创建对象、不返回句柄，只不因此终止该自写批次。相邻对象／会话／掩码／控制码及文件后备映射保持致命拒绝。DirectInput 的临时非致命分支已撤销；自写目标改用 `-joypad=no -wheel=message -dbstyle=gdi -usedb=yes`。这些设置和三条精确非致命拒绝已获单独批准，迁入独立的 `KiriKiriCommercialHost.exe`／`KiriKiriCommercialGuard.dll` 构建；回执以 `denial_policy=2` 标识商业兼容策略，并记录 `runtime_sha256`，三条请求仍返回拒绝，其余危险请求仍终止批次。默认严格策略保持不变，严格／自写／商业兼容三种守卫不可混配。商业单批授权已消耗，失败后不得自行重启。
 
@@ -41,10 +41,10 @@ $env:TMP = '<E 盘验证目录>/tmp'
 $env:TEMP = $env:TMP
 $env:GAMEQAKIT_TEST_KIRIKIRI = '<合法持有的固定运行时 EXE>'
 $env:GAMEQAKIT_TEST_EVIDENCE = '<全新证据目录>'
-python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_kirikiri_bridge.KiriKiriBridgeTests tests.test_kirikiri_data tests.test_kirikiri_guard tests.test_kirikiri_startup tests.test_kirikiri_prepare tests.test_kirikiri_kag.KagBridgeTests tests.test_kirikiri_guarded.GuardedKagTests tests.test_kirikiri_guarded.CommercialCompatKagTests -v
+python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_kirikiri_bridge.KiriKiriBridgeTests tests.test_kirikiri_data tests.test_kirikiri_guard tests.test_kirikiri_startup tests.test_kirikiri_prepare tests.test_kirikiri_unicode_patch tests.test_kirikiri_kag.KagBridgeTests tests.test_kirikiri_guarded.GuardedKagTests tests.test_kirikiri_guarded.CommercialCompatKagTests -v
 ```
 
-普通桥测试只复制固定 EXE、`tests/kirikiri_fixture/startup.tjs` 与本桥 TJS；KAG 联合测试改用自写 KAG 夹具，并在 E 盘构建守卫／宿主。所有测试不含商业 XP3、原存档和原插件；归档用例在本地将自写启动脚本打包为 XP3，并移除散装脚本，验证加载、原处理器按下／松开、画布变化及去重。没有运行时的真实测试明确跳过。原生构建还要求本机已有的 x86 MSVC 工具链，不自动安装。手工构造普通自写布局后可运行：
+普通桥测试只复制固定 EXE、`tests/kirikiri_fixture/startup.tjs` 与本桥 TJS；KAG 联合测试改用自写 KAG 夹具，并在 E 盘构建守卫／宿主。所有测试不含商业 XP3、原存档和原插件；归档用例在本地将自写启动脚本打包为 XP3，并移除散装脚本，验证加载、原处理器按下／松开、画布变化及去重。没有运行时的真实测试明确跳过。编码用例仅用自写日文／半角片假名脚本、场景及文本，在原生 `Scripts.execStorage`／`KAGParser`／`Array.load` 下核对字符和换行；再验证真实按下、松开、画面变化及去重。原生构建还要求本机已有的 x86 MSVC 工具链，不自动安装。手工构造普通自写布局后可运行：
 
 ```powershell
 python plugins/kirikiri/host.py --runtime '<E 盘自写工程>/runtime.exe' --directory '<全新空会话目录>' --session '<新编号>'
