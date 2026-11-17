@@ -1,0 +1,64 @@
+// Self-authored KAG-shaped loading chain; contains no commercial code.
+var gameQaFolder = System.getArgument("-gameqadir") + "/";
+var mode = %[];
+if(Storages.isExistentStorage(System.exePath + "test-mode.tjs")) {
+    var settings = [];settings.load(System.exePath + "test-mode.tjs");
+    for(var i = 0; i < settings.count; i++) {
+        if(settings[i] === "action=blank-after") mode.action = "blank-after";
+        else if(settings[i] === "action=block-down") mode.action = "block-down";
+        else if(settings[i] === "action=block-up") mode.action = "block-up";
+        else if(settings[i] === "load=multiple-windows") mode.load = "multiple-windows";
+        else if(settings[i] === "blank=black") mode.blank = "black";
+        else if(settings[i] === "blank=white") mode.blank = "white";
+        else if(settings[i] === "blank=speck") mode.blank = "speck";
+        else throw new Exception("Invalid fixture mode");
+    }
+}
+System.exceptionHandler = function(e) {
+    var report = %[message: e.message, trace: e.trace];
+    (Dictionary.saveStruct incontextof report)(System.getArgument("-gameqadir") + "/target-error.tjs", "w");
+    System.exit();return true;
+};
+var layer;
+class AuthoredKag extends Window {
+    var afterInitPreserved = 0;
+    function AuthoredKag() {
+        super.Window();caption = "Self-authored KAG input";
+        borderStyle = bsNone;innerSunken = false;setInnerSize(640,360);
+    }
+    function onKeyDown(key,shift) {
+        if(mode.action === "block-down") while(true) {}
+        if(key === 13 && System.getKeyState(13)) {
+            layer.fillRect(0,0,640,360,0xff245aae);
+            layer.fillRect(32,100,576,180,0xff34495e);
+            layer.drawText(40,35,"ORIGINAL KAG DOWN",0xffffff);
+        }
+        return 17;
+    }
+    function onKeyUp(key,shift) {
+        if(mode.action === "block-up") while(true) {}
+        layer.fillRect(0,0,640,360,0xff168a52);
+        layer.fillRect(32,100,576,180,0xff34495e);
+        layer.drawText(40,35,"ORIGINAL KAG RELEASE",0xffffff);
+        if(mode.action === "blank-after") layer.fillRect(0,0,640,360,0xff000000);
+        return "released";
+    }
+}
+global.kag = new AuthoredKag();
+layer = new Layer(kag,null);layer.setSize(640,360);layer.visible = true;
+layer.fillRect(0,0,640,360,0xff6c3483);layer.fillRect(32,100,576,180,0xff34495e);
+layer.drawText(40,35,"ORIGINAL AFTERINIT",0xffffff);
+if(mode.blank !== void) {
+    layer.fillRect(0,0,640,360,mode.blank === "white" ? 0xffffffff : 0xff000000);
+    if(mode.blank === "speck") layer.fillRect(300,160,1,1,0xffffffff);
+}
+kag.visible = true;
+var extraWindow;
+if(mode.load === "multiple-windows") {
+    extraWindow = new Window();extraWindow.caption = "Unexpected extra window";extraWindow.visible = true;
+}
+// Original AfterInit effects must survive the external extension.
+kag.afterInitPreserved = 1;
+var initialization = %[preserved: kag.afterInitPreserved, window_type: kag instanceof "Window", down: typeof kag.onKeyDown, up: typeof kag.onKeyUp];
+(Dictionary.saveStruct incontextof initialization)(System.dataPath + "original-init.tjs", "w");
+Scripts.execStorage(System.exePath + "AfterInit2.tjs");

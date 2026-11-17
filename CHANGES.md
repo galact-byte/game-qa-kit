@@ -1,5 +1,67 @@
 # 修改记录 — game-qa-kit
 
+## 2026-11-17 — KiriKiri 自写受保护 KAG 验收通过及取图修正
+
+### 结果与影响
+
+- 专用准备器、启动／持续守卫、KAG 加载与 Python 监督器已接通；固定 2.32.2.426／x86 的自写 KAG 同批验证真实按下／松开、原处理器消费、画面变化、重复命令不重放与生命周期回收。
+- 修正固定运行时的 `PrintWindow` 灰底误判：KiriKiri 独立取图工作进程在目标隔离桌面直接读取窗口 GDI 画面，并校验自写画布像素和静止时的连续截图。首图 99.9% 黑白帧判据与原期限不变；共用入口仅提取读取分支，其他引擎保持默认取图路径。
+- 修复控制文件短暂共享冲突导致 TJS 退出：只在读取失败时等待下一轮；格式／身份错误仍拒绝，原超时继续计时。真实文件锁已在普通桥、KAG 桥及受守卫 KAG 上验证。
+- 提交前独立索引回归补齐观察文件原地写入的截断词元：未完成的字符串等合法数据前缀按“快照未完成”等待，沿用原监督期限，完整非法记录仍拒绝。逐字符截断用例先红后绿，原共享冲突用例重新通过。
+- 补齐游戏窗口身份校验，拒绝额外游戏窗口而不过滤成辅助窗口误报；提前失败先发布错误状态；重启测试使用全新原生会话。暂停仍须目标确认松开，未确认则按原期限回收。
+
+### 安全与兼容边界
+
+- 自写实验中，精确共享节打开 `0x6`、创建 `0xF0007` 及 CNG `0x390008` 仍返回访问拒绝、不创建对象、不产生句柄，仅不因此终止自写批次；相邻反例与默认商业构建仍严格拒绝，商业宿主拒绝实验守卫。
+- DirectInput 临时非致命分支已撤销。自写批次以 `-joypad=no -wheel=message -dbstyle=gdi -usedb=yes` 避开原生手柄路径并使用 GDI；这些设置和实验失败处理尚未迁入商业策略。
+- 商业三文件副本未创建、未注入、未启动，未查询或触发 Release。候选仍为 `adapter=null`、`control_verified=false`，不扩大商业控制覆盖。
+- 来源清单已区分自有原生守卫、Proto Input 固定参考提交与 EasyHook 许可；KiriKiri 本构建未链接 EasyHook，固定运行时的上游 revision／再分发许可仍未核实，不分发原运行时。
+
+### 验证与证据
+
+- `<KiriKiri验证目录>/guarded-kag-19/`：受保护 KAG 22 项（72.989 秒）、KAG 2 项（4.762 秒）、普通桥 31 项（70.837 秒）、原生守卫／启动／准备器／解析 27 项（51.817 秒），合计 **82 项全通过，无跳过**；相关日志为 `joint.txt`、`kag.txt`、`bridge.txt`、`native.txt`。
+- 提交前对独立暂存版本复核：修正后受影响的受保护 KAG／KAG／普通桥／解析共 59 项通过；同一索引未改动的原生／启动／准备器 24 项通过，合计 83 项，无跳过。日志分别见 `commit-21/` 与 `commit-20/native.txt`；初次复跑失败及解析红测保留。
+- 相邻 Emuera 4 项真实回归通过（22.276 秒）：持续取图、Enter 按下／松开及画面变化、黑白帧拒绝、截图工作进程卡死回收，见 `guarded-kag-18/adjacent-emuera.txt`。
+- 取图问题的原始对照、红绿日志在 `guarded-kag-17/`；共享读取冲突的红绿及联合验证在 `guarded-kag-18/contention-*.txt`。历史失败批次保留，不用最终通过覆盖其失败记录。
+- 以上是自写及相邻回归；商业 KAG、商业存读档、多游戏窗口控制、长期稳定性与真人并发未验。后续需一次明确的商业兼容策略及精确单批审批。
+
+## 2026-11-17 — 历史阶段：KiriKiri 启动失败语义及受保护 KAG 验收阻碍（已由上条更新）
+
+### 背景与目标
+
+- 按已批准设计实现专用准备器、启动／持续守卫与 KAG 输入桥，当前仍在自写验收阶段，尚未完成商业接入。
+- 越界请求返回访问拒绝，由宿主判失败并回收 Job，避免调用线程永久挂起。新增 Python 接线连接原生宿主拥有的目标与既有 KAG 监督器。
+
+### 影响与兼容性
+
+- 新实现位于 `plugins/kirikiri/`，不更改共用控制协议或其他引擎的默认守卫策略；商业复制、注入、启动保持关闭。
+- 共享节实验以编译开关显式限定在自写验证守卫；默认构建仍严格拒绝，商业宿主拒绝加载标记为实验的守卫。未扩大到商业启动。
+- 首图、输入释放与生命周期联合验收未通过，不能将已通过的文件边界和启动测试视为 KAG 控制通过。
+
+### 文件与实现
+
+| 操作 | 路径 | 说明 |
+| --- | --- | --- |
+| 新增 | `plugins/kirikiri/prepare.py`、`build.py`、`Guard.hpp`、`StartupGuard.hpp`、`GuardBridge.cpp`、`GuardHost.cpp` | 固定输入准备、x86 构建、早期及持续保护、失败回收 |
+| 新增 | `plugins/kirikiri/AfterInit2.tjs`、`KagBridge.tjs`、`kag_host.py`、`guarded.py` | 保留原处理器的输入覆层及原生目标接线，联合验收未完成 |
+| 新增 | `tests/test_kirikiri_{prepare,guard,startup,kag,guarded}.py` 与自写夹具 | 文件／句柄／启动与联合验收用例，未通过项保留 |
+
+### 验证
+
+- 原严格拒绝回归为 18 项通过，52.389 秒，证据保留。老师随后批准仅对当前会话 `windows_shell_global_counters` 的 `NtOpenSection(write)`／访问 `0x6` 返回拒绝但不终止批次，用自写夹具验证降级。
+- 新增默认策略红测确认未显式启用实验时必须保持致命拒绝；转绿后 `python -B -W error::ResourceWarning -X utf8 -m unittest tests.test_kirikiri_guard tests.test_kirikiri_startup tests.test_kirikiri_prepare -v`：20 项通过，48.741 秒，无跳过。覆盖默认严格／实验非致命拒绝、句柄不产生、相邻名称／其他会话／不同访问掩码仍致命、命名节创建仍致命、正常退出及启动失败回收。
+- 固定运行时自写联合诊断 `tests.test_kirikiri_guarded.GuardedKagTests.test_shell_open_exception_leaves_named_creation_fatal`：1 项通过，14.407 秒，无跳过。记录到同名对象随后以 `NtCreateSection(named)`、访问 `0xF0007` 请求创建；创建仍被拒绝并回收，未生成输入命令与目标观察文件。该用例只证明安全失败，不代表正常联合验收通过。
+- 证据：`<KiriKiri验证目录>/guarded-kag-01/section-default-strict-red.txt`、`section-exception-native-final.txt`、`section-exception-kag-final.txt` 及 `guarded-kag-07/evidence/`。原完整输入用例在 `section-exception-green-02.txt` 仍为失败；`section-exception-final.txt` 因工具 60 秒时限中断，未算通过，随后才分两条命令核实上述 20+1 项。
+
+### 已知限制与后续
+
+- 老师已批准增加同一对象的精确 `NtCreateSection(0xF0007)` 非致命拒绝实验；实验仍不创建对象、不返回句柄，不准许访问。原创建请求致命诊断保留为历史证据。
+- 新增红阶段 `section-create-red.txt`：4 项中实验精确创建边界与宿主退出行为 2 项失败，默认严格 2 项通过。最小实现后，`tests.test_kirikiri_guard tests.test_kirikiri_prepare` 为 8 项通过（15.833 秒），`tests.test_kirikiri_startup` 为 14 项通过（34.524 秒），均无跳过。新增创建请求的独立计数／记录、相邻名称／会话／掩码／文件后备映射拒绝及默认严格策略验证。
+- `guarded-kag-08/joint.txt`：完整输入用例仍失败，默认严格失败回收用例通过。实验中打开／创建请求被非致命拒绝 32／16 次，随后 `NtDeviceIoControlFile`、`\\Device\\CNG`、`0x390008` 致命拒绝并回收。`test_shell_experiment_keeps_cng_device_request_fatal_before_input` 单独复核 1 项通过（21.750 秒）；无输入命令、无目标观察文件，目标 PID 已退出。
+- 本地独立自写探针：`RtlGenRandom` 触发同一 `\\Device\\CNG`／`0x390008`，返回失败；这证明正常随机数 API 可走该路径，不能据此断言该控制码所有调用均无副作用或直接放行。BCrypt 探针先遇到不同的 `\\Device\\KsecDD`／`0x390400`，未与 CNG 等同。
+- 最新证据：`<KiriKiri验证目录>/guarded-kag-01/section-create-*.txt`、`guarded-kag-08/`；源码恢复点为 `guarded-kag-checkpoint-03/`。
+- CNG 调用继续严格拒绝；下一步建议只对自写实验构建中精确 `\\Device\\CNG`／`NtDeviceIoControlFile(0x390008)` 返回拒绝但不终止批次，观察能否降级。此新增失败处理尚未获批、未实现。对象后备存储与所有者仍未确认，不能按名称允许共享节访问。加载身份／唯一窗口／保存路径校验、完整生命周期、来源许可与商业单批清单尚未完成。未提交推送，Release 未查询或触发。
+
 ## 2026-11-17 — KiriKiri 商业原生写入引用追查与待审接入设计
 
 ### 背景与目标

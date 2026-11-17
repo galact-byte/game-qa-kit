@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from gameqakit.win32 import capture
 
 
-def run(directory, ident, hwnd, destination, desktop_name):
+def run(directory, ident, hwnd, destination, desktop_name, *, capture_fn=capture):
     u = ctypes.WinDLL('user32', use_last_error=True)
     k = ctypes.WinDLL('kernel32', use_last_error=True)
     u.OpenDesktopW.argtypes = [W.LPCWSTR, W.DWORD, W.BOOL, W.DWORD]
@@ -26,7 +26,7 @@ def run(directory, ident, hwnd, destination, desktop_name):
     try:
         if not desktop or not u.SetThreadDesktop(desktop):
             raise ctypes.WinError(ctypes.get_last_error())
-        capture(hwnd, destination)
+        capture_fn(hwnd, destination)
         result['ok'] = True
     except Exception as error:
         result['error'] = str(error)

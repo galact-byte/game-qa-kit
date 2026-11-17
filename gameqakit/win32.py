@@ -52,6 +52,9 @@ gdi32.SelectObject.restype = HGDIOBJ
 gdi32.SelectObject.argtypes = [HDC, HGDIOBJ]
 gdi32.DeleteObject.argtypes = [HGDIOBJ]
 gdi32.DeleteDC.argtypes = [HDC]
+gdi32.BitBlt.restype = wintypes.BOOL
+gdi32.BitBlt.argtypes = [HDC, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                         HDC, ctypes.c_int, ctypes.c_int, wintypes.DWORD]
 
 kernel32.OpenProcess.restype = HANDLE
 kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
@@ -246,8 +249,8 @@ def _frame_blank_ratio(raw: bytes, w: int, h: int) -> float:
     return max(black, white) / sampled if sampled else 1.0
 
 
-def grab_image(hwnd: int):
-    """PrintWindow 抓整帧客户区，返回 PIL.Image(RGB)。最小化/黑帧/失败一律抛错。"""
+def grab_image(hwnd: int, *, window_dc=False):
+    """抓取客户区；window_dc 仅供独立桌面上的 GDI 窗口使用。"""
     from PIL import Image
     if user32.IsIconic(hwnd):
         raise RuntimeError("游戏窗口已最小化，无法截图；请先把窗口恢复出来（不必置于前台）。")
@@ -259,11 +262,15 @@ def grab_image(hwnd: int):
     bmp = gdi32.CreateCompatibleBitmap(hwnd_dc, w, h)
     try:
         gdi32.SelectObject(mem_dc, bmp)
-        ok = bool(user32.PrintWindow(hwnd, mem_dc, PW_RENDERFULLCONTENT | PW_CLIENTONLY))
-        if not ok:
-            ok = bool(user32.PrintWindow(hwnd, mem_dc, PW_CLIENTONLY))
-        if not ok:
-            raise RuntimeError("PrintWindow 截图失败：窗口未就绪或不支持后台渲染，未落盘。")
+        if window_dc:
+            if not gdi32.BitBlt(mem_dc, 0, 0, w, h, hwnd_dc, 0, 0, 0x00CC0020):
+                raise RuntimeError("BitBlt 客户区截图失败，未落盘。")
+        else:
+            ok = bool(user32.PrintWindow(hwnd, mem_dc, PW_RENDERFULLCONTENT | PW_CLIENTONLY))
+            if not ok:
+                ok = bool(user32.PrintWindow(hwnd, mem_dc, PW_CLIENTONLY))
+            if not ok:
+                raise RuntimeError("PrintWindow 截图失败：窗口未就绪或不支持后台渲染，未落盘。")
         bmi = BITMAPINFO()
         bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
         bmi.bmiHeader.biWidth = w
@@ -285,9 +292,9 @@ def grab_image(hwnd: int):
     return Image.frombuffer("RGB", (w, h), raw, "raw", "BGRX", 0, 1)
 
 
-def capture(hwnd: int, out_path: Path, region=None) -> tuple[int, int]:
-    """后台截图存 PNG，返回落盘 (w,h)。region=(x,y,w,h) 只存该矩形，省视觉 token。"""
-    img = grab_image(hwnd)
+def capture(hwnd: int, out_path: Path, region=None, *, window_dc=False) -> tuple[int, int]:
+    """后台截图存 PNG；region=(x,y,w,h)，window_dc 限隔离桌面的 GDI 画面。"""
+    img = grab_image(hwnd, window_dc=window_dc)
     w, h = img.size
     if region:
         x, y, rw, rh = clamp_region(region, w, h)

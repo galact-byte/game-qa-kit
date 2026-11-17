@@ -60,6 +60,7 @@ class SnapshotPending(Exception):
 class Supervisor(FileSupervisor):
     engine = 'kirikiri'
     runtime_sha256 = RUNTIME_SHA256
+    capture_worker = Path(__file__).with_name('capture_worker.py')
 
     def __init__(self, target, directory, session):
         super().__init__(target, directory, session)
@@ -155,7 +156,8 @@ def run(runtime, directory, session):
         path.mkdir(exist_ok=True)
         environment[key] = str(path)
     (runtime.parent / 'savedata').mkdir(exist_ok=True)
-    with DesktopProcess([str(runtime), str(runtime.parent), '-datapath=' + (runtime.parent / 'savedata').as_posix(),
+    with DesktopProcess([str(runtime), str(runtime.parent), '-dbstyle=gdi', '-usedb=yes',
+                         '-datapath=' + (runtime.parent / 'savedata').as_posix(),
                          '-gameqadir=' + directory.as_posix()], cwd=runtime.parent, env=environment) as target:
         return Supervisor(target, directory, session).run()
 

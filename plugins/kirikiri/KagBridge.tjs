@@ -1,0 +1,134 @@
+// External KAG input bridge. No fixture state is read or modified.
+class KagBridge {
+    var window, directory, config, originalQuery, originalDown, originalUp;
+    var queryWrapper, downWrapper, upWrapper;
+    var timer, held = false, pending = void, events = [], seq = 0;
+    var attached = true, inHandler = false, queryCount = 0, handlerQuery = void;
+    var commandSeq = 0, commandId = "", commandKind = "";
+    function readCommand(file, mayRetry) {
+        var lines = [];
+        try { lines.load(file); }
+        catch(error) {
+            if(mayRetry) return void;
+            throw error;
+        }
+        if(lines.count !== 7 || lines[0] !== "GQK1") throw new Exception("Invalid control record");
+        var names = ["seq", "session", "pid", "id", "kind", "end"];
+        var result = %[];
+        for(var i = 0; i < names.count; i++) {
+            var prefix = names[i] + "=";
+            if(lines[i+1].length > 80 || lines[i+1].substr(0, prefix.length) !== prefix)
+                throw new Exception("Invalid control field");
+            result[names[i]] = lines[i+1].substr(prefix.length);
+        }
+        if(!/^[1-9][0-9]{0,8}$/.test(result.seq) || result.seq !== result.end ||
+           !/^[1-9][0-9]{0,9}$/.test(result.pid) ||
+           !/^[A-Za-z0-9_-]{1,64}$/.test(result.session) ||
+           !/^[A-Za-z0-9_-]{1,64}$/.test(result.id)) throw new Exception("Invalid control value");
+        result.seq = int result.seq;
+        result.pid = int result.pid;
+        return result;
+    }
+    function KagBridge(target, folder) {
+        window = target;
+        directory = folder + "/";
+        config = readCommand(directory + "target-config.tjs");
+        if(config.kind !== "config") throw new Exception("Invalid target config");
+        originalQuery = System.getKeyState incontextof System;
+        originalDown = window.onKeyDown incontextof window;
+        originalUp = window.onKeyUp incontextof window;
+        queryWrapper = queryKey incontextof this;
+        downWrapper = keyDown incontextof this;
+        upWrapper = keyUp incontextof this;
+        System.getKeyState = queryWrapper;
+        window.onKeyDown = downWrapper;
+        window.onKeyUp = upWrapper;
+        timer = new Timer(tick incontextof this, "");
+        timer.interval = 20;
+        timer.enabled = true;
+    }
+    function queryKey(key) {
+        var value;
+        if(attached && key === 13 && (held || pending !== void)) value = held ? 1 : 0;
+        else value = originalQuery(key);
+        if(inHandler && key === 13) { queryCount++; handlerQuery = value; }
+        return value;
+    }
+    function keyDown(key, shift) { return dispatch("down", key, shift); }
+    function keyUp(key, shift) { return dispatch("up", key, shift); }
+    function dispatch(kind, key, shift) {
+        var synthetic = key === 13 && pending !== void && pending.kind === kind;
+        if(synthetic) held = kind === "down";
+        queryCount = 0; handlerQuery = void; inHandler = synthetic;
+        var returned;
+        try {
+            if(kind === "down") returned = originalDown(key, shift); else returned = originalUp(key, shift);
+        } catch(error) { inHandler = false; throw error; }
+        inHandler = false;
+        if(synthetic) {
+            events.add(%[id: pending.id, kind: kind, after_original_handler: 1,
+                query: System.getKeyState(13), native_query: originalQuery(13),
+                query_count: queryCount, handler_query: handlerQuery === void ? -1 : handlerQuery,
+                handler_return: returned === void ? "void" : returned,
+                other_key: System.getKeyState(65), other_native: originalQuery(65), tick: seq]);
+            if(events.count > 64) events.erase(0);
+            pending = void;
+            observe();
+        }
+        return returned;
+    }
+    function observe() {
+        var report = %[begin_seq: seq, session_id: config.session, pid: config.pid, engine: "kirikiri",
+            seq: seq, hwnd: window.HWND, held: held ? 1 : 0, ready: 1,
+            wrapped: attached ? 1 : 0, events: events,
+            application_path: Storages.getLocalName(System.exeName),
+            data_path: Storages.getLocalName(System.dataPath), end_seq: seq];
+        (Dictionary.saveStruct incontextof report)(directory + "target-observer.tjs", "w");
+    }
+    function detach() {
+        held = false;
+        attached = false;
+        timer.enabled = false;
+        var ownQuery = System.getKeyState === queryWrapper;
+        var ownDown = window.onKeyDown === downWrapper;
+        var ownUp = window.onKeyUp === upWrapper;
+        if(ownQuery) System.getKeyState = originalQuery;
+        if(ownDown) window.onKeyDown = originalDown;
+        if(ownUp) window.onKeyUp = originalUp;
+        var report = %[restored: ownQuery && ownDown && ownUp ? 1 : 0,
+            query_preserved: ownQuery ? 0 : 1, down_preserved: ownDown ? 0 : 1, up_preserved: ownUp ? 0 : 1];
+        (Dictionary.saveStruct incontextof report)(directory + "detached.tjs", "w");
+    }
+    function tick() {
+        seq++;
+        if(System.getKeyState !== queryWrapper || window.onKeyDown !== downWrapper || window.onKeyUp !== upWrapper)
+            throw new Exception("Input binding replaced");
+        var file = directory + "target-input.tjs";
+        if(Storages.isExistentStorage(file)) {
+            var command = readCommand(file, true);
+            if(command === void) { observe(); return; }
+            if(command.session !== config.session || command.pid !== config.pid)
+                throw new Exception("Target command identity mismatch");
+            if(command.kind !== "down" && command.kind !== "up" && command.kind !== "close")
+                throw new Exception("Unsupported target command");
+            if(command.seq < commandSeq || (command.seq === commandSeq &&
+               (command.id !== commandId || command.kind !== commandKind))) throw new Exception("Stale command");
+            if(command.seq > commandSeq) {
+                commandSeq = command.seq;
+                commandId = command.id;
+                commandKind = command.kind;
+                if(command.kind === "close") {
+                    if(held || pending !== void) throw new Exception("Cannot close with pending input");
+                    detach();
+                    System.exit();
+                    return;
+                }
+                if(pending !== void) throw new Exception("Input still pending");
+                pending = command;
+                held = command.kind === "down";
+                window.postInputEvent(command.kind === "down" ? "onKeyDown" : "onKeyUp", %[key: 13, shift: 0]);
+            }
+        }
+        observe();
+    }
+}

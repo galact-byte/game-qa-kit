@@ -2,7 +2,7 @@
 
 ## 自有代码
 
-`host.py`、`GameQaBridge.tjs`、`struct_data.py`、`tests/kirikiri_fixture/` 及桥测试由本项目编写，按根目录 [MIT 许可证](../../LICENSE)提供。共用监督器和取图工作进程由本项目既有 Emuera 宿主提取，未复制上游引擎实现。桥只调用公开 TJS API，不提交反编译代码、不重编译或修改原 EXE。
+`host.py`、`capture_worker.py`、`GameQaBridge.tjs`、`struct_data.py`、`prepare.py`、`build.py`、`Guard.hpp`、`StartupGuard.hpp`、`GuardBridge.cpp`、`GuardHost.cpp`、`guarded.py`、`kag_host.py`、`AfterInit2.tjs`、`KagBridge.tjs` 及自写夹具／测试由本项目编写，按根目录 [MIT 许可证](../../LICENSE)提供。监督器和独立桌面取图复用项目既有代码；原生守卫复用 `plugins/native_input/{WriteGuard,Native,JsonWire}.hpp`，构建显式链接 Windows 的 `bcrypt`／`advapi32`／`user32` 系统库。本 KiriKiri 构建未链接 EasyHook，不应将原生输入后端的 EasyHook 依赖误记为本插件的链接依赖。
 
 ## 验证组件
 
@@ -16,10 +16,15 @@
 
 机器可读记录见 [source-manifest.json](source-manifest.json)。本地源路径、七个原文件前后摘要与运行证据仅留验证目录，不写进源码。固定摘要是兼容约束，不是再分发许可证明；本仓库 MIT 不扩展到原运行时或反编译材料。
 
+## 原生输入参考与许可核对
+
+本项目原生输入调查参考了 [Proto Input 固定提交](https://github.com/SplitScreen-Me/splitscreenme-protoInput/tree/e18e06bb345b86540e7464f7355c649bfdd17f38) `e18e06bb345b86540e7464f7355c649bfdd17f38`；本地源码清单、上游 `LICENSE`、`lib/EasyHook/LICENSE` 与 `lib/EasyHook/DriverShared/Disassembler/udis86-LICENSE.txt` 已逐份核对，其完整原文保留在 [THIRD-PARTY-NOTICES.md](../native_input/THIRD-PARTY-NOTICES.md)。该参考快照不能推定 KiriKiri 固定运行时的上游 revision 或许可。原始材料与本轮核验结果只留本地验证目录。
+
 ## 接口参考
 
 以下为公开接口语义参考，不代表该固定构建的完整源码或许可来源：
 
+- [krkr2 绘制源码](https://github.com/krkrz/krkr2)中的 `WindowFormUnit.cpp`：绘制请求与延后重画的语义参考；只读核对，没有将引擎代码复制或编译进本插件。
 - [Window.postInputEvent](https://krkrz.github.io/krkr2doc/kr2doc/contents/f_Window_postInputEvent.html)：通过原事件队列投递输入。
 - [System.getKeyState](https://krkrz.github.io/krkr2doc/kr2doc/contents/f_System_getKeyState.html)：单参数按键查询。
 - [Window.innerSunken](https://krkrz.github.io/krkr2doc/kr2doc/contents/f_Window_innerSunken.html)：自写夹具关闭客户区内凹装饰。

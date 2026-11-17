@@ -4,9 +4,13 @@ class GameQaBridge {
     var queryWrapper, downWrapper, upWrapper;
     var timer, held = false, pending = void, events = [], seq = 0;
     var attached = true, commandSeq = 0, commandId = "", commandKind = "";
-    function readCommand(file) {
+    function readCommand(file, mayRetry) {
         var lines = [];
-        lines.load(file);
+        try { lines.load(file); }
+        catch(error) {
+            if(mayRetry) return void;
+            throw error;
+        }
         if(lines.count !== 7 || lines[0] !== "GQK1") throw new Exception("Invalid control record");
         var names = ["seq", "session", "pid", "id", "kind", "end"];
         var result = %[];
@@ -89,7 +93,8 @@ class GameQaBridge {
             throw new Exception("Input binding replaced");
         var file = directory + "target-input.tjs";
         if(Storages.isExistentStorage(file)) {
-            var command = readCommand(file);
+            var command = readCommand(file, true);
+            if(command === void) { observe(); return; }
             if(command.session !== config.session || command.pid !== config.pid)
                 throw new Exception("Target command identity mismatch");
             if(command.kind !== "down" && command.kind !== "up" && command.kind !== "close")

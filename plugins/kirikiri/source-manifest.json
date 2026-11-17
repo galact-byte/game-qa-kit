@@ -9,5 +9,17 @@
   "runtime_license": "unverified for this exact build; no redistribution grant claimed",
   "distributed": false,
   "bridge_license": "MIT; see repository LICENSE",
-  "third_party_runtime_code_in_bridge": false
+  "third_party_runtime_code_in_bridge": false,
+  "build": {
+    "own_native_headers": ["../native_input/WriteGuard.hpp", "../native_input/Native.hpp", "../native_input/JsonWire.hpp"],
+    "explicit_system_libraries": ["bcrypt.lib", "advapi32.lib", "user32.lib"],
+    "easyhook_linked": false
+  },
+  "reference_snapshot": {
+    "repository": "https://github.com/SplitScreen-Me/splitscreenme-protoInput",
+    "commit": "e18e06bb345b86540e7464f7355c649bfdd17f38",
+    "license_texts": ["LICENSE", "lib/EasyHook/LICENSE", "lib/EasyHook/DriverShared/Disassembler/udis86-LICENSE.txt"],
+    "retained_notice": "../native_input/THIRD-PARTY-NOTICES.md",
+    "runtime_revision_inferred": false
+  }
 }

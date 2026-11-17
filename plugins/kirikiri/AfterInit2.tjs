@@ -1,0 +1,9 @@
+// Loaded by the original KAG Initialize after the original AfterInit.
+if(typeof global.gameQaKagBridge != "undefined") throw new Exception("Duplicate KAG bridge");
+if(typeof global.kag == "undefined" || !(global.kag instanceof "Window") ||
+   typeof global.kag.onKeyDown != "Object" || typeof global.kag.onKeyUp != "Object")
+    throw new Exception("Invalid KAG input target");
+var gameQaFolder = System.getArgument("-gameqadir");
+if(gameQaFolder === void || gameQaFolder === "") throw new Exception("Missing bridge directory");
+Scripts.execStorage(System.exePath + "KagBridge.tjs");
+global.gameQaKagBridge = new KagBridge(global.kag, gameQaFolder);

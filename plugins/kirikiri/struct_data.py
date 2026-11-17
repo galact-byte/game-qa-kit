@@ -11,8 +11,13 @@ def decode(text):
     while offset < len(text):
         match = _TOKEN.match(text, offset)
         if not match:
-            if not text[offset:].strip():
+            tail = text[offset:].lstrip()
+            if not tail:
                 break
+            # saveStruct 原地写入；读到未结束的词元时等待完整快照。
+            if (any(token.startswith(tail) for token in ('(const)', '%[', '=>', '-'))
+                    or re.fullmatch(r'"(?:\\.|[^"\\])*\\?', tail)):
+                raise ValueError('观察数据不完整')
             raise ValueError('观察数据含未允许的 TJS 语法')
         token = match[1]
         if token != '(const)':

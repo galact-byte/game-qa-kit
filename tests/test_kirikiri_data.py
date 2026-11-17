@@ -15,6 +15,13 @@ class KiriKiriDataTests(unittest.TestCase):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 decode(text)
 
+    def test_truncated_native_record_is_pending_at_every_character_boundary(self):
+        record = '(const) %["seq"=>3,"events"=>(const) [(const) %["kind"=>"up","id"=>"a\\\\b\\\"c"]]]'
+        self.assertEqual(decode(record)['events'][0]['kind'], 'up')
+        for end in range(len(record)):
+            with self.subTest(end=end), self.assertRaisesRegex(ValueError, '观察数据不完整'):
+                decode(record[:end])
+
     def test_limits_nesting(self):
         with self.assertRaisesRegex(ValueError, '嵌套过深'):
             decode('%["x"=>' + '[' * 18 + '1' + ']' * 18 + ']')

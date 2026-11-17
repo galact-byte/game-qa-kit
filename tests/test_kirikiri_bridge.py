@@ -13,7 +13,7 @@ import unittest
 from PIL import Image, ImageChops
 from gameqakit.control import BridgeClient
 from gameqakit.sessions import read_json, write_json
-from gameqakit.win32 import _pid_path
+from gameqakit.win32 import _pid_path, window_pid
 from tests import test_emuera_bridge as common
 
 BASE = Path(__file__).resolve().parents[1]
@@ -39,7 +39,7 @@ class KiriKiriBridgeTests(common.EmueraBridgeTests):
         self.root = Path(self.temp.name)
         evidence = os.environ.get('GAMEQAKIT_TEST_EVIDENCE')
         if evidence:
-            self.addCleanup(lambda: shutil.copytree(self.root, Path(evidence) / self.id().split('.')[-1],
+            self.addCleanup(lambda root=self.root: shutil.copytree(root, Path(evidence) / self.id().split('.')[-1],
                 dirs_exist_ok=True, ignore=shutil.ignore_patterns('*.exe', 'appdata', 'localappdata', 'tmp')))
         self.runtime = self.root / 'runtime'
         self.runtime.mkdir()
@@ -66,12 +66,14 @@ class KiriKiriBridgeTests(common.EmueraBridgeTests):
             stdout=self.log, stderr=subprocess.STDOUT)
         self.addCleanup(self.stop)
         self.until(lambda: (self.directory / 'connection.json').exists() or self.process.poll() is not None, 15)
-        self.assertIsNone(self.process.poll(), (self.root / 'host.txt').read_text(encoding='utf-8'))
+        if not allow_error:
+            self.assertIsNone(self.process.poll(), (self.root / 'host.txt').read_text(encoding='utf-8'))
         self.meta = read_json(self.directory / 'connection.json')
         self.client = BridgeClient(self.directory, pid=self.meta['pid'], exe_path=str(self.exe))
         self.until(lambda: self.client.status().get('observation_seq', 0) > 0
             or self.client.status().get('error') or self.process.poll() is not None, 15)
-        self.assertIsNone(self.process.poll(), (self.root / 'host.txt').read_text(encoding='utf-8'))
+        if not allow_error:
+            self.assertIsNone(self.process.poll(), (self.root / 'host.txt').read_text(encoding='utf-8'))
         state = self.client.status()
         if not allow_error:
             self.assertTrue(state['connected'], str(state))
@@ -82,6 +84,20 @@ class KiriKiriBridgeTests(common.EmueraBridgeTests):
         # Only the authored fixture reads this data; production host has no fault switch.
         (self.runtime / 'test-mode.tjs').write_text(
             ''.join(k + '=' + v + '\n' for k, v in values.items()), encoding='ascii')
+
+    def test_idle_observations_preserve_actual_canvas(self):
+        state = self.start()
+        for _ in range(6):
+            with Image.open(self.directory / state['observation_screenshot']) as image:
+                self.assertEqual(image.convert('RGB').getpixel((0, 0)), (108, 52, 131))
+                self.assertEqual(image.convert('RGB').getpixel((64, 128)), (52, 73, 94))
+            previous = state['observation_seq']
+            self.until(lambda: self.client.status().get('observation_seq', 0) > previous
+                or self.process.poll() is not None, 3)
+            state = self.client.status()
+            self.assertFalse(state.get('error'), str(state))
+        self.assertFalse(self.observer()['events'])
+        self.assertTrue(state['paused'])
 
     def test_original_entry_paths_and_post_dispatch_consumption(self):
         u = ctypes.WinDLL('user32')
@@ -102,8 +118,50 @@ class KiriKiriBridgeTests(common.EmueraBridgeTests):
         self.assertEqual([e['query'] for e in state['events']], [1, 0, 1, 0])
         self.assertEqual([e['handler_query'] for e in state['events']], [1, 0, 1, 0])
         self.assertTrue(all(e['other_key'] == e['other_native'] for e in state['events']))
-        self.assertEqual(u.GetForegroundWindow(), before)
+        after = u.GetForegroundWindow()
+        try:
+            foreground_pid = window_pid(after) if after else None
+        except RuntimeError:
+            foreground_pid = None
+        self.assertNotEqual(foreground_pid, self.meta['pid'])
+        write_json(self.root / 'foreground.json', dict(before=before, after=after,
+            target_pid=self.meta['pid'], foreground_pid=foreground_pid))
         self.assertEqual(hashlib.sha256(self.source.read_bytes()).hexdigest(), DIGEST)
+
+    def test_control_read_contention_preserves_target_and_input(self):
+        self.start()
+        self.client.resume()
+        first = self.client.action('confirm', duration_ms=60, command_id='before-contention')
+        self.assertTrue(first['release_consumed'])
+        self.client.pause()
+        before = self.observer()
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_uint32,
+            ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p]
+        kernel.CreateFileW.restype = ctypes.c_void_p
+        kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+        deadline = time.monotonic() + .2
+        while True:
+            handle = kernel.CreateFileW(str(self.directory / 'target-input.tjs'), 0x80000000,
+                0, None, 3, 0x80, None)
+            if handle != ctypes.c_void_p(-1).value:
+                break
+            if time.monotonic() >= deadline:
+                raise ctypes.WinError(ctypes.get_last_error())
+            time.sleep(.005)
+        try:
+            self.until(lambda: self.process.poll() is not None
+                or self.observer().get('seq', 0) >= before['seq'] + 3, .6)
+            self.assertIsNone(self.process.poll(), '共享读取冲突导致目标退出')
+            self.assertEqual(self.observer()['events'], before['events'])
+            self.assertFalse(self.observer()['held'])
+        finally:
+            kernel.CloseHandle(handle)
+        self.client.resume()
+        after = self.client.action('confirm', duration_ms=60, command_id='after-contention')
+        self.assertTrue(after['press_consumed'])
+        self.assertTrue(after['release_consumed'])
+        self.assertEqual(len(self.observer()['events']), len(before['events']) + 2)
 
     def test_target_control_is_data_and_rejects_script_expressions(self):
         self.start()
@@ -263,7 +321,7 @@ class KiriKiriBridgeTests(common.EmueraBridgeTests):
 
     def test_capture_hang_is_bounded_and_worker_is_reaped(self):
         stub = self.root / 'capture-stub.py'
-        worker = BASE / 'gameqakit/capture_worker.py'
+        worker = PLUGIN / 'capture_worker.py'
         stub.write_text('from pathlib import Path\nimport sys,time,runpy\n'
             'if (Path(sys.argv[1])/"hang-capture").exists():\n time.sleep(60)\n'
             f'runpy.run_path({str(worker)!r},run_name="__main__")\n', encoding='utf-8')
