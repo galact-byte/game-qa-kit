@@ -11,7 +11,7 @@ BASE = Path(__file__).resolve().parents[2]
 
 
 def build(output, *, mode, vcvars=Path('E:/vsCode/VSBuildTools/VC/Auxiliary/Build/vcvars32.bat'), fixture_target=None,
-          shell_counter_experiment=False):
+          shell_counter_experiment=False, commercial_compat=False):
     source = {'guard-tests': 'tests/kirikiri_native/GuardTests.cpp',
               'guard': 'plugins/kirikiri/GuardBridge.cpp',
               'startup-target': 'tests/kirikiri_native/StartupTarget.cpp',
@@ -23,6 +23,10 @@ def build(output, *, mode, vcvars=Path('E:/vsCode/VSBuildTools/VC/Auxiliary/Buil
         raise RuntimeError('需要已有的 MSVC x86，可用 --vcvars 指定')
     args = ['cl', '/nologo', '/EHsc', '/MT', '/O2', '/W4', '/WX', '/std:c++17', '/utf-8',
             '/DWIN32_LEAN_AND_MEAN', '/DNOMINMAX', '/I' + str(BASE / 'plugins/kirikiri')]
+    if commercial_compat:
+        if shell_counter_experiment or mode not in ('guard', 'guard-tests', 'host'):
+            raise ValueError('商业兼容构建仅适用于宿主或守卫，不能混用自写实验策略')
+        args.append('/DGAMEQA_KIRIKIRI_COMMERCIAL_COMPAT')
     if shell_counter_experiment:
         if mode not in ('guard', 'guard-tests'):
             raise ValueError('共享节拒绝实验仅适用于自写验证守卫')
@@ -59,5 +63,6 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--mode', choices=['guard-tests', 'guard', 'host'], required=True)
     parser.add_argument('--vcvars', type=Path, default=Path('E:/vsCode/VSBuildTools/VC/Auxiliary/Build/vcvars32.bat'))
+    parser.add_argument('--commercial-compat', action='store_true', help='显式构建固定运行时的商业兼容策略')
     args = parser.parse_args()
-    build(args.output, mode=args.mode, vcvars=args.vcvars)
+    build(args.output, mode=args.mode, vcvars=args.vcvars, commercial_compat=args.commercial_compat)

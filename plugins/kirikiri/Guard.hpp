@@ -9,6 +9,7 @@ constexpr NTSTATUS denied_status = static_cast<NTSTATUS>(0xc0000022u);
 constexpr ACCESS_MASK writes = 0x520d0116u;
 struct State {
     DWORD magic=0x4b514731, pid=GetCurrentProcessId(); volatile LONG denied=0; DWORD ready=0;
+    // 0: strict; 1: authored fixture experiment; 2: explicit commercial compatibility.
     DWORD shell_experiment=0; volatile LONG shell_denied=0, shell_create_denied=0, cng_denied=0; wchar_t shell_counter[128]{};
     volatile LONG reporting=0;char api[48]{};wchar_t path[512]{};DWORD control=0;
 };
@@ -166,7 +167,7 @@ inline NTSTATUS NTAPI section(PHANDLE result,ACCESS_MASK access,POBJECT_ATTRIBUT
         const auto base=object->RootDirectory?device_name(object->RootDirectory):L"";
         if(object->ObjectName->Length&1) return deny("NtCreateSection(invalid)");
         const auto path=base.empty()?name:base+L"\\"+name;
-        // The fixture experiment refuses this request without creating an object.
+        // Both explicit policies refuse this request without creating an object.
         if(state.shell_experiment && !file && access==0xf0007 && !path.empty() && path==state.shell_counter) {
             InterlockedIncrement(&state.shell_create_denied);
             return denied_status;
@@ -260,7 +261,9 @@ inline void install(const fs::path& folder) {
     if(!ProcessIdToSessionId(GetCurrentProcessId(),&session)) throw std::runtime_error("guard_session_query_failed");
     const auto counter=L"\\Sessions\\"+std::to_wstring(session)+L"\\BaseNamedObjects\\windows_shell_global_counters";
     wcsncpy_s(state.shell_counter,counter.c_str(),_TRUNCATE);
-#ifdef GAMEQA_SHELL_DENIAL_EXPERIMENT
+#ifdef GAMEQA_KIRIKIRI_COMMERCIAL_COMPAT
+    state.shell_experiment=2;
+#elif defined(GAMEQA_SHELL_DENIAL_EXPERIMENT)
     state.shell_experiment=1;
 #endif
     if(!hooks.empty()) throw std::runtime_error("guard_already_installed");

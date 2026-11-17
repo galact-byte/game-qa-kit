@@ -56,9 +56,11 @@ int wmain(int argc,wchar_t** argv){
         limits.BasicLimitInformation.ActiveProcessLimit=1;
         require(SetInformationJobObject(job,JobObjectExtendedLimitInformation,&limits,sizeof(limits))!=FALSE,"job_limit_failed");
         STARTUPINFOW si{};si.cb=sizeof(si);si.dwFlags=STARTF_USESHOWWINDOW;si.wShowWindow=SW_SHOWNOACTIVATE;
+        // Packed projects must select the archive; an explicit directory skips it.
+        const auto project=fs::is_regular_file(game/L"data.xp3")?game/L"data.xp3":game;
         // Quote engine options as complete arguments, including roots containing spaces.
-        auto command=L"\""+exe.wstring()+L"\" \""+game.wstring()+L"\" \"-datapath="+(root/L"savedata").wstring()+L"\" \"-gameqadir="+bridge.wstring()+L"\"";
-#ifdef GAMEQA_OWNED_IMAGE
+        auto command=L"\""+exe.wstring()+L"\" \""+project.wstring()+L"\" \"-datapath="+(root/L"savedata").wstring()+L"\" \"-gameqadir="+bridge.wstring()+L"\"";
+#if defined(GAMEQA_OWNED_IMAGE) || defined(GAMEQA_KIRIKIRI_COMMERCIAL_COMPAT)
         command+=L" -wheel=message -joypad=no -dbstyle=gdi -usedb=yes";
 #endif
         require(CreateProcessW(exe.c_str(),command.data(),nullptr,nullptr,FALSE,CREATE_SUSPENDED|DEBUG_ONLY_THIS_PROCESS,nullptr,game.c_str(),&si,&pi)!=FALSE,"target_create_failed");
@@ -74,12 +76,16 @@ int wmain(int argc,wchar_t** argv){
         const auto state_address=remote(pi.hProcess,reinterpret_cast<void*>(module+offset),nullptr,false,bridge);
         require(state_address!=0,"guard_start_failed");
         auto state=snapshot(pi.hProcess,state_address);
-#ifndef GAMEQA_OWNED_IMAGE
+#ifdef GAMEQA_KIRIKIRI_COMMERCIAL_COMPAT
+        require(state.shell_experiment==2,"commercial_compat_guard_required");
+#elif defined(GAMEQA_OWNED_IMAGE)
+        require(state.shell_experiment<=1,"commercial_guard_not_allowed_in_fixture_host");
+#else
         require(state.shell_experiment==0,"fixture_guard_not_allowed");
 #endif
         if(state.ready!=1||state.denied)
             throw std::runtime_error(std::string("guard_not_clean:")+state.api+":"+utf8(state.path)+":"+std::to_string(state.control));
-        {std::ofstream out(bridge/L"native-guard.json");out<<"{\"pid\":"<<pi.dwProcessId<<",\"denied\":"<<state.denied<<",\"ready\":true}";require(bool(out),"guard_record_failed");}
+        {std::ofstream out(bridge/L"native-guard.json");out<<"{\"pid\":"<<pi.dwProcessId<<",\"denied\":"<<state.denied<<",\"ready\":true,\"denial_policy\":"<<state.shell_experiment<<",\"runtime_sha256\":"<<native_input::quote(expected)<<"}";require(bool(out),"guard_record_failed");}
         {std::ofstream out(root/L"process.json");out<<"{\"pid\":"<<pi.dwProcessId<<",\"guard_ready\":true,\"all_threads_suspended\":true}";require(bool(out),"process_record_failed");}
         const auto deadline=GetTickCount64()+15000;
         while(!fs::exists(root/L"resume")){

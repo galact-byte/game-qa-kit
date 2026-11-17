@@ -12,15 +12,19 @@ from plugins.kirikiri.build import build
 
 @unittest.skipUnless(os.name == 'nt' and os.environ.get('GAMEQAKIT_TEST_KIRIKIRI'), '需固定本地运行时')
 class GuardedKagTests(KagBridgeTests):
+    commercial_compat = False
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         import tempfile
         cls.build_root = Path(tempfile.mkdtemp(prefix='kirikiri-kag-build-', dir='E:/DevData'))
         cls.addClassCleanup(shutil.rmtree, cls.build_root)
-        cls.guard = build(cls.build_root / 'KiriKiriGuard.dll', mode='guard', shell_counter_experiment=True)
+        cls.guard = build(cls.build_root / 'KiriKiriGuard.dll', mode='guard',
+                          shell_counter_experiment=not cls.commercial_compat, commercial_compat=cls.commercial_compat)
         cls.strict_guard = build(cls.build_root / 'StrictGuard.dll', mode='guard')
-        cls.native_host = build(cls.build_root / 'FixtureHost.exe', mode='host', fixture_target=cls.source)
+        cls.native_host = build(cls.build_root / 'FixtureHost.exe', mode='host', fixture_target=cls.source,
+                                commercial_compat=cls.commercial_compat)
 
     def setUp(self):
         super().setUp()
@@ -103,6 +107,8 @@ class GuardedKagTests(KagBridgeTests):
         native = read_json(self.directory / 'native-guard.json')
         self.assertEqual(native['pid'], self.meta['pid'])
         self.assertEqual(native['denied'], 0)
+        self.assertEqual(native['denial_policy'], 2 if self.commercial_compat else 1)
+        self.assertEqual(native['runtime_sha256'], hashlib.sha256(self.exe.read_bytes()).hexdigest())
         for name, api, access in (('nonfatal-rejections.json', 'NtOpenSection(write)', 6),
                                   ('nonfatal-creation-rejections.json', 'NtCreateSection(named)', 0xf0007)):
             record = read_json(self.directory / name)
@@ -120,6 +126,30 @@ class GuardedKagTests(KagBridgeTests):
         self.assertFalse((self.directory / 'guard-denial.json').exists())
         self.stop()
         self.assertTrue(read_json(self.directory / 'detached.json')['restored'])
+
+    def test_xp3_project_loads_original_handlers_without_loose_startup(self):
+        import struct
+        import zlib
+        # A single authored entry exercises the same archive-only layout as deployment.
+        startup = self.runtime / 'startup.tjs'
+        data = startup.read_bytes()
+        name = 'startup.tjs'.encode('utf-16le')
+        def chunk(tag, body):
+            return tag + struct.pack('<Q', len(body)) + body
+        entry = b''.join((
+            chunk(b'info', struct.pack('<LQQH', 0, len(data), len(data), len(name) // 2) + name),
+            chunk(b'segm', struct.pack('<LQQQ', 0, 19, len(data), len(data))),
+            chunk(b'adlr', struct.pack('<L', zlib.adler32(data))),
+        ))
+        index = chunk(b'File', entry)
+        (self.runtime / 'data.xp3').write_bytes(
+            b'XP3\r\n \n\x1a\x8bg\x01' + struct.pack('<Q', 19 + len(data)) + data
+            + b'\x00' + struct.pack('<Q', len(index)) + index)
+        startup.unlink()
+        self.assertFalse(startup.exists())
+        self.test_full_input_changes_screen_and_deduplicates()
+        from plugins.kirikiri.host import read_struct
+        self.assertEqual(read_struct(self.root / 'savedata/original-init.tjs')['preserved'], 1)
 
     def test_default_guard_keeps_shell_request_fatal_before_input(self):
         from gameqakit.sessions import read_json
@@ -149,3 +179,9 @@ class GuardedKagTests(KagBridgeTests):
         self.assertIn('window', state['error'].lower())
         self.assertEqual(read_json(self.directory / 'termination.json')['reason'], 'invalid_kag_window')
         self.assertFalse(read_json(self.directory / 'termination.json')['target_alive'])
+
+
+class CommercialCompatKagTests(GuardedKagTests):
+    commercial_compat = True
+    # Mismatched guards are rejected before resume; native startup tests verify that boundary.
+    test_default_guard_keeps_shell_request_fatal_before_input = None

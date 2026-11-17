@@ -4,11 +4,11 @@
 
 ## 商业样本前置审查
 
-[商业 KAG 写入边界审查](../../docs/KIRIKIRI-COMMERCIAL-BOUNDARY.md)记录了正常保存、自由文件选择、配置迁移及原生插件边界；插件 CRT 写入引用仍不能证明完整不可达。[已批准实现的商业接入设计](../../docs/superpowers/specs/2026-11-17-kirikiri-commercial-design.md)对应的专用准备器、主线程恢复前守卫、原 `AfterInit.tjs` 后的加载点与 KAG 接线已实现，并通过自写联合验收。商业三文件副本未创建、未注入、未启动；这不增加商业适配覆盖。
+[商业 KAG 写入边界审查](../../docs/KIRIKIRI-COMMERCIAL-BOUNDARY.md)记录了正常保存、自由文件选择、配置迁移及原生插件边界；插件 CRT 写入引用仍不能证明完整不可达。[已批准实现的商业接入设计](../../docs/superpowers/specs/2026-11-17-kirikiri-commercial-design.md)对应的专用准备器、主线程恢复前守卫、原 `AfterInit.tjs` 后的加载点与 KAG 接线已实现，并通过自写联合验收。商业首批已执行：守卫就绪，但宿主将目录作为项目传入，未加载 `data.xp3` 中的 `startup.tjs`，在首图前失败，零输入并已回收。项目选择现已修正为有 `data.xp3` 时显式选择归档，否则选择目录；自写归档夹具验证通过，商业修正版尚未重跑。这不增加商业适配覆盖。
 
 `prepare.py` 限定三份原始输入的摘要与输出清单，拒绝已有输出、重解析点及篡改；`GuardHost.cpp` 负责挂起启动、初始化期守卫、目标与守卫身份、持续完整性与 Job 回收；`guarded.py` 将该目标接到 KAG 监督器。默认守卫对越界请求返回访问拒绝并终止批次，商业宿主拒绝实验守卫。
 
-自写实验单独启用精确共享节打开／创建与 CNG 设备调用的非致命拒绝：仍返回访问拒绝、不创建对象、不返回句柄，只不因此终止该自写批次。相邻对象／会话／掩码／控制码及文件后备映射保持致命拒绝。DirectInput 的临时非致命分支已撤销；自写目标改用 `-joypad=no -wheel=message -dbstyle=gdi -usedb=yes`。这些兼容设置及实验失败处理没有迁入默认商业启动策略，商业运行前须单独明确，不能直接重用实验守卫。
+自写实验单独启用精确共享节打开／创建与 CNG 设备调用的非致命拒绝：仍返回访问拒绝、不创建对象、不返回句柄，只不因此终止该自写批次。相邻对象／会话／掩码／控制码及文件后备映射保持致命拒绝。DirectInput 的临时非致命分支已撤销；自写目标改用 `-joypad=no -wheel=message -dbstyle=gdi -usedb=yes`。这些设置和三条精确非致命拒绝已获单独批准，迁入独立的 `KiriKiriCommercialHost.exe`／`KiriKiriCommercialGuard.dll` 构建；回执以 `denial_policy=2` 标识商业兼容策略，并记录 `runtime_sha256`，三条请求仍返回拒绝，其余危险请求仍终止批次。默认严格策略保持不变，严格／自写／商业兼容三种守卫不可混配。商业单批授权已消耗，失败后不得自行重启。
 
 ## 输入与组件
 
@@ -41,10 +41,10 @@ $env:TMP = '<E 盘验证目录>/tmp'
 $env:TEMP = $env:TMP
 $env:GAMEQAKIT_TEST_KIRIKIRI = '<合法持有的固定运行时 EXE>'
 $env:GAMEQAKIT_TEST_EVIDENCE = '<全新证据目录>'
-python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_kirikiri_bridge.KiriKiriBridgeTests tests.test_kirikiri_data tests.test_kirikiri_guard tests.test_kirikiri_startup tests.test_kirikiri_prepare tests.test_kirikiri_kag.KagBridgeTests tests.test_kirikiri_guarded.GuardedKagTests -v
+python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_kirikiri_bridge.KiriKiriBridgeTests tests.test_kirikiri_data tests.test_kirikiri_guard tests.test_kirikiri_startup tests.test_kirikiri_prepare tests.test_kirikiri_kag.KagBridgeTests tests.test_kirikiri_guarded.GuardedKagTests tests.test_kirikiri_guarded.CommercialCompatKagTests -v
 ```
 
-普通桥测试只复制固定 EXE、`tests/kirikiri_fixture/startup.tjs` 与本桥 TJS；KAG 联合测试改用自写 KAG 夹具，并在 E 盘构建守卫／宿主。所有测试不含商业 XP3、原存档和原插件；没有运行时的真实测试明确跳过。原生构建还要求本机已有的 x86 MSVC 工具链，不自动安装。手工构造普通自写布局后可运行：
+普通桥测试只复制固定 EXE、`tests/kirikiri_fixture/startup.tjs` 与本桥 TJS；KAG 联合测试改用自写 KAG 夹具，并在 E 盘构建守卫／宿主。所有测试不含商业 XP3、原存档和原插件；归档用例在本地将自写启动脚本打包为 XP3，并移除散装脚本，验证加载、原处理器按下／松开、画布变化及去重。没有运行时的真实测试明确跳过。原生构建还要求本机已有的 x86 MSVC 工具链，不自动安装。手工构造普通自写布局后可运行：
 
 ```powershell
 python plugins/kirikiri/host.py --runtime '<E 盘自写工程>/runtime.exe' --directory '<全新空会话目录>' --session '<新编号>'

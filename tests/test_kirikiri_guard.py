@@ -19,7 +19,10 @@ class KiriKiriGuardTests(unittest.TestCase):
     def test_fixture_exception_still_refuses_handle_and_limits_scope(self):
         self.run_boundary_case(experiment=True)
 
-    def run_boundary_case(self, *, experiment):
+    def test_commercial_compat_refuses_exact_requests_without_relaxing_neighbors(self):
+        self.run_boundary_case(experiment=False, commercial=True)
+
+    def run_boundary_case(self, *, experiment, commercial=False):
         self.assertTrue((BASE / 'plugins/kirikiri/Guard.hpp').is_file(), 'KiriKiri 专用写入守卫尚未实现')
         build = importlib.import_module('plugins.kirikiri.build')
         root = Path(tempfile.mkdtemp(prefix='kirikiri-guard-', dir='E:/DevData'))
@@ -32,7 +35,8 @@ class KiriKiriGuardTests(unittest.TestCase):
         made = subprocess.run(['cmd', '/d', '/c', 'mklink', '/J', str(root / 'run/savedata/junction'), str(root / 'outside')],
                               capture_output=True, check=True)
         before = sentinel.stat()
-        executable = build.build(root / 'GuardTests.exe', mode='guard-tests', shell_counter_experiment=experiment)
+        executable = build.build(root / 'GuardTests.exe', mode='guard-tests',
+                                 shell_counter_experiment=experiment, commercial_compat=commercial)
         result = subprocess.run([str(executable), str(root / 'run'), str(sentinel)], capture_output=True, timeout=15)
         (root / 'stdout.txt').write_bytes(result.stdout + result.stderr)
         self.assertEqual(result.returncode, 0, str(root) + '\n' + result.stdout.decode('utf-8', errors='replace'))

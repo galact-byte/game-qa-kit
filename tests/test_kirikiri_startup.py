@@ -21,6 +21,9 @@ class StartupGuardTests(unittest.TestCase):
         cls.strict_guard = build(cls.root / 'StrictGuard.dll', mode='guard')
         cls.init_dll = build(cls.root / 'AuthoredInit.dll', mode='startup-dll')
         cls.host = build(cls.root / 'FixtureHost.exe', mode='host', fixture_target=cls.target)
+        cls.compat_guard = build(cls.root / 'CommercialCompatGuard.dll', mode='guard', commercial_compat=True)
+        cls.compat_host = build(cls.root / 'CommercialCompatFixtureHost.exe', mode='host',
+                                fixture_target=cls.target, commercial_compat=True)
         cls.guard_hash = hashlib.sha256(cls.guard.read_bytes()).hexdigest()
         (cls.root / 'outside').mkdir()
         cls.sentinel = cls.root / 'outside/sentinel.bin'
@@ -35,7 +38,8 @@ class StartupGuardTests(unittest.TestCase):
             time.sleep(.02)
         self.fail('超时；证据目录：' + str(self.root))
 
-    def run_case(self, name, mode=None, *, expected=None, resume=True, terminate_host=False, guard_hash=None, guard=None):
+    def run_case(self, name, mode=None, *, expected=None, resume=True, terminate_host=False, guard_hash=None, guard=None,
+                 host=None, rejected=False):
         guard = guard or self.guard
         digest = hashlib.sha256(guard.read_bytes()).hexdigest()
         root = self.root / name
@@ -46,10 +50,10 @@ class StartupGuardTests(unittest.TestCase):
         shutil.copyfile(self.init_dll, root / 'game/AuthoredInit.dll')
         if mode:
             (root / mode).touch()
-        with DesktopProcess([str(self.host), str(root), str(guard), guard_hash or digest], cwd=root) as owner:
+        with DesktopProcess([str(host or self.host), str(root), str(guard), guard_hash or digest], cwd=root) as owner:
             owner.run()
             self.wait(lambda: (root / 'process.json').exists() or not owner.alive())
-            if guard_hash:
+            if guard_hash or rejected:
                 self.assertFalse((root / 'process.json').exists())
                 self.assertFalse((root / 'savedata/early.bin').exists())
                 return
@@ -88,6 +92,33 @@ class StartupGuardTests(unittest.TestCase):
             self.wait(lambda: _pid_path(info['pid']) == '')
             self.assertEqual(_pid_path(info['pid']), '')
         self.assertEqual((self.sentinel.read_bytes(), self.sentinel.stat().st_mtime_ns), self.original)
+
+    def test_compat_host_rejects_fixture_guard_before_resume(self):
+        self.run_case('compat-reject-fixture', host=self.compat_host, guard=self.guard, rejected=True)
+
+    def test_compat_host_rejects_strict_guard_before_resume(self):
+        self.run_case('compat-reject-strict', host=self.compat_host, guard=self.strict_guard, rejected=True)
+
+    def test_fixture_host_rejects_compat_guard_before_resume(self):
+        self.run_case('fixture-reject-compat', guard=self.compat_guard, rejected=True)
+
+    def test_compat_exact_requests_stay_denied_and_exit_normally(self):
+        for name, mode, record in (
+                ('open', 'attempt-shell-section', 'nonfatal-rejections.json'),
+                ('create', 'attempt-shell-create', 'nonfatal-creation-rejections.json'),
+                ('cng', 'attempt-cng', 'nonfatal-cng-rejections.json')):
+            with self.subTest(request=name):
+                self.run_case('compat-' + name, mode, host=self.compat_host, guard=self.compat_guard,
+                              expected='target_exit')
+                root = self.root / ('compat-' + name)
+                report = json.loads((root / 'bridge' / record).read_text())
+                self.assertEqual(report['status'], '0xc0000022')
+                self.assertEqual(report['count'], 1)
+                self.assertFalse(report['fatal'])
+                self.assertFalse((root / 'bridge/guard-denial.json').exists())
+                native = json.loads((root / 'bridge/native-guard.json').read_text())
+                self.assertEqual(native['denial_policy'], 2)
+                self.assertEqual(native['runtime_sha256'], hashlib.sha256(self.target.read_bytes()).hexdigest())
 
     def test_startup_handoff_preserves_static_initializers(self):
         self.run_case('normal')

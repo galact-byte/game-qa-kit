@@ -41,10 +41,13 @@ int wmain(int argc,wchar_t** argv) {
         if(handle) CloseHandle(handle);
     };
     const auto counter=directory+L"\\windows_shell_global_counters";
-#ifdef GAMEQA_SHELL_DENIAL_EXPERIMENT
+#if defined(GAMEQA_SHELL_DENIAL_EXPERIMENT) || defined(GAMEQA_KIRIKIRI_COMMERCIAL_COMPAT)
     constexpr bool experiment=true;
 #else
     constexpr bool experiment=false;
+#endif
+#ifdef GAMEQA_KIRIKIRI_COMMERCIAL_COMPAT
+    result["commercial_policy_identity"]=state.shell_experiment==2;
 #endif
     const auto ntcontrol=reinterpret_cast<Control>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"NtDeviceIoControlFile"));
     auto control_case=[&](const char* label,HANDLE file,ULONG code,bool fatal) {
