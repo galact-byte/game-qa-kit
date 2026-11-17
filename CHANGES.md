@@ -1,5 +1,13 @@
 # 修改记录 — game-qa-kit
 
+## 2026-11-17 — KiriKiri 宿主状态读取失败的结束回执
+
+- 用非音频自写 EXE 确定性复现两条丢回执路径：目标仍存活时状态读取失败，以及等待返回后、状态读取前目标退出。旧宿主只回收进程并输出 `guard_state_read_failed`，不生成 `host-result.json`；两条新增测试先失败后通过。
+- `plugins/kirikiri/GuardHost.cpp` 在已完成守卫交接的会话发生异常时，沿用原 Job 终止和 3 秒回收等待，再写入 `host_failed`、错误、退出码与实际回收状态。即使目标退出码为 0，状态读取失败也保留为宿主失败；结果写入失败另报错误。不增加观察等待，不修改守卫权限、输入或首图判据。
+- `plugins/kirikiri/build.py` 新增测试宿主构建目标，`tests/kirikiri_native/HostSnapshotFailure.cpp` 编译并执行实际宿主错误路径；`tests/test_kirikiri_startup.py` 增加两条回归。升级只需重建宿主，无数据迁移；回滚本提交恢复旧实现。
+- `<KiriKiri验证目录>/host-receipt-01/run.py green`：完整 22 项原生启动检查通过、无跳过，包括严格拒绝、策略身份校验、退出和 Job 回收；未改动的守卫及目标夹具复用红阶段构建并核对源码与摘要，三个宿主全部重新构建。红绿日志及原始回执保留在同一验证目录。
+- 已知限制：证明的是上述路径可导致缺回执，并修复其失败记录；尚不能追认历史音频批次必由同一竞态导致，也没有使状态读取失败变成正常退出。DirectSound 初始化、真实音频和商业控制继续未通过，未重启已停止的音频候选或商业样本。
+
 ## 2026-11-17 — KiriKiri Unicode 修复版商业第三批失败记录
 
 - 按单独批准的清单，新建第三批隔离副本及已验 Unicode 补丁，注入并启动一次。原 KAG 和桥已运行，但在有效游戏首图前，`NtOpenSection(write)` 对 `DirectSound Administrator shared thread array` 请求 `0xF001F` 被守卫致命拒绝（累计 2 次），原生宿主记录 `write_guard_denied` 并回收目标。未接受首图、未发送确认键或其他输入，未自动重跑。

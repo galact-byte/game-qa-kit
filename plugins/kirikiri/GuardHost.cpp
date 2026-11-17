@@ -29,7 +29,7 @@ static kirikiri_guard::State snapshot(HANDLE process,DWORD address){
     return value;
 }
 int wmain(int argc,wchar_t** argv){
-    PROCESS_INFORMATION pi{};HANDLE job=nullptr;fs::path root;
+    PROCESS_INFORMATION pi{};HANDLE job=nullptr;fs::path root;bool supervised=false;
     try{
         require(argc==4,"usage: KiriKiriHost SESSION_ROOT GUARD_DLL GUARD_SHA256");
         root=fs::absolute(argv[1]);auto dll=fs::absolute(argv[2]);boundary(root);boundary(dll);root=fs::canonical(root);dll=fs::canonical(dll);
@@ -87,6 +87,7 @@ int wmain(int argc,wchar_t** argv){
             throw std::runtime_error(std::string("guard_not_clean:")+state.api+":"+utf8(state.path)+":"+std::to_string(state.control));
         {std::ofstream out(bridge/L"native-guard.json");out<<"{\"pid\":"<<pi.dwProcessId<<",\"denied\":"<<state.denied<<",\"ready\":true,\"denial_policy\":"<<state.shell_experiment<<",\"runtime_sha256\":"<<native_input::quote(expected)<<"}";require(bool(out),"guard_record_failed");}
         {std::ofstream out(root/L"process.json");out<<"{\"pid\":"<<pi.dwProcessId<<",\"guard_ready\":true,\"all_threads_suspended\":true}";require(bool(out),"process_record_failed");}
+        supervised=true;
         const auto deadline=GetTickCount64()+15000;
         while(!fs::exists(root/L"resume")){
             require(GetTickCount64()<deadline,"supervisor_start_timeout");
@@ -134,7 +135,17 @@ int wmain(int argc,wchar_t** argv){
         CloseHandle(pi.hProcess);CloseHandle(job);return reason=="write_guard_denied"||reason=="target_failed"?2:0;
     }catch(const std::exception& error){
         if(job)TerminateJobObject(job,83);else if(pi.hProcess)TerminateProcess(pi.hProcess,83);
-        if(pi.hProcess){WaitForSingleObject(pi.hProcess,3000);CloseHandle(pi.hProcess);}if(pi.hThread)CloseHandle(pi.hThread);
-        if(job)CloseHandle(job);std::cerr<<error.what()<<'\n';return 1;
+        DWORD target_exit=STILL_ACTIVE;DWORD reap=WAIT_FAILED;
+        if(pi.hProcess){reap=WaitForSingleObject(pi.hProcess,3000);GetExitCodeProcess(pi.hProcess,&target_exit);CloseHandle(pi.hProcess);}if(pi.hThread)CloseHandle(pi.hThread);
+        if(job)CloseHandle(job);
+        if(supervised){
+            try{
+                std::ofstream out(root/L"host-result.json");
+                out<<"{\"reason\":\"host_failed\",\"error\":"<<native_input::quote(error.what())
+                   <<",\"target_exit\":"<<target_exit<<",\"target_alive\":"<<(reap==WAIT_OBJECT_0?"false":"true")<<"}";
+                out.flush();if(!out)std::cerr<<"host_result_write_failed\n";
+            }catch(const std::exception& record_error){std::cerr<<"host_result_write_failed:"<<record_error.what()<<'\n';}
+        }
+        std::cerr<<error.what()<<'\n';return 1;
     }
 }

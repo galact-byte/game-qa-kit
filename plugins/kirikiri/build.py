@@ -16,6 +16,7 @@ def build(output, *, mode, vcvars=Path('E:/vsCode/VSBuildTools/VC/Auxiliary/Buil
               'guard': 'plugins/kirikiri/GuardBridge.cpp',
               'startup-target': 'tests/kirikiri_native/StartupTarget.cpp',
               'startup-dll': 'tests/kirikiri_native/StartupDll.cpp',
+              'host-snapshot-fault': 'tests/kirikiri_native/HostSnapshotFailure.cpp',
               'host': 'plugins/kirikiri/GuardHost.cpp'}[mode]
     output = Path(output).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -32,7 +33,7 @@ def build(output, *, mode, vcvars=Path('E:/vsCode/VSBuildTools/VC/Auxiliary/Buil
             raise ValueError('共享节拒绝实验仅适用于自写验证守卫')
         args.append('/DGAMEQA_SHELL_DENIAL_EXPERIMENT')
     if fixture_target is not None:
-        if mode != 'host':
+        if mode not in ('host', 'host-snapshot-fault'):
             raise ValueError('自写目标定义仅适用于测试宿主构建')
         args.append('/DGAMEQA_OWNED_IMAGE=' + hashlib.sha256(Path(fixture_target).read_bytes()).hexdigest())
     for name, symbol in [('AfterInit2.tjs', 'GAMEQA_AFTERINIT_HASH'), ('KagBridge.tjs', 'GAMEQA_KAG_HASH')]:

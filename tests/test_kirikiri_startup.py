@@ -21,6 +21,8 @@ class StartupGuardTests(unittest.TestCase):
         cls.strict_guard = build(cls.root / 'StrictGuard.dll', mode='guard')
         cls.init_dll = build(cls.root / 'AuthoredInit.dll', mode='startup-dll')
         cls.host = build(cls.root / 'FixtureHost.exe', mode='host', fixture_target=cls.target)
+        cls.snapshot_fault_host = build(cls.root / 'SnapshotFaultHost.exe', mode='host-snapshot-fault',
+                                        fixture_target=cls.target)
         cls.compat_guard = build(cls.root / 'CommercialCompatGuard.dll', mode='guard', commercial_compat=True)
         cls.compat_host = build(cls.root / 'CommercialCompatFixtureHost.exe', mode='host',
                                 fixture_target=cls.target, commercial_compat=True)
@@ -74,6 +76,8 @@ class StartupGuardTests(unittest.TestCase):
                 self.assertFalse((root / 'savedata/early.bin').exists())
             elif expected:
                 self.wait(lambda: not owner.alive())
+                self.assertTrue((root / 'host-result.json').is_file(),
+                                '宿主退出后必须保留结束回执：' + str(root))
                 result = json.loads((root / 'host-result.json').read_text())
                 self.assertEqual(result['reason'], expected, str(root))
             elif mode:
@@ -192,6 +196,21 @@ class StartupGuardTests(unittest.TestCase):
         record = json.loads((self.root / 'cng-strict/bridge/guard-denial.json').read_text())
         self.assertEqual(record['path'], '\\Device\\CNG')
         self.assertEqual(record['control'], 0x390008)
+
+    def test_snapshot_failure_records_error_and_reaps_live_target(self):
+        self.run_case('snapshot-live', host=self.snapshot_fault_host, expected='host_failed')
+        result = json.loads((self.root / 'snapshot-live/host-result.json').read_text())
+        self.assertEqual(result['error'], 'guard_state_read_failed')
+        self.assertEqual(result['target_exit'], 83)
+        self.assertFalse(result['target_alive'])
+
+    def test_exit_between_wait_and_snapshot_keeps_failure_receipt(self):
+        self.run_case('snapshot-exit', 'exit-before-read', host=self.snapshot_fault_host,
+                      expected='host_failed')
+        result = json.loads((self.root / 'snapshot-exit/host-result.json').read_text())
+        self.assertEqual(result['error'], 'guard_state_read_failed')
+        self.assertEqual(result['target_exit'], 0)
+        self.assertFalse(result['target_alive'])
 
     def test_normal_target_exit_reaps_job(self):
         self.run_case('exits', 'exit-target', expected='target_exit')
