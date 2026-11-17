@@ -37,8 +37,9 @@
 商业脚本 `scenario/first.ks:48` 显式加载 `wuvorbis.dll`；`system/MainWindow.tjs:5051` 的标签处理器执行 `Plugins.link(elm.module)`。该 DLL 的 PE 导入与导出落在 `native-pe-review.json`；原生链接函数的既有 REA 反编译证据落在 `native-v2link.json`，证据 ID 为 `ev_701fa1b4ee85e89448b1be22bf0f88008d8ccb5ffb2a9fc27ad252919efc21ec`，分析入口 `0x110107b0`。
 
 - DLL 导入 `WriteFile`、`FlushFileBuffers`、`SetFilePointer`、`CloseHandle`，并带 `GetProcAddress`／`LoadLibraryA`。没有静态导入 `CreateFile*` 不能证明不能写文件；它还可能使用宿主提供的句柄、导出接口或动态解析。
-- 导入表不能区分可达音频逻辑与 CRT 残留，也不能证明这些写调用发生过。本轮不将它记为已证实越界写入，亦不将它列入已证明只读的白名单。
-- 已有 V2Link 分析只覆盖链接入口，不能替代音频解码回调与所有异常分支的完整调用图。补查按名称交叉引用时，当前 REA／IDA provider 返回 `capability_unavailable`（`list_names` 未声明）；保留此限制，不以空结果当作无调用。
+- 后续按导入地址查询已可用，不再将按名称 `list_names` 缺失视为无法追查的阻碍。对 `WriteFile` 的导入地址 `0x1101c0c4` 查询得到六条 code／data 引用，按指令地址去重为三个位置：`0x11017687` 位于 CRT `_NMSG_WRITE`（`0x1101753d`），`0x110196a1` 与 `0x11019706` 位于 CRT `_write_lk`（`0x110195da`）；`FlushFileBuffers` 导入地址 `0x1101c0e0` 的唯一指令位置 `0x11019529` 位于 CRT `__commit`（`0x110194e2`）。反编译中错误输出使用 `GetStdHandle(STD_ERROR_HANDLE)`，文件描述符写入使用 CRT 句柄表。导入引用与反编译标注可能指向同一调用的不同指令，计数以交叉引用中的指令地址为准。
+- 证据包 `native-write-followup-bundle` 保存本轮 17 条静态记录；`native-write-followup.json` 记录输入摘要、导入引用、证据 ID 和限制。`wu_ov_open_callbacks`（`0x11010fd0`）与 `wu_ov_read`（`0x11011290`）的导出包装分别转入 `0x1100c790`、`0x1100ea00`，不能把包装代码短小当作其内部解码／宿主回调只读的证明。
+- 已经定位的是 CRT 写入及句柄来源，不是完整不可达证明；间接回调、动态解析和异常路径仍未穷尽，不将该 DLL 列入已证明只读的白名单。后续采用[待批准的固定构建加载与守卫设计](superpowers/specs/2026-11-17-kirikiri-commercial-design.md)约束写入，而不依赖继续静态追踪来宣称绝对无写入。
 - EXE、插件和归档的上游完整 revision／再分发许可仍未证实；只提交本审查结论，不提交游戏文件、提取正文、反编译产物或原存档。
 
 ## 建议的副本范围与还原方式（待批准，未实施）
@@ -47,7 +48,7 @@
 
 1. **副本输入**：只从原目录读取原游戏 EXE（3,768,320 字节）、`data.xp3`（1,074,749,078 字节）与 `wuvorbis.dll`（200,704 字节），合计 1,078,718,102 字节。拟建于 `<KiriKiri验证目录>/commercial-run-01/game/`，逐文件核对摘要。不复制 MTool、Locale Emulator、翻译文件、`.cf`／`.cfu` 或既有 `savedata`；不修改 EXE 或重打 XP3。是否缺少附加资源只能由后续获批批次判断，不能称这三个文件已通过完整启动验收。
 2. **运行数据**：新建本批 `savedata`、会话证据、`appdata`、`localappdata` 与 `tmp`；固定命令行 `-datapath` 指向本批绝对保存目录，仅给本进程设置相关环境变量。启动前检查可用空间、路径规范化、无重解析点、无到原目录的搜索路径。环境变量不是写入强制边界。
-3. **副本脚本变更**：现有宿主只认仓库自写 `startup.tjs` 并拒绝额外文件。商业 KAG 准备器、加载钩子及保存路径守卫均尚未实现；须先审阅设计。拟只在副本部署加载与守卫脚本，保留原剧情、原输入处理器和保存调用；在最末写入入口检查规范化后的目的路径属于本批目录，拒绝自由保存越界及配置编辑／迁移窗口。具体加载位置与优先级必须由真实加载链证据确定，不能猜测任意命名的覆写脚本会生效。
+3. **副本脚本变更**：现有宿主只认仓库自写 `startup.tjs` 并拒绝额外文件。商业 KAG 准备器、加载钩子及保存路径守卫均尚未实现；须先审阅[接入设计](superpowers/specs/2026-11-17-kirikiri-commercial-design.md)。已确认 `Initialize.tjs:263-266` 在原 `AfterInit.tjs` 后显式加载 EXE 同目录 `AfterInit2.tjs`，拟以此加载输入桥，保留原剧情、原输入处理器和保存调用。该扩展点晚于配置检查与窗口构造，不能保护初始化早期写入；必须配合主线程恢复前的原生守卫。加载实际生效尚未运行验证。
 4. **原生边界与失败路径**：补齐音频插件回调的写入可达性，或设计经批准的有效写入隔离；TJS 守卫不覆盖原生 `WriteFile`。用自写输入先验证路径穿越、绝对路径、保存对话框、配置迁移、早期错误和写入失败；未通过不启动商业批次。不调整原启动、租约、截图、释放或黑帧判据。
 5. **获批后的首批**：仅一次新会话，在独立诊断桌面／Job 中先取有效新图；首图不通过即停手，零动作。随后才按获批动作范围验证正常输入经过原处理器及画面推进；不直接调用剧情跳转、存档函数或任务完成函数。启动与控制验证是后续验收，当前没有其运行证据；批次失败不自动重跑。
 6. **存档与还原**：首批不带原存档、不写原槽，不自动同步任何测试文件回原目录；如后续需存读档，另列测试槽、改前备份、改后文件及回退命令。新增测试目录本身是改动清单，证据保留在副本外。结束确认 Job 树退出后复核原目录全文件摘要；回收副本前列完整路径和占用，按批准范围处理，不删除原存档或失败证据。异常时保留现场，不能宣称已还原。
@@ -61,6 +62,7 @@
 - `original-before.json`：本轮读取前原目录逐文件摘要与大小。
 - `scan-summary.json`、`text-manifest.json`、`archive-index.json`、`boundary-hits.json` 与 `text/`：既有提取／扫描记录及正文。
 - `native-pe-review.json`、`native-v2link.json`、`native/wuvorbis.dll`：原生导入／导出及链接分析。
+- `native-write-followup-bundle`、`summarize_native_followup.py`、`native-write-followup.json`：按地址追查的证据包与可重复摘要校验，区分 CRT 调用定位和未完成的完整可达性证明。
 - `verify_review.py`、`verification.json`：本轮全原目录摘要复核与文档引用／样本摘要核验。该检查只读原目录，不启动游戏；结果不等于系统范围写入审计。
 
-本轮仅修改审查与交接文档，候选识别、控制协议、桥实现和发布流程均未改。Release 构建仍由老师查看，不查询、不重复触发。下一步先审阅上述副本范围与待实现边界，不重跑已完成探针与调查。
+本轮仅修改审查、设计与交接文档，候选识别、控制协议、桥实现和发布流程均未改。Release 构建仍由老师查看，不查询、不重复触发。下一步审阅[商业接入设计](superpowers/specs/2026-11-17-kirikiri-commercial-design.md)，批准后先实现与验证自写夹具，商业复制／注入／单批启动另行批准；不重跑已完成探针与调查。

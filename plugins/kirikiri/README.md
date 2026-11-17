@@ -4,7 +4,7 @@
 
 ## 商业样本前置审查
 
-[商业 KAG 写入边界审查](../../docs/KIRIKIRI-COMMERCIAL-BOUNDARY.md)记录了正常保存、自由文件选择、配置迁移及原生插件未知项，并列出待批准的副本与还原方案；本轮没有启动商业样本。当前宿主仍只接受自写夹具，不能直接把 `data.xp3` 加入目录运行。
+[商业 KAG 写入边界审查](../../docs/KIRIKIRI-COMMERCIAL-BOUNDARY.md)记录了正常保存、自由文件选择、配置迁移及原生插件边界；后续按地址将插件写入引用定位到 CRT，但未证明完整不可达。[待批准的商业接入设计](../../docs/superpowers/specs/2026-11-17-kirikiri-commercial-design.md)明确主线程恢复前的原生写入守卫与原 `AfterInit.tjs` 后的 `AfterInit2.tjs` 输入桥加载。设计尚未实现，商业样本未启动；当前宿主仍只接受自写夹具，不能直接把 `data.xp3` 加入目录运行。
 
 ## 输入与组件
 
