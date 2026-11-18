@@ -116,6 +116,8 @@ def inspect_game(path):
         return found('emuera_authored_candidate', ['gameqa-emuera-fixture.erb'])
     if (root / 'gameqa-kirikiri-fixture.tjs').is_file():
         return found('kirikiri_authored_candidate', ['gameqa-kirikiri-fixture.tjs'])
+    if (root / 'gameqa-flash-fixture.swf').is_file():
+        return found('flash_authored_candidate', ['gameqa-flash-fixture.swf'])
     if (root / 'gameqa-hsp-fixture.ax').is_file():
         return found('hsp_authored_candidate', ['gameqa-hsp-fixture.ax'])
     for prefix in ('', 'resources/app/', 'resources/app/src/'):

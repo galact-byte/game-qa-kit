@@ -3,3 +3,5 @@ plugins/tyrano/samples/gameqa-tyrano-fixture.ks text eol=lf
 plugins/emuera/samples/gameqa-emuera-fixture.erb text eol=lf
 plugins/kirikiri/samples/gameqa-kirikiri-fixture.tjs text eol=crlf
 plugins/hsp/samples/gameqa-hsp-fixture.ax binary
+plugins/flash/samples/gameqa-flash-fixture.swf binary
+plugins/flash/ruffle-0.7.1-web-selfhosted.zip binary

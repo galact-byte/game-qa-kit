@@ -102,6 +102,12 @@ def inspect(path, *, artifacts=None):
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
         if not result['blockers']:
             result.update(adapter='kirikiri_authored', profile_id='kirikiri-2.32.2.426-window-authored-fixed')
+    elif result['engine'] == 'flash_authored_candidate':
+        from plugins.flash import prepare as flash
+        result['blockers'], edge = flash.inspect(result['root'], artifacts)
+        result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+        if not result['blockers']:
+            result.update(adapter='flash_authored', profile_id='flash-ruffle-0.7.1-edge-fixed', artifacts=str(edge))
     elif result['engine'] == 'hsp_authored_candidate':
         from plugins.hsp import prepare_authored as hsp
         result['blockers'] = hsp.inspect(result['root'], artifacts)
@@ -144,7 +150,18 @@ def make_plan(source, destination, *, artifacts):
     if result['launch_readiness'] != 'ready':
         raise ValueError('; '.join(row['message'] for row in result['blockers']))
     destination = validate_destination(result['root'], destination)
-    source, artifacts = Path(result['root']), Path(artifacts).absolute()
+    source, artifacts = Path(result['root']), Path(result.get('artifacts') or artifacts).absolute()
+    if result['engine'] == 'flash_authored_candidate':
+        from plugins.flash import prepare as flash
+        validate_destination(artifacts, destination)
+        payload = dict(schema_version=1, backend='flash_authored', engine='flash', source=str(source),
+                       destination=str(destination), artifacts=str(artifacts),
+                       source_digests=flash.source_digests(source), artifact_digests=flash.artifact_digests(artifacts),
+                       data_policy='blank-authored-flash-private-edge-profile', desktop='private',
+                       changes=['复制已登记自写 SWF 与 Ruffle Web 资源至会话目录',
+                                '独立桌面使用固定 Edge 和独立用户配置，首图合格后保持输入暂停',
+                                '停止时回收本次浏览器进程树并核对原作品及组件摘要'])
+        return {**payload, 'fingerprint': fingerprint(payload)}
     if result['engine'] in ('unity_mono', 'unity_il2cpp'):
         from plugins.unity import prepare as unity
         profile = unity.build_profile(source)
@@ -282,7 +299,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored', 'emuera_authored', 'kirikiri_authored', 'hsp_authored'):
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored', 'emuera_authored', 'kirikiri_authored', 'hsp_authored', 'flash_authored'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:

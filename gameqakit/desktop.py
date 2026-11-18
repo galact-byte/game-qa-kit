@@ -74,7 +74,12 @@ k.CloseHandle.argtypes = [W.HANDLE]
 
 
 class DesktopProcess:
-    def __init__(self, argv, *, cwd, env=None, isolated_desktop=True, disable_extension_points=False):
+    def __init__(self, argv, *, cwd, env=None, isolated_desktop=True, disable_extension_points=False,
+                 inherited_handles=()):
+        self.inherited_handles = tuple(inherited_handles)
+        if any(type(handle) is not int or handle <= 0 or not os.get_handle_inheritable(handle)
+               for handle in self.inherited_handles):
+            raise ValueError('只能传递明确标记为可继承的句柄')
         if not isinstance(disable_extension_points, bool):
             raise ValueError('disable_extension_points 必须是布尔值')
         self.disable_extension_points = disable_extension_points
@@ -132,27 +137,34 @@ class DesktopProcess:
             flags = 0x0404
             startup_pointer = ctypes.pointer(si)
             try:
-                if self.disable_extension_points:
+                count = bool(self.disable_extension_points) + bool(self.inherited_handles)
+                if count:
                     size = ctypes.c_size_t()
-                    k.InitializeProcThreadAttributeList(None, 1, 0, ctypes.byref(size))
+                    k.InitializeProcThreadAttributeList(None, count, 0, ctypes.byref(size))
                     if not size.value:
                         raise ctypes.WinError(ctypes.get_last_error())
                     storage = ctypes.create_string_buffer(size.value)
-                    if not k.InitializeProcThreadAttributeList(storage, 1, 0, ctypes.byref(size)):
+                    if not k.InitializeProcThreadAttributeList(storage, count, 0, ctypes.byref(size)):
                         raise ctypes.WinError(ctypes.get_last_error())
                     attributes = storage
-                    # 仅此子进程禁用旧扩展点；不写入系统 Exploit Protection 配置。
-                    policy = ctypes.c_uint64(1 << 32)
-                    if not k.UpdateProcThreadAttribute(attributes, 0, 0x20007, ctypes.byref(policy),
-                                                       ctypes.sizeof(policy), None, None):
-                        raise ctypes.WinError(ctypes.get_last_error())
+                    if self.disable_extension_points:
+                        # 仅此子进程禁用旧扩展点，不写入系统 Exploit Protection 配置。
+                        policy = ctypes.c_uint64(1 << 32)
+                        if not k.UpdateProcThreadAttribute(attributes, 0, 0x20007, ctypes.byref(policy),
+                                                           ctypes.sizeof(policy), None, None):
+                            raise ctypes.WinError(ctypes.get_last_error())
+                    if self.inherited_handles:
+                        handles = (W.HANDLE * len(self.inherited_handles))(*self.inherited_handles)
+                        if not k.UpdateProcThreadAttribute(attributes, 0, 0x20002, handles,
+                                                           ctypes.sizeof(handles), None, None):
+                            raise ctypes.WinError(ctypes.get_last_error())
                     extended = STARTUPINFOEX()
                     extended.startup = si
                     extended.startup.cb = ctypes.sizeof(extended)
                     extended.attributes = ctypes.cast(attributes, ctypes.c_void_p)
                     startup_pointer = ctypes.cast(ctypes.byref(extended), ctypes.POINTER(STARTUPINFO))
                     flags |= 0x00080000
-                if not k.CreateProcessW(self.argv[0], command, None, None, False, flags,
+                if not k.CreateProcessW(self.argv[0], command, None, None, bool(self.inherited_handles), flags,
                                         environment, str(self.cwd), startup_pointer, ctypes.byref(pi)):
                     raise ctypes.WinError(ctypes.get_last_error())
             finally:

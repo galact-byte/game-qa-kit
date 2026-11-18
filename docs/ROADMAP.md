@@ -8,7 +8,7 @@
 
 ## 当前进度与下一步
 
-通用游戏接入入口已实现。当前可启动的目标包括已登记的 RPG Maker MV／MZ、VX Ace 示例工程、Unity 四类输入后端、Wolf 官方范例、固定 SRPG Studio 构建、Godot 4.5.1、Ren'Py 8.3.2、TyranoScript Ver5／Electron 7.1.2、Emuera 1.824、KiriKiri 2.32.2.426／x86 与 HSP 3.7 x86 自写样本；各目标仍需匹配资源与组件。使用方式见 [游戏接入说明](GAME-ADMISSION.md)，具体限制见 [引擎支持表](ENGINE-COVERAGE.md)。
+通用游戏接入入口已实现。当前可启动的目标包括已登记的 RPG Maker MV／MZ、VX Ace 示例工程、Unity 四类输入后端、Wolf 官方范例、固定 SRPG Studio 构建、Godot 4.5.1、Ren'Py 8.3.2、TyranoScript Ver5／Electron 7.1.2、Emuera 1.824、KiriKiri 2.32.2.426／x86、HSP 3.7 x86 与 Flash AVM1 自写样本；各目标仍需匹配资源与组件。使用方式见 [游戏接入说明](GAME-ADMISSION.md)，具体限制见 [引擎支持表](ENGINE-COVERAGE.md)。
 
 尚待完成的事项：
 
@@ -17,7 +17,7 @@
 - **DuckStation 迁入通用入口**。本机补查未找到登记的 Windows x64 构建、配套组件与已授权 CUE 镜像。现有独立桥记录保留，通用入口待组件齐备后验证。
 - **扩展自写样本以外的范围**：TyranoScript 与 Emuera 的商业资源和保存写入边界需要逐样本核查。Emuera 数字／文本菜单仍无协议动作。
 - **Godot 扩展范围**：当前通用入口只接受登记的 4.5.1 自写样本与运行时。另两个本机运行时拒绝当前外部工程入口；其他版本、商业 PCK 或资源补丁需要独立设计和验证。
-- **Flash 接入待批准**。Ruffle Web 官方自托管包已通过 6 项自写 AVM1 预检。Chrome 和 Edge 均通过正常对照，三批渲染器卡死均由外部宿主回收。运行时交付、私有通信、进程监督与正式验收见 [Flash 接入设计](FLASH-ADMISSION-DESIGN.md)。
+- **Flash 后续验收**。已登记的 Edge 与 Ruffle Web 0.7.1 用于通用入口的自写 AVM1 样本。商业 SWF／投影器、其他 Edge 构建及真人使用键鼠同时运行的场景待验。见 [Flash 接入说明](../plugins/flash/README.md)。
 - **扩充盘中未覆盖的引擎**：D／G 初次扫描遍历 49,950 个目录与 2,046 个 EXE。补审原 404 个未分类目录，确认 164 个工具与独立运行时、2 个额外 Wolf 候选，余 238 个待分类。已用文件标记复核 Bakin、GameMaker、Artemis、Unreal、Flash 的 8 个既有候选目录。进入控制预检需要可用运行时、自写样本及明确的写入边界。已接入的自写场景见本节支持范围，商业候选按构建逐项验证。详见[盘点表](LOCAL-ENGINE-INVENTORY.md)。
 - **按任务扩展玩法与长期验证**：各引擎的战斗、存读档、全流程和长期稳定性分别验收，不用单次菜单成功推断。现阶段不追加 Wolf 玩法跑批。
 

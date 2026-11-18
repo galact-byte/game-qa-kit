@@ -83,6 +83,8 @@ class Supervisor:
     capture_worker = Path(__file__).with_name('capture_worker.py')
     capture_module = 'gameqakit.capture_worker'
     startup_capture = None
+    actions = ('confirm', 'wait')
+    button = 'ok'
 
     def __init__(self, target, directory, session):
         self.target, self.directory = target, directory
@@ -107,11 +109,11 @@ class Supervisor:
     def state(self):
         return dict(self.identity, updated_at=time.time(), paused=self.paused,
             pause_id=self.pause_id, error=self.error,
-            capabilities=['confirm', 'wait'] if self.observation_seq and not self.error else [],
-            buttons=['ok'], max_duration_ms=1000, timing_mode='duration_ms', pause_scope='input',
+            capabilities=list(self.actions) if self.observation_seq and not self.error else [],
+            buttons=[self.button], max_duration_ms=1000, timing_mode='duration_ms', pause_scope='input',
             simulation_pause=False, observation_seq=self.observation_seq,
             observation_screenshot=self.observation,
-            held=['ok'] if self.active and self.active['keyed'] and not self.active['release'] else [])
+            held=[self.button] if self.active and self.active['keyed'] and not self.active['release'] else [])
 
     def send(self, ident, kind):
         publish(self.directory / 'input.json', dict(self.identity, id=ident, kind=kind))
@@ -181,7 +183,7 @@ class Supervisor:
                 or not -1 <= time.time() - created <= 1.5):
             raise ValueError('命令身份、暂停代次、观察序号或有效期无效')
         payload = request.get('payload')
-        if not isinstance(payload, dict) or payload.get('action') not in ('resume', 'confirm', 'wait'):
+        if not isinstance(payload, dict) or payload.get('action') not in (*self.actions, 'resume'):
             raise ValueError('未声明的动作')
         validate_payload(payload, self.state())
         if payload['action'] != 'resume' and self.paused:
@@ -189,7 +191,8 @@ class Supervisor:
         if not self.lease_valid():
             raise ValueError('租约缺失或失效')
         now = time.monotonic()
-        self.active = dict(request=request, keyed=payload['action'] == 'confirm', started=now,
+        keyed = payload['action'] not in ('resume', 'wait')
+        self.active = dict(request=request, keyed=keyed, started=now,
             until=now + payload.get('duration_ms', 0) / 1000, after_ui=self.ui_seq,
             press=False, release=False, release_started=None,
             down_id=uuid.uuid4().hex, up_id=uuid.uuid4().hex, error='')
@@ -199,7 +202,7 @@ class Supervisor:
             return
         if payload['action'] == 'resume':
             self.paused = False
-        if payload['action'] == 'confirm':
+        if keyed:
             self.send(self.active['down_id'], 'down')
 
     def start_capture(self, ident, purpose):
@@ -311,11 +314,12 @@ class Supervisor:
             self.send(uuid.uuid4().hex, 'close')
             self.closing = True
 
-    def run(self):
+    def run(self, *, launch_target=True):
         publish(self.directory / 'connection.json', self.identity)
         publish(self.directory / 'supervisor.json', dict(self.identity, host_pid=os.getpid(),
             desktop_name=self.target.desktop_name, runtime_sha256=self.runtime_sha256))
-        self.target.run()
+        if launch_target:
+            self.target.run()
         try:
             while self.target.alive():
                 reason = self.deadlines()
