@@ -240,7 +240,15 @@ class KiriKiriBridgeTests(common.EmueraBridgeTests):
         self.request('status-write-failure', {'action': 'confirm', 'duration_ms': 1000})
         self.until(lambda: any(event['kind'] == 'down' for event in self.observer().get('events', [])), 2)
         # 阻塞宿主自己的临时状态路径，不修改目标文件或放宽保护期限。
-        (self.directory / 'status.json.part').mkdir()
+        def block_publication():
+            try:
+                (self.directory / 'status.json.part').mkdir()
+            except FileExistsError:
+                # 宿主可能正在发布；等它原子替换后再占用路径。
+                return False
+            return True
+
+        self.until(block_publication, .25)
         self.until(lambda: any(event['kind'] == 'up' for event in self.observer().get('events', [])), 2)
         observed = self.observer()
         self.assertFalse(observed['held'])
