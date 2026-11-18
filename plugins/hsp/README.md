@@ -1,6 +1,12 @@
 # HSP3 后台控制插件（实验）
 
-本插件面向 Windows x86 HSP3，使用既有协议 v1 / INI 和统一 MCP 动作。当前实测为本机官方 HSP 3.7 运行时的空白工程，以及《八星帝》同一份外置字节码的标题和读取界面。不是任意 HSP 游戏兼容保证。
+本插件面向 Windows x86 HSP3，使用既有协议 v1 / INI 和统一 MCP 动作。当前实测为本机官方 HSP 3.7 运行时的空白工程，以及《八星帝》同一份外置字节码的标题和读取界面。兼容范围限定为下述构建和样本。
+
+## 通用受管入口
+
+场景目录只放仓库自写样本 `samples/gameqa-hsp-fixture.ax`。组件目录放登记的 `hsp3.exe`（SHA-256 `5eeb5ed1bb3f8d7aeac90d35e2f4c1d15f02586a8e8a79484072838b95b7fec8`）和按下文构建的 `GameQaHsp.dll`。选择新目录创建隔离副本后再启动。MCP 实测覆盖暂停首图、持续预览、右移、菜单开关、松键及进程退出、预览故障回收与改动副本拒启。商业字节码沿用下文的独立入口。
+
+字节码可从仓库的 `tests/hsp/Probe.hsp` 重建。在构建目录将脚本命名为 `probe.hsp`，使用 HSP 3.7 的 `hspcmp.exe -ogameqa-hsp-fixture.ax --compath=<HSP安装目录>/common/ probe.hsp`（关闭调试输出）。SHA-256 应为 `6ca089127a166fedbe0253110636ad28f0c53103fb296c68cfd563cd2f78fb7c`。
 
 ## 构建与接入
 

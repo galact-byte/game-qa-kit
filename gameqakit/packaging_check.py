@@ -22,7 +22,8 @@ def check(report):
         modules = ('gameqakit.engines', 'gameqakit.game_worker', 'plugins.unity.prepare',
                    'plugins.rgss3.prepare', 'plugins.rpgmaker_js.prepare', 'plugins.native_input.session',
                    'plugins.godot.session', 'plugins.renpy.session', 'plugins.tyrano.session',
-                   'plugins.emuera.session', 'plugins.kirikiri.session', 'plugins.kirikiri.capture_worker')
+                   'plugins.emuera.session', 'plugins.kirikiri.session', 'plugins.kirikiri.capture_worker',
+                   'plugins.hsp.session')
         for name in modules:
             importlib.import_module(name)
         result['module_imports'] = list(modules)
@@ -34,7 +35,7 @@ def check(report):
                      'plugins/tyrano/MainBridge.js', 'plugins/tyrano/Observer.js',
                      'plugins/tyrano/samples/gameqa-tyrano-fixture.ks', 'plugins/emuera/Launcher.cs',
                      'plugins/emuera/samples/gameqa-emuera-fixture.erb', 'plugins/kirikiri/GameQaBridge.tjs',
-                     'plugins/kirikiri/samples/gameqa-kirikiri-fixture.tjs'):
+                     'plugins/kirikiri/samples/gameqa-kirikiri-fixture.tjs', 'plugins/hsp/samples/gameqa-hsp-fixture.ax'):
             assert (root / name).is_file(), name
         marker = report.with_name('worker-self-test.json')
         subprocess.run([sys.executable, '--worker-self-test', str(marker)], check=True, timeout=20,

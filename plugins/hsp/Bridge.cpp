@@ -19,7 +19,10 @@ std::string executable_utf8;
 DWORD process_id=0;
 ULONG_PTR gdiplus_token=0;
 bool ticking=false,mouse_sending=false,updates_started=false;
-double last_status=0,last_guard=0;
+bool managed=false;
+unsigned long long observation_seq=0;
+std::string observation_error,paused_generation,confirmed_pause;
+double last_status=0,last_guard=0,last_observation=0;
 HWND pressed_button=nullptr;
 POINT button_point={0,0};
 struct Patch { ULONG_PTR* slot;ULONG_PTR original,replacement; };
@@ -101,7 +104,13 @@ std::string status() {
      <<",\"held\":["<<(core->held.empty()?"":gameqa::quote(core->held))<<"],\"input_ready\":"<<(ready?"true":"false")
      <<",\"screen\":["<<width<<','<<height<<"],\"command_id\":"<<(core->active?gameqa::quote(core->command.id):"null")
      <<",\"error\":"<<(core->error.empty()?"null":gameqa::quote(core->error))
-     <<",\"capabilities\":[\"move\",\"confirm\",\"cancel\",\"wait\",\"press\",\"release\",\"click\"]}";
+     <<",\"pause_id\":"<<gameqa::quote(managed?confirmed_pause:core->pause);
+    if(managed) {
+        o<<",\"observation_seq\":"<<observation_seq
+         <<",\"observation_screenshot\":"<<gameqa::quote(observation_seq>1?"screenshots/observation.png":"screenshots/startup.png")
+         <<",\"observation_error\":"<<(observation_error.empty()?"null":gameqa::quote(observation_error));
+    }
+    o<<",\"capabilities\":[\"move\",\"confirm\",\"cancel\",\"wait\",\"press\",\"release\",\"click\"]}";
     return o.str();
 }
 void publish_status(bool force=false) {
@@ -252,6 +261,14 @@ void capture(const std::string& name) {
         DeleteFileW(temporary.c_str());throw std::runtime_error("capture_failed");
     }
 }
+void capture_observation(double t) {
+    // The first wait has not yet pumped the window's initial paint messages.
+    if(!managed || core->frame<2 || !observation_error.empty() || core->active || t-last_observation<.2) return;
+    HWND hwnd=nullptr;int width=0,height=0;
+    if(!dimensions(hwnd,width,height)) return;
+    capture(observation_seq?"screenshots/observation.png":"screenshots/startup.png");
+    ++observation_seq;last_observation=t;
+}
 void tick() {
     if(ticking || !core) return;ticking=true;updates_started=true;
     try {
@@ -267,7 +284,12 @@ void tick() {
             capture(name);core->captured(name);
         }
         core->begin(t,expiry,p);
-        if(!fields.empty() && gameqa::get(fields,"session_id")==core->session && gameqa::get(fields,"protocol")=="1") {
+        // Confirm only after a complete update with the synthesized keys released.
+        confirmed_pause=core->paused && paused_generation==p?p:"";
+        paused_generation=core->paused?p:"";
+        capture_observation(t);
+        if(!fields.empty() && (!managed || (observation_seq && observation_error.empty())) &&
+           gameqa::get(fields,"session_id")==core->session && gameqa::get(fields,"protocol")=="1") {
             const auto command=gameqa::parse_command(fields);
             if(core->accept(command,t,expiry)) {
                 HWND hwnd=nullptr;int w=0,h=0;
@@ -277,6 +299,7 @@ void tick() {
         }
         mouse();native_mouse();receipt();publish_status();
     } catch(const std::exception& e) {
+        if(managed) observation_error=e.what();
         core->fail(e.what());cancel_mouse();try { receipt();publish_status(true); } catch(...) {}
     }
     ticking=false;
@@ -309,6 +332,7 @@ extern "C" __declspec(dllexport) void WINAPI hsp3cmdinit(HSP3TYPEINFO* info) {
     try {
         directory=environment(L"GAMEQAKIT_BRIDGE_DIR");auto session=utf8(environment(L"GAMEQAKIT_SESSION_ID"));
         if(directory.empty() || session.empty()) return;
+        managed=environment(L"GAMEQAKIT_HSP_MANAGED")==L"1";
         write("plugin-stage.txt","initializing",true);
         wchar_t buffer[32768];DWORD length=GetModuleFileNameW(nullptr,buffer,32768);
         if(!length || length>=32768) return;

@@ -8,13 +8,13 @@
 
 ## 当前进度与下一步
 
-通用游戏接入入口已实现。当前可启动的目标包括已登记的 RPG Maker MV／MZ、VX Ace 示例工程、Unity 四类输入后端、Wolf 官方范例、固定 SRPG Studio 构建、Godot 4.5.1、Ren'Py 8.3.2、TyranoScript Ver5／Electron 7.1.2、Emuera 1.824 与 KiriKiri 2.32.2.426／x86 自写样本；各目标仍需匹配资源与组件。使用方式见 [游戏接入说明](GAME-ADMISSION.md)，具体限制见 [引擎支持表](ENGINE-COVERAGE.md)。
+通用游戏接入入口已实现。当前可启动的目标包括已登记的 RPG Maker MV／MZ、VX Ace 示例工程、Unity 四类输入后端、Wolf 官方范例、固定 SRPG Studio 构建、Godot 4.5.1、Ren'Py 8.3.2、TyranoScript Ver5／Electron 7.1.2、Emuera 1.824、KiriKiri 2.32.2.426／x86 与 HSP 3.7 x86 自写样本；各目标仍需匹配资源与组件。使用方式见 [游戏接入说明](GAME-ADMISSION.md)，具体限制见 [引擎支持表](ENGINE-COVERAGE.md)。
 
 尚待完成的事项：
 
 - **下一次功能版本收口时验收便携包**：此前触发的 v0.2.1 构建早于 Wolf 受管接入，不能代表当前主分支的全部功能；开发期间做对应源码验证，不另行打包或发布。
 - **集中真人验收**：按 [验收清单](GAME-ADMISSION-ACCEPTANCE.md) 检查各登记目标是否影响其他应用中的打字、按键和拖动。真人体验尚未执行，合成输入不能替代确认。
-- **HSP／DuckStation 迁入通用入口**：D／G 下载目录补查仍未找到匹配固定构建与组件；识别到其他引擎样本不消除此缺口。两者已有独立桥实证，尚不能据此认定通用入口可用。
+- **DuckStation 迁入通用入口**。本机补查未找到登记的 Windows x64 构建、配套组件与已授权 CUE 镜像。现有独立桥记录保留，通用入口待组件齐备后验证。
 - **扩展自写样本以外的范围**：TyranoScript 与 Emuera 的商业资源和保存写入边界需要逐样本核查。Emuera 数字／文本菜单仍无协议动作。
 - **Godot 扩展范围**：当前通用入口只接受登记的 4.5.1 自写样本与运行时。另两个本机运行时拒绝当前外部工程入口；其他版本、商业 PCK 或资源补丁需要独立设计和验证。
 - **扩充盘中未覆盖的引擎**：两个下载目录全遍历补扫完成，49,950 个目录／2,046 个 EXE 无读取错误，但仍有 404 个含 EXE 目录未分类，不能宣称查全引擎。TyranoScript 五个候选和 Emuera 六个候选已补只读识别，两者的固定自写场景均已迁入通用入口。继续核查 Bakin、GameMaker、Artemis、Unreal、Flash 等缺口。KiriKiri 已补商业候选的只读识别，固定 2.32.2.426／x86 的自写 Window 已迁入通用入口，自写 KAG 已验独立实验桥。商业 KAG 与其他版本仍待验证。见[实验说明](../plugins/kirikiri/README.md)及[核查记录](KIRIKIRI-STATIC-REVIEW.md)。清单见[盘点表](LOCAL-ENGINE-INVENTORY.md)。

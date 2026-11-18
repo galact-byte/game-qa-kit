@@ -37,6 +37,9 @@ def session_for(plan):
     if plan.get('backend') == 'kirikiri_authored':
         from plugins.kirikiri.session import KiriKiriSession
         return KiriKiriSession(plan)
+    if plan.get('backend') == 'hsp_authored':
+        from plugins.hsp.session import HspSession
+        return HspSession(plan)
     if plan['backend'] == 'rgss3':
         from plugins.rgss3.session import RgssSession
         return RgssSession(plan)
