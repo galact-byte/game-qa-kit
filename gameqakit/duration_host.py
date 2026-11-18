@@ -81,6 +81,7 @@ class Supervisor:
     engine = ''
     runtime_sha256 = ''
     capture_worker = Path(__file__).with_name('capture_worker.py')
+    startup_capture = None
 
     def __init__(self, target, directory, session):
         self.target, self.directory = target, directory
@@ -204,8 +205,9 @@ class Supervisor:
         destination = self.directory / 'screenshots' / (ident + '.png')
         destination.parent.mkdir(parents=True, exist_ok=True)
         token = uuid.uuid4().hex
-        worker = DesktopProcess([sys.executable, '-B', '-X', 'utf8',
-            str(self.capture_worker), str(self.directory), token,
+        command = ([sys.executable, '-m', 'gameqakit.capture_worker'] if getattr(sys, 'frozen', False)
+                   else [sys.executable, '-B', '-X', 'utf8', str(self.capture_worker)])
+        worker = DesktopProcess([*command, str(self.directory), token,
             str(self.observer['hwnd']), str(destination), self.target.desktop_name],
             cwd=Path(__file__).resolve().parents[2], isolated_desktop=False)
         worker.__enter__()
@@ -289,7 +291,8 @@ class Supervisor:
                 self.accept(request)
         if (not self.stopping and not self.active and not self.error and self.observer.get('ready')
                 and not self.capture and time.monotonic() - self.last_capture >= .2):
-            self.start_capture('observation-' + str(self.observation_seq + 1), 'observation')
+            ident = self.startup_capture if not self.observation_seq and self.startup_capture else 'observation-' + str(self.observation_seq + 1)
+            self.start_capture(ident, 'observation')
 
     def progress(self):
         active = self.active

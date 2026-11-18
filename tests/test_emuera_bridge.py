@@ -62,7 +62,7 @@ class EmueraBridgeTests(unittest.TestCase):
         (self.runtime / 'csv/GAMEBASE.csv').write_text(
             'タイトル,GameQA Emuera Bridge\nウィンドウタイトル,GameQA Emuera Bridge\nコード,731516\nバージョン,1000\n',
             encoding='utf-8-sig')
-        shutil.copy2(BASE / 'tests/emuera_fixture/bridge.erb', self.runtime / 'erb/bridge.erb')
+        shutil.copy2(BASE / 'plugins/emuera/samples/gameqa-emuera-fixture.erb', self.runtime / 'erb/bridge.erb')
         self.directory = self.root / 'bridge'
         self.directory.mkdir()
         self.process = None

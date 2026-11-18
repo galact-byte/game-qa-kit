@@ -104,6 +104,7 @@ namespace GameQa.Emuera
         readonly List<object> events = new List<object>();
         Form form;
         RichTextBox input;
+        bool ready;
         long seq;
         string pendingId = "", pendingKind = "", lastCommand = "";
         bool held;
@@ -162,6 +163,17 @@ namespace GameQa.Emuera
             return false;
         }
 
+        bool AtInitialWait()
+        {
+            // Idle 可早于原窗口的初始化定时器。等固定夹具进入 WAIT，再发布就绪。
+            const BindingFlags members = BindingFlags.Instance | BindingFlags.NonPublic;
+            var console = form.GetType().GetField("console", members).GetValue(form);
+            if (console == null) return false;
+            var type = console.GetType();
+            return type.GetField("state", members).GetValue(console).ToString() == "WaitInput"
+                && (bool)type.GetProperty("IsWaitingEnterKey", members).GetValue(console, null);
+        }
+
         void AppendObservers()
         {
             input.KeyDown -= Down;
@@ -206,6 +218,11 @@ namespace GameQa.Emuera
             try
             {
                 if (form == null && !Bind()) return;
+                if (!ready)
+                {
+                    if (!AtInitialWait()) return;
+                    ready = true;
+                }
                 // 嵌套 DoEvents 不能将尚未返回的输入处理器伪装成活跃、已消费。
                 if (pendingId.Length != 0) return;
 #if GAMEQA_TESTING

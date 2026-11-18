@@ -20,7 +20,7 @@ from tests.native_input_smoke import read, until
 
 
 class Mcp:
-    def __init__(self, directory, exe):
+    def __init__(self, directory, exe, *, command=None):
         self.directory = directory
         self.records = []
         self.responses = queue.Queue()
@@ -28,7 +28,7 @@ class Mcp:
         write_json(profile, {'name': 'native-input-owned', 'proc': exe.stem,
                              'exe_path': str(exe), 'data_dir': str(directory / 'mcp-data')})
         self.log = (directory / 'mcp-stderr.log').open('w', encoding='utf-8')
-        self.child = subprocess.Popen([sys.executable, str(ROOT / 'gameqakit/mcp_server.py')],
+        self.child = subprocess.Popen(command or [sys.executable, str(ROOT / 'gameqakit/mcp_server.py')],
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.log,
                                      text=True, encoding='utf-8', env={**os.environ, 'GAMEQAKIT_PROFILE': str(profile), 'PYTHONUTF8': '1'})
         self.reader = threading.Thread(target=self._read, daemon=True)
@@ -80,8 +80,8 @@ class Mcp:
 
 
 @contextmanager
-def mcp(directory, exe):
-    client = Mcp(directory, exe)
+def mcp(directory, exe, *, command=None):
+    client = Mcp(directory, exe, command=command)
     try:
         yield client
     finally:

@@ -18,7 +18,7 @@ class Supervisor(FileSupervisor):
     runtime_sha256 = RUNTIME_SHA256
 
 
-def run(runtime, launcher, directory, session):
+def run(runtime, launcher, directory, session, *, supervisor=Supervisor):
     if not IDENT.fullmatch(session):
         raise ValueError('会话编号无效')
     if any(not path.is_absolute() for path in (runtime, launcher, directory)):
@@ -39,7 +39,7 @@ def run(runtime, launcher, directory, session):
         target.mkdir(exist_ok=True)
         env[key] = str(target)
     with DesktopProcess([str(launcher)], cwd=runtime.parent, env=env) as target:
-        return Supervisor(target, directory, session).run()
+        return supervisor(target, directory, session).run()
 
 
 if __name__ == '__main__':

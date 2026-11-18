@@ -1,6 +1,12 @@
-# Emuera 固定构建实验控制桥
+# Emuera 固定构建后台控制桥
 
-本目录为固定 Emuera 1.824／.NET Framework 4.5 的自写工程提供现有 v2 毫秒协议桥。只接受[来源记录](SOURCES.md)中的原 EXE SHA-256；其他私家版、Skia 或同名运行时不自动兼容。没有通用准备器、GUI 或 `game_prepare` 启动入口。
+本目录为固定 Emuera 1.824／.NET Framework 4.5 的自写工程提供 v2 毫秒协议桥。通用入口只接受仓库登记的自写场景与[来源记录](SOURCES.md)中的原 EXE SHA-256。
+
+## 通用接入
+
+在「准备游戏」中选择 `plugins/emuera/samples/` 目录，组件目录选包含已登记 `Emuera.exe` 的本机目录，再指定一个全新的 E 盘测试目录。便携包内的场景位于 `GameQA/_internal/plugins/emuera/samples/`。本机需要 Windows .NET Framework 4 的 C# 编译器。准备阶段会复制场景与运行时并编译启动器，启动前再次核对副本摘要。
+
+启动后先在独立桌面取得场景就绪的首图，此时输入暂停。显式恢复后可发送确认与等待。退出会核对松键与进程回收，运行副本、截图和回执保留在测试目录。
 
 ## 组成与输入
 
@@ -46,7 +52,7 @@ python plugins/emuera/host.py --runtime '<自写工程>/Emuera.exe' --launcher '
 
 ## 使用边界与回退
 
-仅验证固定构建和自写场景。商业游戏、数字／文本菜单、其他版本、通用受管入口、长期稳定性与真人并发未验；产品识别仍为 `emuera_candidate`、`adapter=null`、`control_verified=false`。
+通用入口验证范围为固定构建的自写场景。商业游戏、数字／文本菜单、其他版本、受管存读档、长期稳定性与真人并发仍待验证。商业样本识别为 `emuera_candidate`，使用 `adapter=null` 和 `control_verified=false`。
 
 独立桌面只隔离桌面输入，不隔离任意文件、注册表或网络。路径定向仅针对已核查的实验工程，不能把本桥直接放入原游戏当作安全启动器。
 

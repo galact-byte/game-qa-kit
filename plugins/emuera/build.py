@@ -5,8 +5,12 @@ from pathlib import Path
 import subprocess
 
 
-def build(output, *, testing=False):
-    compiler = Path(os.environ.get('WINDIR', 'C:/Windows')) / 'Microsoft.NET/Framework/v4.0.30319/csc.exe'
+def compiler_path():
+    return Path(os.environ.get('WINDIR', 'C:/Windows')) / 'Microsoft.NET/Framework/v4.0.30319/csc.exe'
+
+
+def build(output, *, testing=False, source=None):
+    compiler = compiler_path()
     if not compiler.is_file():
         raise RuntimeError('缺少本机 .NET Framework 4 编译器；不自动安装')
     output = Path(output).resolve()
@@ -17,8 +21,8 @@ def build(output, *, testing=False):
             '/reference:System.Drawing.dll', '/out:' + str(output)]
     if testing:
         args.append('/define:GAMEQA_TESTING')
-    args.append(str(Path(__file__).with_name('Launcher.cs')))
-    result = subprocess.run(args, capture_output=True)
+    args.append(str(source or Path(__file__).with_name('Launcher.cs')))
+    result = subprocess.run(args, capture_output=True, timeout=15, cwd=output.parent)
     if result.returncode:
         diagnostic = (result.stdout + result.stderr).decode('mbcs', errors='replace')
         raise RuntimeError('C# 编译失败：\n' + diagnostic)

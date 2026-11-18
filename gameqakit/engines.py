@@ -112,6 +112,8 @@ def inspect_game(path):
         return found('renpy_authored_candidate', ['gameqa-renpy-fixture.rpy'])
     if (root / 'gameqa-tyrano-fixture.ks').is_file():
         return found('tyrano_authored_candidate', ['gameqa-tyrano-fixture.ks'])
+    if (root / 'gameqa-emuera-fixture.erb').is_file():
+        return found('emuera_authored_candidate', ['gameqa-emuera-fixture.erb'])
     for prefix in ('', 'resources/app/', 'resources/app/src/'):
         markers = [prefix + marker for marker in _TYRANO_SCRIPTS]
         if all((root / marker).is_file() for marker in markers):
