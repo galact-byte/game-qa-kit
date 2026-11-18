@@ -191,6 +191,10 @@ class Supervisor:
             until=now + payload.get('duration_ms', 0) / 1000, after_ui=self.ui_seq,
             press=False, release=False, release_started=None,
             down_id=uuid.uuid4().hex, up_id=uuid.uuid4().hex, error='')
+        if self.error:
+            self.active['error'] = self.error
+            self.finish()
+            return
         if payload['action'] == 'resume':
             self.paused = False
         if payload['action'] == 'confirm':
@@ -279,7 +283,7 @@ class Supervisor:
             self.interrupt('租约失效')
         self.poll_capture()
         self.progress()
-        if not self.stopping and not self.active and not self.error and self.observation_seq:
+        if not self.stopping and not self.active and self.observation_seq:
             request = read(self.directory / 'request.json')
             if request:
                 self.accept(request)

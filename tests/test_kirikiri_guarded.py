@@ -127,6 +127,99 @@ class GuardedKagTests(KagBridgeTests):
         self.stop()
         self.assertTrue(read_json(self.directory / 'detached.json')['restored'])
 
+    def assert_mcp_target_reaped(self, rpc):
+        from gameqakit.win32 import _pid_path
+        self.stop()
+        for pid in (rpc.child.pid, self.process.pid, self.meta['pid']):
+            self.assertFalse(_pid_path(pid), f'Unexpected live PID {pid}')
+
+    def test_mcp_confirm_changes_canvas_and_wait_does_not_send_keys(self):
+        from PIL import Image, ImageChops
+        from tests.native_input_mcp import mcp
+
+        state = self.start()
+        self.assertTrue(state['paused'])
+        self.assertEqual(state['capabilities'], ['confirm', 'wait'])
+        before = self.root / 'before.png'
+        shutil.copyfile(self.directory / state['observation_screenshot'], before)
+        with mcp(self.root, self.exe) as rpc:
+            bound = rpc.call('game_bind', session_id=self.session, confirm=True)
+            self.assertTrue(bound['can_control'])
+            self.assertEqual(bound['pid'], self.meta['pid'])
+            resumed = rpc.call('control_resume', confirm=True, command_id='mcp-resume')
+            action = dict(confirm=True, action='confirm', duration_ms=120, command_id='mcp-confirm')
+            receipt = rpc.call('control_action', include_image=True, **action)
+            self.assertEqual(receipt['status'], 'done')
+            self.assertTrue(receipt['press_consumed'] and receipt['release_consumed'])
+            self.assertEqual(receipt['held'], [])
+            self.assertGreater(receipt['observation_seq'], resumed['observation_seq'])
+            events = self.observer()['events']
+            self.assertEqual([event['kind'] for event in events], ['down', 'up'])
+            self.assertEqual([event['handler_return'] for event in events], [17, 'released'])
+
+            shot = Path(receipt['screenshot'])
+            digest = hashlib.sha256(shot.read_bytes()).hexdigest()
+            items = rpc.records[-1]['response']['result']['content']
+            self.assertEqual([item['sha256'] for item in items if item['type'] == 'image'], [digest])
+            self.assertEqual(receipt['screenshot_sha256'], digest)
+            shutil.copyfile(shot, self.root / 'after.png')
+            with Image.open(before) as first, Image.open(shot) as last:
+                last_rgb = last.convert('RGB')
+                self.assertIsNotNone(ImageChops.difference(first.convert('RGB'), last_rgb).getbbox())
+                self.assertEqual(last_rgb.getpixel((0, 0)), (22, 138, 82))
+
+            self.assertEqual(rpc.call('control_result', command_id='mcp-confirm')['screenshot_sha256'], digest)
+            self.assertEqual(rpc.call('control_action', **action)['screenshot_sha256'], digest)
+            wait = rpc.call('control_action', confirm=True, action='wait', duration_ms=100, command_id='mcp-wait')
+            self.assertEqual(wait['status'], 'done')
+            self.assertFalse(wait['press_consumed'] or wait['release_consumed'])
+            self.assertEqual(self.observer()['events'], events)
+            self.assertFalse(rpc.call('game_unbind', directory=None)['bound'])
+
+        self.assert_mcp_target_reaped(rpc)
+
+    def test_mcp_black_frame_preserves_receipt_and_prevents_further_input(self):
+        from gameqakit.sessions import read_json
+        from tests.native_input_mcp import mcp
+
+        self.set_testing_mode(action='blank-after')
+        self.start()
+        with mcp(self.root, self.exe) as rpc:
+            self.assertTrue(rpc.call('game_bind', session_id=self.session, confirm=True)['can_control'])
+            rpc.call('control_resume', confirm=True, command_id='mcp-resume')
+            failed = rpc.call('control_action', expect_error=True, confirm=True, action='confirm',
+                              duration_ms=70, command_id='mcp-black', include_image=True)
+            self.assertIn('取图', failed['message'])
+            receipt = rpc.call('control_result', command_id='mcp-black', include_image=True)
+            self.assertEqual(receipt['status'], 'failed')
+            self.assertTrue(receipt['press_consumed'] and receipt['release_consumed'])
+            self.assertEqual(receipt['held'], [])
+            self.assertFalse(receipt.get('screenshot'))
+            items = rpc.records[-1]['response']['result']['content']
+            self.assertFalse(any(item['type'] == 'image' for item in items))
+            self.assertFalse((self.directory / 'screenshots/mcp-black.png').exists())
+
+            status = read_json(self.directory / 'status.json')
+            self.assertTrue(status['paused'])
+            self.assertEqual(status['held'], [])
+            self.assertEqual(status['capabilities'], [])
+            rpc.call('control_action', expect_error=True, confirm=True, action='confirm',
+                     duration_ms=70, command_id='mcp-blocked')
+            refused = rpc.call('control_resume', expect_error=True, confirm=True, command_id='mcp-resume-blocked')
+            self.assertEqual(refused['message'], status['error'])
+            retry = rpc.call('control_result', command_id='mcp-resume-blocked')
+            self.assertEqual(retry['status'], 'failed')
+            self.assertFalse(retry['press_consumed'] or retry['release_consumed'])
+            self.assertEqual(retry['held'], [])
+            self.assertEqual(retry['observation_seq'], status['observation_seq'])
+            self.assertTrue(read_json(self.directory / 'status.json')['paused'])
+            events = self.observer()['events']
+            self.assertEqual([event['kind'] for event in events], ['down', 'up'])
+            self.assertEqual([event['handler_return'] for event in events], [17, 'released'])
+            self.assertFalse(self.observer()['held'])
+
+        self.assert_mcp_target_reaped(rpc)
+
     def test_xp3_project_loads_original_handlers_without_loose_startup(self):
         import struct
         import zlib
