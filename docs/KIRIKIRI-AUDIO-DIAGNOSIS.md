@@ -1,6 +1,17 @@
 # KiriKiri 自写音频初始化诊断与恢复边界
 
-## 最新：无音频真实失败回执已复验，DLL 安装仍失败
+## 最新：DLL 的五次取种子失败分支已静态核对，动态因果仍待取证
+
+2026-11-18。只读分析当前 x86 `bcryptprimitives.dll`，并以现有 Capstone 直接反汇编文件字节独立核对，未加载 DLL 做实验、未启动任何目标。
+
+- DLL 入口调用 `MsProviderStart → InitUmRootRngState → GetSeedFromKernelState`；后者通过 `DeviceIoControl(0x390008)` 向精确 CNG 设备取种子。连续失败最多尝试 5 次，共 5 次；随后根初始化返回 0，提供器返回 `0xC00000E5`，DLL 入口设置 LastError 1359 并返回 false。
+- 上轮实测是 CNG 拒绝 5 次与加载错误 1114，和该机制一致；现有守卫的“非致命拒绝”仍向调用者返回拒绝，只是不立即终止批次。旧回执缺逐次来源与内部返回轨迹，不能把计数一致写成动态因果已证实，也不能直接扩展成旧 `UuidCreate=14` 的上游根因。
+- 成功取种子后的 AES 状态初始化、条件性 LSA 算法检查仍有其他静态失败路径；当前 DLL 的 ForceIntegrity 位已核对。错误 1114 本身不能区分具体分支。
+- `<KiriKiri验证目录>/audio-bcrypt-static-01/verify_final.py` 的 22 项静态证据／保护核对通过，提交后另核对远端。原商业目录 1,138 文件／1,802,169,925 字节、前轮 280 文件、旧六批 82 份证据及四份授权／消费锁均未变，任务进程为零，工作区并行改动保留。本轮未重跑 47 项旧检查，没有音频或商业通过。
+
+证据入口为本轮 `诊断结果.md`、`bcrypt-init-final-evidence.json`、`independent-disassembly.json`、`verification.json`，恢复点为 `guarded-kag-checkpoint-15/`。推荐下一步按《原生CNG来源取证单批清单》申请最多一次自写无音频目标，在已经生效的原生拒绝钩子上记录有界来源，避免依赖失败 DLL 的 IAT 安装。清单尚未批准、未实现运行；旧额度不解锁，仍不放行 CNG 或启动音频／商业批次。
+
+## 历史：无音频真实失败回执已复验，DLL 安装仍失败
 
 2026-11-18。老师批准《安装失败回执恢复清单》后，在 `<KiriKiri验证目录>/audio-install-receipt-01/` 使用 checkpoint-13 最终实验 DLL 执行唯一一次自写无音频安装预检，未恢复目标主线程。
 
