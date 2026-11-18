@@ -1,6 +1,16 @@
 # KiriKiri 自写音频初始化诊断与恢复边界
 
-## 最新：DLL 的五次取种子失败分支已静态核对，动态因果仍待取证
+## 最新：单项 CNG 放行没有恢复播放
+
+2026-11-18。独立实验仅启动一次固定运行时的自写静音 WAV 夹具，未启动商业样本。结果见 `<KiriKiri验证目录>/audio-seed-play-01/`：
+
+- `init-run/bridge/seed-status.txt` 记录单项请求转发 1 次、返回 `NTSTATUS=0`；`init-result.json` 记录 CNG 拒绝计数为 0。批次耗时 579 毫秒。
+- `play()` 仍报 `DirectSoundCreate failed./HR=88780078`；仅记录 `stop`、位置 0，没有播放开始、进度增长或自然结束。静音素材本来就不能验证扬声器出声，但本次失败发生在播放开始前。
+- `init-run/bridge/guard-denial.json` 记录 `\Device\DeviceApi`／`0x470843` 的致命拒绝。这是新的诊断线索，不足以认定为唯一剩余原因或证明放行就能恢复播放。
+
+结论：固定受管运行时的音频仍未通过，商业第三批仍无有效首图且零输入。`authorization-consumed.json` 记录本批 1 次自写启动、0 次商业启动；授权已消耗。实验未迁入产品守卫，不逐条放行试错，不按下方历史清单重新启动。自写 KAG 已验的后台确认、等待与黑屏停手范围见[实验说明](../plugins/kirikiri/README.md#实测边界与回退)，不能外推商业兼容。
+
+## 历史：DLL 的五次取种子失败分支已静态核对
 
 2026-11-18。只读分析当前 x86 `bcryptprimitives.dll`，并以现有 Capstone 直接反汇编文件字节独立核对，未加载 DLL 做实验、未启动任何目标。
 
@@ -9,7 +19,7 @@
 - 成功取种子后的 AES 状态初始化、条件性 LSA 算法检查仍有其他静态失败路径；当前 DLL 的 ForceIntegrity 位已核对。错误 1114 本身不能区分具体分支。
 - `<KiriKiri验证目录>/audio-bcrypt-static-01/verify_final.py` 的 22 项静态证据／保护核对通过，提交后另核对远端。原商业目录 1,138 文件／1,802,169,925 字节、前轮 280 文件、旧六批 82 份证据及四份授权／消费锁均未变，任务进程为零，工作区并行改动保留。本轮未重跑 47 项旧检查，没有音频或商业通过。
 
-证据入口为本轮 `诊断结果.md`、`bcrypt-init-final-evidence.json`、`independent-disassembly.json`、`verification.json`，恢复点为 `guarded-kag-checkpoint-15/`。推荐下一步按《原生CNG来源取证单批清单》申请最多一次自写无音频目标，在已经生效的原生拒绝钩子上记录有界来源，避免依赖失败 DLL 的 IAT 安装。清单尚未批准、未实现运行；旧额度不解锁，仍不放行 CNG 或启动音频／商业批次。
+当时的证据入口为 `诊断结果.md`、`bcrypt-init-final-evidence.json`、`independent-disassembly.json`、`verification.json`，恢复点为 `guarded-kag-checkpoint-15/`。当时建议的《原生CNG来源取证单批清单》不再作为当前恢复指令；后续实测见本文顶部。
 
 ## 历史：无音频真实失败回执已复验，DLL 安装仍失败
 
