@@ -59,11 +59,18 @@ func _start_game():
     if scene.is_empty() or change_scene_to_file(scene) != OK:
         _fail("main_scene_load_failed")
 
-func _read(name: String) -> Dictionary:
+func _read(name: String, retry_open := false) -> Dictionary:
     var path = directory.path_join(name)
-    if not FileAccess.file_exists(path):
+    if not retry_open and not FileAccess.file_exists(path):
         return {}
     var stream = FileAccess.open(path, FileAccess.READ)
+    if retry_open:
+        # Windows can briefly refuse an open during atomic renewal. Never reuse an old lease.
+        for _attempt in range(2):
+            if stream != null or FileAccess.get_open_error() != ERR_FILE_CANT_OPEN:
+                break
+            OS.delay_msec(1)
+            stream = FileAccess.open(path, FileAccess.READ)
     if stream == null or stream.get_length() > 1048576:
         return {}
     var parsed = JSON.new()
@@ -86,7 +93,7 @@ func _pause_id() -> String:
     return str(value.get("id", "")) if value.get("session_id") == session else ""
 
 func _lease_valid() -> bool:
-    var lease = _read("lease.json")
+    var lease = _read("lease.json", true)
     var expires = lease.get("expires_at")
     return (lease.get("session_id") == session and _number(expires)
         and expires >= Time.get_unix_time_from_system())
@@ -194,7 +201,7 @@ func _poll(request: Dictionary):
             or request.after_frame < 0 or request.after_frame > frame):
         _fail("invalid_command", request)
         return
-    if request.get("pause_id") != _pause_id() or not _lease_valid():
+    if not _lease_valid() or request.get("pause_id") != _pause_id():
         _fail("stale_command", request)
         return
     var payload = request.payload

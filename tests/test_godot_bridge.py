@@ -1,4 +1,5 @@
 """Godot 桥真实运行回归；显式提供已有引擎程序后才运行。"""
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import hashlib
 import json
@@ -6,6 +7,7 @@ import os
 import shutil
 import struct
 import tempfile
+import threading
 import time
 import unittest
 
@@ -268,6 +270,39 @@ class GodotBridgeTests(unittest.TestCase):
         write_json(self.directory / 'lease.json', {'session_id': 'fixture-session', 'expires_at': time.time() + 1.5})
         write_json(self.directory / 'request.json', request)
 
+    def test_atomic_lease_renewal_does_not_pause_live_bridge(self):
+        self.start()
+        self.client.resume(command_id='resume')
+        stop = threading.Event()
+
+        def renew():
+            count = 0
+            while not stop.is_set():
+                write_json(self.directory / 'lease.json', {
+                    'session_id': 'fixture-session', 'expires_at': time.time() + 1.5})
+                count += 1
+            return count
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            writer = pool.submit(renew)
+            try:
+                deadline = time.monotonic() + 4
+                while True:
+                    state = self.client.status()
+                    if ((state['connected'] and state['paused']) or writer.done()
+                            or time.monotonic() >= deadline):
+                        break
+                    time.sleep(.015)
+            finally:
+                stop.set()
+            count = writer.result()
+        self.assertTrue(state['connected'], state)
+        self.assertFalse(state['paused'], f'{count} renewals: {state}')
+        self.assertGreater(count, 10)
+        result = self.client.action('move', direction='right', frames=10, command_id='right')
+        self.assertTrue(result['consumed'])
+        self.assertEqual(self.fixture()['x'], 100)
+
     def test_lease_expiry_releases_active_input_without_replaying_command(self):
         self.start()
         self.client.resume(command_id='resume')
@@ -277,6 +312,29 @@ class GodotBridgeTests(unittest.TestCase):
         self.until(lambda: self.client.status().get('paused') and not self.fixture().get('right_pressed'))
         self.assertEqual(self.client.result('long')['status'], 'failed')
         self.assertEqual(self.client.status()['error'], 'lease_expired')
+
+    def test_missing_lease_releases_active_input_without_reusing_previous_expiry(self):
+        self.start()
+        self.client.resume(command_id='resume')
+        self.raw_request('long', {'action': 'move', 'direction': 'right', 'frames': 120})
+        self.until(lambda: self.fixture().get('right_pressed'))
+        lease_path = self.directory / 'lease.json'
+        expires_at = read_json(lease_path)['expires_at']
+
+        def remove_lease():
+            try:
+                lease_path.unlink()
+            except PermissionError:
+                return False
+            return True
+
+        self.until(remove_lease)
+        self.until(lambda: self.client.status().get('error') == 'lease_expired')
+        state = self.client.status()
+        self.assertTrue(state['paused'])
+        self.assertLess(state['updated_at'], expires_at)
+        self.assertEqual(self.client.result('long')['error'], 'lease_expired')
+        self.until(lambda: self.fixture().get('right_pressed') is False)
 
     def test_stale_pause_generation_cannot_resume(self):
         self.start()
