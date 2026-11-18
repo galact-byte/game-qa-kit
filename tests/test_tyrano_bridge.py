@@ -44,9 +44,9 @@ class TyranoBridgeTests(unittest.TestCase):
         (cls.app / 'data/system').mkdir(parents=True)
         (cls.app / 'package.json').write_text(json.dumps({
             'name': 'gameqa-tyrano-fixture', 'version': '1.0.0', 'main': 'main.js'}), encoding='utf-8')
-        for name in ('main.js', 'first.ks'):
-            shutil.copy2(BASE / 'tests/tyrano_fixture' / name,
-                         cls.app / ('data/scenario/first.ks' if name.endswith('.ks') else name))
+        for name in ('Fixture.js', 'MainBridge.js', 'Observer.js'):
+            shutil.copy2(PLUGIN / name, cls.app / ('main.js' if name == 'Fixture.js' else name))
+        shutil.copy2(PLUGIN / 'samples/gameqa-tyrano-fixture.ks', cls.app / 'data/scenario/first.ks')
         (cls.app / 'data/scenario/make.ks').write_text('[return]\n', encoding='utf-8')
         (cls.app / 'data/system/KeyConfig.js').write_text('''var __tyrano_key_config = {
             key: {13: function() {
@@ -104,7 +104,6 @@ class TyranoBridgeTests(unittest.TestCase):
             '--runtime', str(self.exe), '--directory', str(self.directory), '--session', session,
             '--data-root', str(self.root / 'runtime')],
             cwd=BASE, env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1',
-                'GAMEQA_TEST_MAIN_BRIDGE': str(PLUGIN / 'MainBridge.js'),
                 'GAMEQA_FIXTURE_ROOT': str(self.root)}, stdout=self.log, stderr=subprocess.STDOUT)
         self.addCleanup(self.stop)
         self.until(lambda: (self.directory / 'connection.json').exists() or self.process.poll() is not None, 15)

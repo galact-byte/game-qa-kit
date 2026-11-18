@@ -17,7 +17,7 @@ from gameqakit.sessions import read_json, write_json
 RUNTIME_SHA256 = '07af90854455fcb4c8f16d2eae885373d6960df4f9023717a780ff08b056d8f1'
 
 
-def run(runtime: Path, directory: Path, session: str, data_root: Path):
+def run(runtime: Path, directory: Path, session: str, data_root: Path, *, fixture_root=None):
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', session):
         raise ValueError('会话编号无效')
     for path in (runtime, directory, data_root):
@@ -44,11 +44,17 @@ def run(runtime: Path, directory: Path, session: str, data_root: Path):
     ready = False
     stopping = None
     reason = 'target_exited'
-    with DesktopProcess([str(runtime)], cwd=runtime.parent, env={
+    process = DesktopProcess([str(runtime)], cwd=runtime.parent, env={
         'GAMEQAKIT_BRIDGE_DIR': str(directory), 'GAMEQAKIT_SESSION_ID': session,
         'GAMEQAKIT_RUNTIME_ROOT': str(data_root),
         'APPDATA': str(data_root / 'appdata'), 'LOCALAPPDATA': str(data_root / 'localappdata'),
-        'TMP': str(data_root / 'tmp'), 'TEMP': str(data_root / 'tmp')}) as target:
+        'TMP': str(data_root / 'tmp'), 'TEMP': str(data_root / 'tmp')})
+    if fixture_root is not None:
+        for key in tuple(process.env):
+            if key.upper().startswith(('ELECTRON_', 'NODE_', 'GAMEQA_FIXTURE_ROOT')):
+                process.env.pop(key)
+        process.env['GAMEQA_FIXTURE_ROOT'] = str(fixture_root)
+    with process as target:
         identity = dict(protocol=2, engine='tyranoscript', session_id=session,
                         pid=target.pid, exe_path=str(runtime))
         write_connection(directory, identity)

@@ -84,6 +84,12 @@ def inspect(path, *, artifacts=None):
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
         if not result['blockers']:
             result.update(adapter='renpy_authored', profile_id='renpy-8.3.2-authored-fixed')
+    elif result['engine'] == 'tyrano_authored_candidate':
+        from plugins.tyrano import prepare as tyrano
+        result['blockers'] = tyrano.inspect(result['root'], artifacts)
+        result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+        if not result['blockers']:
+            result.update(adapter='tyrano_authored', profile_id='tyrano-ver5-electron-7.1.2-authored-fixed')
     elif result.get('profile_id') != 'srpgstudio-x86-fixed':
         result['launch_readiness'] = 'not_migrated'
         block('recipe_unavailable', '已识别引擎，但这个构建尚无已核查的产品启动流程。',
@@ -200,6 +206,17 @@ def make_plan(source, destination, *, artifacts):
                                 '初始暂停，零输入等待有效首图；存档、持久数据和临时文件留在新会话目录',
                                 '结束自有进程并核对原样本及运行时；保留回执与截图'])
         return {**payload, 'fingerprint': fingerprint(payload)}
+    if result['engine'] == 'tyrano_authored_candidate':
+        from plugins.tyrano import prepare as tyrano
+        validate_destination(artifacts, destination)
+        payload = dict(schema_version=1, backend='tyrano_authored', engine='tyranoscript', source=str(source),
+                       destination=str(destination), artifacts=str(artifacts),
+                       source_digests=tyrano.source_digests(source), artifact_digests=tyrano.artifact_digests(artifacts),
+                       data_policy='blank-authored-tyrano-private-user-data', desktop='private',
+                       changes=['仅复制已登记运行组件与自写场景，不带商业工程、存档或浏览器数据',
+                                '在独立桌面初始暂停，零输入等待有效首图；用户数据与临时文件留在会话内',
+                                '结束自有进程并核对原组件和场景；保留回执与截图'])
+        return {**payload, 'fingerprint': fingerprint(payload)}
     keys = ('game.exe', 'game.ini', 'data.dts', 'runtime.rts', 'system.dat', 'environment.evs')
     payload = dict(schema_version=1, backend='native_input', source=str(source),
                    destination=str(destination), artifacts=str(artifacts),
@@ -215,7 +232,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored'):
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:

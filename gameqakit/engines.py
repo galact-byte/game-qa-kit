@@ -110,6 +110,8 @@ def inspect_game(path):
         return found('renpy', ['renpy/__init__.py', 'renpy/bootstrap.py'])
     if (root / 'gameqa-renpy-fixture.rpy').is_file():
         return found('renpy_authored_candidate', ['gameqa-renpy-fixture.rpy'])
+    if (root / 'gameqa-tyrano-fixture.ks').is_file():
+        return found('tyrano_authored_candidate', ['gameqa-tyrano-fixture.ks'])
     for prefix in ('', 'resources/app/', 'resources/app/src/'):
         markers = [prefix + marker for marker in _TYRANO_SCRIPTS]
         if all((root / marker).is_file() for marker in markers):

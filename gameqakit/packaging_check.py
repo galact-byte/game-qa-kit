@@ -21,7 +21,7 @@ def check(report):
         assert Path(result['default_data']) == base / 'data/portable-check'
         modules = ('gameqakit.engines', 'gameqakit.game_worker', 'plugins.unity.prepare',
                    'plugins.rgss3.prepare', 'plugins.rpgmaker_js.prepare', 'plugins.native_input.session',
-                   'plugins.godot.session', 'plugins.renpy.session')
+                   'plugins.godot.session', 'plugins.renpy.session', 'plugins.tyrano.session')
         for name in modules:
             importlib.import_module(name)
         result['module_imports'] = list(modules)
@@ -29,7 +29,9 @@ def check(report):
         for name in ('plugins/native_input/samples/srpgstudio-x86-fixed.json',
                      'plugins/rgss3/GameQaBridge.rb', 'plugins/rpgmaker_js/GameQaBridge.js',
                      'plugins/godot/GameQaBridge.gd', 'plugins/renpy/GameQaBridge.rpy',
-                     'plugins/renpy/samples/gameqa-renpy-fixture.rpy'):
+                     'plugins/renpy/samples/gameqa-renpy-fixture.rpy', 'plugins/tyrano/Fixture.js',
+                     'plugins/tyrano/MainBridge.js', 'plugins/tyrano/Observer.js',
+                     'plugins/tyrano/samples/gameqa-tyrano-fixture.ks'):
             assert (root / name).is_file(), name
         marker = report.with_name('worker-self-test.json')
         subprocess.run([sys.executable, '--worker-self-test', str(marker)], check=True, timeout=20,

@@ -28,6 +28,9 @@ def session_for(plan):
     if plan.get('backend') == 'renpy_authored':
         from plugins.renpy.session import RenpySession
         return RenpySession(plan)
+    if plan.get('backend') == 'tyrano_authored':
+        from plugins.tyrano.session import TyranoSession
+        return TyranoSession(plan)
     if plan['backend'] == 'rgss3':
         from plugins.rgss3.session import RgssSession
         return RgssSession(plan)

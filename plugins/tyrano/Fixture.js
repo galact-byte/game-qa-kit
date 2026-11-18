@@ -1,7 +1,7 @@
 const {app, BrowserWindow, ipcMain} = require('electron');
 const fs = require('fs');
 const path = require('path');
-const bridge = require(process.env.GAMEQA_TEST_MAIN_BRIDGE);
+const bridge = require("./MainBridge.js");
 bridge.configure(app);
 process.on('uncaughtException', error => {
     fs.writeFileSync(path.join(process.env.GAMEQA_FIXTURE_ROOT, 'main-error.txt'), error.stack);

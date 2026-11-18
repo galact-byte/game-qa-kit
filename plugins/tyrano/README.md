@@ -1,6 +1,12 @@
-# TyranoScript 实验控制桥
+# TyranoScript 自写样本接入
 
-本目录为固定 TyranoScript Ver5（引擎数值版本 `500`）／Electron 7.1.2 的自写工程提供现有 v2 毫秒协议桥。只接受已核对的运行时摘要；尚无通用准备器、GUI 或 `game_prepare` 启动入口。
+本目录为固定 TyranoScript Ver5（引擎数值版本 `500`）／Electron 7.1.2 的自写工程提供现有 v2 毫秒协议桥和受管入口。商业工程仍只识别，不由工具启动。
+
+## 受管接入
+
+在[通用接入入口](../../docs/GAME-ADMISSION.md)中，游戏目录选择仅含 `gameqa-tyrano-fixture.ks` 的 `plugins/tyrano/samples/`，组件目录选择本机已登记的复制件根目录。准备时只复制固定运行组件和自写样本，不复制原剧情、存档和浏览器数据。启动前复核全部已准备文件，在独立桌面暂停取首图；必须显式恢复才接收输入。黑屏保留已有消费回执、拒绝后续输入并回收本批进程。
+
+受管样本只开放确认和等待；受管存读档未验，后文的存读档结果来自独立桥用例。用户数据和缓存写入会话的 `data/`，证据留在 `bridge/`，结束后不自动删除运行副本。
 
 ## 组成与输入
 
@@ -22,14 +28,14 @@
 
 ## 验证方式
 
-需要本机已有、来源与摘要已核对的复制组件目录，包括 `engine-runtime.exe`、Electron 运行文件、`locales/`、`resources/app/tyrano/`、`index.html` 与 `data/system/Config.tjs`。测试从这些组件构造自写工程，使用仓库的 `tests/tyrano_fixture/` 场景和入口，不运行商业剧情或携带原存档。
+需要本机已有、来源与摘要已核对的复制组件目录，包括 `engine-runtime.exe`、Electron 运行文件、`locales/`、`resources/app/tyrano/`、`index.html` 与 `data/system/Config.tjs`。两套回归使用同一份仓库自写场景及窗口入口，不运行商业剧情或携带原存档。
 
 ```powershell
 $env:TMP = '<E 盘测试临时目录>'
 $env:TEMP = $env:TMP
 $env:GAMEQAKIT_TEST_TYRANO = '<已有复制组件目录>'
 $env:GAMEQAKIT_TEST_EVIDENCE = '<全新测试证据目录>'
-python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_tyrano_bridge -v
+python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_tyrano_managed tests.test_tyrano_bridge -v
 ```
 
 缺少 Windows 或组件目录时，真实运行测试明确跳过，不计为通过。文件存档和 localStorage 都通过正常 Enter 键映射触发引擎 quicksave／quickload，验证同进程和跨进程读取。程序旁 `.sav`、用户数据、缓存及临时文件均在测试目录，原组件摘要另外核对。所有运行副本由测试创建并回收，失败现场及回执图像另存证据目录。

@@ -108,6 +108,7 @@ class MainBridge {
     state() {
         return Object.assign({}, identity, {updated_at: Date.now() / 1000,
             paused: this.paused, pause_id: this.pauseId, error: this.fault,
+            observation_error: this.observationError || null,
             capabilities: this.seq && !this.fault ? ['confirm', 'wait'] : [], buttons: ['ok'],
             max_duration_ms: 1000, timing_mode: 'duration_ms', pause_scope: 'input',
             simulation_pause: false, observation_seq: this.seq,
@@ -138,8 +139,9 @@ class MainBridge {
             else this.paused = true;
         } else this.paused = true;
     }
-    fail(error) {
+    fail(error, observation = false) {
         if (!this.fault) this.fault = String(error.message || error);
+        if (observation && !this.observationError) this.observationError = this.fault;
         try {
             this.interrupt(this.fault);
             this.status();
@@ -228,7 +230,7 @@ class MainBridge {
             if (Object.keys(request).length) this.accept(request);
         }
         if (!this.stopping && this.ready && !this.fault && !this.capturePending && !this.active && now() - this.lastCapture >= 200) {
-            this.capture('observation').catch(error => this.fail(error));
+            this.capture(this.seq ? 'observation' : 'startup').catch(error => this.fail(error, true));
         }
         this.status();
     }
@@ -266,7 +268,7 @@ class MainBridge {
         let shot = {};
         if (!active.error) {
             try { shot = await this.capture(active.request.id); }
-            catch (error) { this.fail(error); }
+            catch (error) { this.fail(error, true); }
         }
         if (!active.error) {
             try { if (!this.leaseValid()) this.interrupt('Lease expired during capture'); }
