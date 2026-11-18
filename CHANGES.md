@@ -1,5 +1,11 @@
 # 修改记录 — game-qa-kit
 
+## 2026-11-18 — Flash 渲染器卡死预检与接入设计
+
+- Chrome 157.0.8103.79 与 Edge 157.0.4341.60 的两批对照均通过官方 Ruffle 自托管包的连续取图与按键松开验证。
+- 三批渲染器卡死在实拍到持键后的位移后暂停渲染器进程。取图仍在等待时，持有 Job 的监督线程按 3 秒期限介入，分别用 3,110、3,110、3,156 毫秒完成关闭。浏览器及记录的子进程全部退出。故障批次只确认到按下与进程回收。
+- [Flash 接入设计](docs/FLASH-ADMISSION-DESIGN.md)记录复用系统浏览器的交付建议和正式 MCP 验收范围。探针证据见 `<Flash验证目录>/ruffle-preflight-01/supervision-01/audit.json`。
+
 ## 2026-11-18 — Flash 官方自托管包复验
 
 - 核对官方 Ruffle Web 0.7.1 的 ZIP 大小、SHA-256 和解包后的 12 个文件。包内 `package.json` 声明 MIT 或 Apache-2.0，并附两份许可证。预检直接使用官方包，页面通过本地路由加载包内 JavaScript、WASM 和自写 SWF。
