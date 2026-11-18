@@ -15,7 +15,7 @@ from gameqakit.duration_host import Supervisor as FileSupervisor, IDENT, open_sh
 from plugins.kirikiri.struct_data import decode
 
 RUNTIME_SHA256 = '8db00ce0cd63748296d4e13b6916a4f1b5b166078f806d731202d15b210efe11'
-BASE = Path(__file__).resolve().parents[2]
+FIXTURE = Path(__file__).with_name('samples') / 'gameqa-kirikiri-fixture.tjs'
 
 
 def write_text(path, text):
@@ -61,6 +61,7 @@ class Supervisor(FileSupervisor):
     engine = 'kirikiri'
     runtime_sha256 = RUNTIME_SHA256
     capture_worker = Path(__file__).with_name('capture_worker.py')
+    capture_module = 'plugins.kirikiri.capture_worker'
 
     def __init__(self, target, directory, session):
         super().__init__(target, directory, session)
@@ -134,7 +135,7 @@ def validate(runtime, directory, session):
     if directory.exists() and any(directory.iterdir()):
         raise ValueError('必须使用全新的空会话目录，保留原会话证据')
     project = runtime.parent
-    for name, source in (('startup.tjs', BASE / 'tests/kirikiri_fixture/startup.tjs'),
+    for name, source in (('startup.tjs', FIXTURE),
                          ('GameQaBridge.tjs', Path(__file__).with_name('GameQaBridge.tjs'))):
         if not (project / name).is_file() or (project / name).read_bytes() != source.read_bytes():
             raise ValueError('缺少显式自写工程夹具或桥版本不一致')
@@ -147,7 +148,7 @@ def validate(runtime, directory, session):
             raise ValueError('测试路径不允许符号链接或重解析点')
 
 
-def run(runtime, directory, session):
+def run(runtime, directory, session, *, supervisor=Supervisor):
     validate(runtime, directory, session)
     directory.mkdir(parents=True, exist_ok=True)
     environment = {}
@@ -159,7 +160,7 @@ def run(runtime, directory, session):
     with DesktopProcess([str(runtime), str(runtime.parent), '-dbstyle=gdi', '-usedb=yes',
                          '-datapath=' + (runtime.parent / 'savedata').as_posix(),
                          '-gameqadir=' + directory.as_posix()], cwd=runtime.parent, env=environment) as target:
-        return Supervisor(target, directory, session).run()
+        return supervisor(target, directory, session).run()
 
 
 if __name__ == '__main__':

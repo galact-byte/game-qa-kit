@@ -31,7 +31,7 @@ class EmueraCleanupTests(unittest.TestCase):
             }
             with patch('plugins.emuera.session.recipe.source_digests', return_value={}), \
                     patch('plugins.emuera.session.recipe.artifact_digests', return_value={}), \
-                    patch('plugins.emuera.session._pid_path', return_value=None):
+                    patch('gameqakit.duration_session._pid_path', return_value=None):
                 cleanup = session.stop()
             self.assertTrue(cleanup['release_confirmed'])
             self.assertEqual(cleanup['state'], 'stopped')
@@ -122,7 +122,7 @@ class EmueraManagedTests(unittest.TestCase):
         self.assertTrue(ended['capture_worker_pids'])
         self.assertFalse(any(_pid_path(pid) for pid in pids))
 
-    def test_prepared_launcher_change_blocks_start(self):
+    def test_prepared_runtime_change_blocks_start(self):
         with self.connect() as client:
             plan = self.prepare(client)
             launcher = self.destination / 'runtime/GameQaEmuera.exe'

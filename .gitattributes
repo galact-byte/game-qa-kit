@@ -1,3 +1,4 @@
 plugins/renpy/samples/gameqa-renpy-fixture.rpy text eol=lf
 plugins/tyrano/samples/gameqa-tyrano-fixture.ks text eol=lf
 plugins/emuera/samples/gameqa-emuera-fixture.erb text eol=lf
+plugins/kirikiri/samples/gameqa-kirikiri-fixture.tjs text eol=crlf

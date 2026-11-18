@@ -81,6 +81,7 @@ class Supervisor:
     engine = ''
     runtime_sha256 = ''
     capture_worker = Path(__file__).with_name('capture_worker.py')
+    capture_module = 'gameqakit.capture_worker'
     startup_capture = None
 
     def __init__(self, target, directory, session):
@@ -205,7 +206,7 @@ class Supervisor:
         destination = self.directory / 'screenshots' / (ident + '.png')
         destination.parent.mkdir(parents=True, exist_ok=True)
         token = uuid.uuid4().hex
-        command = ([sys.executable, '-m', 'gameqakit.capture_worker'] if getattr(sys, 'frozen', False)
+        command = ([sys.executable, '-m', self.capture_module] if getattr(sys, 'frozen', False)
                    else [sys.executable, '-B', '-X', 'utf8', str(self.capture_worker)])
         worker = DesktopProcess([*command, str(self.directory), token,
             str(self.observer['hwnd']), str(destination), self.target.desktop_name],

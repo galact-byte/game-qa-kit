@@ -271,7 +271,8 @@ class EmueraBridgeTests(unittest.TestCase):
             self.client.resume()
             self.request('stale', {'action': 'confirm', 'duration_ms': 50}, **changes)
             self.until(lambda: self.client.status().get('error'))
-            self.assertFalse(self.observer()['events'])
+            snapshot = self.until(lambda: state if 'events' in (state := self.observer()) else None)
+            self.assertEqual(snapshot['events'], [])
 
     def test_pid_and_path_binding_fail_before_input(self):
         self.start()

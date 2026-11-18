@@ -8,7 +8,7 @@
 
 ## 当前进度与下一步
 
-通用游戏接入入口已实现。当前可启动的目标包括已登记的 RPG Maker MV／MZ、VX Ace 示例工程、Unity 四类输入后端、Wolf 官方范例、固定 SRPG Studio 构建、Godot 4.5.1、Ren'Py 8.3.2、TyranoScript Ver5／Electron 7.1.2 与 Emuera 1.824 自写样本；各目标仍需匹配资源与组件。使用方式见 [游戏接入说明](GAME-ADMISSION.md)，具体限制见 [引擎支持表](ENGINE-COVERAGE.md)。
+通用游戏接入入口已实现。当前可启动的目标包括已登记的 RPG Maker MV／MZ、VX Ace 示例工程、Unity 四类输入后端、Wolf 官方范例、固定 SRPG Studio 构建、Godot 4.5.1、Ren'Py 8.3.2、TyranoScript Ver5／Electron 7.1.2、Emuera 1.824 与 KiriKiri 2.32.2.426／x86 自写样本；各目标仍需匹配资源与组件。使用方式见 [游戏接入说明](GAME-ADMISSION.md)，具体限制见 [引擎支持表](ENGINE-COVERAGE.md)。
 
 尚待完成的事项：
 
@@ -17,14 +17,14 @@
 - **HSP／DuckStation 迁入通用入口**：D／G 下载目录补查仍未找到匹配固定构建与组件；识别到其他引擎样本不消除此缺口。两者已有独立桥实证，尚不能据此认定通用入口可用。
 - **扩展自写样本以外的范围**：TyranoScript 与 Emuera 的商业资源和保存写入边界需要逐样本核查。Emuera 数字／文本菜单仍无协议动作。
 - **Godot 扩展范围**：当前通用入口只接受登记的 4.5.1 自写样本与运行时。另两个本机运行时拒绝当前外部工程入口；其他版本、商业 PCK 或资源补丁需要独立设计和验证。
-- **扩充盘中未覆盖的引擎**：两个下载目录全遍历补扫完成，49,950 个目录／2,046 个 EXE 无读取错误，但仍有 404 个含 EXE 目录未分类，不能宣称查全引擎。TyranoScript 五个候选和 Emuera 六个候选已补只读识别，两者的固定自写场景均已迁入通用入口。继续核查 Bakin、GameMaker、KiriKiri、Artemis、Unreal、Flash 等缺口；KiriKiri 已补只读候选识别，固定 2.32.2.426／x86 自写工程已由路径／事件探针推进到原生事件＋有限状态覆层及独立宿主的实验桥，原处理器按下／松开查询一致，确认／等待、暂停释放、故障回收和正常存读档已验；商业 KAG、其他版本与通用入口仍未验。见[实验说明](../plugins/kirikiri/README.md)及[核查记录](KIRIKIRI-STATIC-REVIEW.md)。清单见[盘点表](LOCAL-ENGINE-INVENTORY.md)。
+- **扩充盘中未覆盖的引擎**：两个下载目录全遍历补扫完成，49,950 个目录／2,046 个 EXE 无读取错误，但仍有 404 个含 EXE 目录未分类，不能宣称查全引擎。TyranoScript 五个候选和 Emuera 六个候选已补只读识别，两者的固定自写场景均已迁入通用入口。继续核查 Bakin、GameMaker、Artemis、Unreal、Flash 等缺口。KiriKiri 已补商业候选的只读识别，固定 2.32.2.426／x86 的自写 Window 已迁入通用入口，自写 KAG 已验独立实验桥。商业 KAG 与其他版本仍待验证。见[实验说明](../plugins/kirikiri/README.md)及[核查记录](KIRIKIRI-STATIC-REVIEW.md)。清单见[盘点表](LOCAL-ENGINE-INVENTORY.md)。
 - **按任务扩展玩法与长期验证**：各引擎的战斗、存读档、全流程和长期稳定性分别验收，不用单次菜单成功推断。现阶段不追加 Wolf 玩法跑批。
 
 ## 实现与验证记录
 
 以下保留阶段进度、当时的回归数量与证据入口，供维护者追溯；历史阶段的限制不代替当前支持表。
 
-- **KiriKiri 固定构建实验桥。** 按[批准设计](superpowers/specs/2026-11-16-kirikiri-bridge-design.md)新增 `plugins/kirikiri/`：原生 Enter 事件、仅合成 Enter 的 `System.getKeyState` 覆层、原处理器返回后观察与独立 Python／Job 宿主；与 Emuera 提取共用监督器和取图进程，既有 v2 协议、期限和首图判据不变。真实测试覆盖原处理器／查询一致、画面推进、去重与无效命令、暂停新观察、租约／读错／UI 卡死／未确认释放、黑白图及取图故障，以及正常第 1 槽保存 `123`、改为 `999` 后同进程与新会话读回 `123`。目标控制文件采用固定字段文本，宿主解析有限结构观察，不求值脚本。商业 KAG、多窗口、其他版本、通用入口、长期运行和真人并发未验；XP3／EXE 候选标记仍为 `adapter=null`、`control_verified=false`。来源、许可缺口与恢复见[实验说明](../plugins/kirikiri/README.md)，原始证据见 `<KiriKiri验证目录>/bridge-review/`。
+- **KiriKiri 固定构建实验桥。** 按[批准设计](superpowers/specs/2026-11-16-kirikiri-bridge-design.md)新增 `plugins/kirikiri/`：原生 Enter 事件、仅合成 Enter 的 `System.getKeyState` 覆层、原处理器返回后观察与独立 Python／Job 宿主；与 Emuera 提取共用监督器和取图进程，既有 v2 协议、期限和首图判据不变。真实测试覆盖原处理器／查询一致、画面推进、去重与无效命令、暂停新观察、租约／读错／UI 卡死／未确认释放、黑白图及取图故障，以及正常第 1 槽保存 `123`、改为 `999` 后同进程与新会话读回 `123`。目标控制文件采用固定字段文本，宿主解析有限结构观察，不求值脚本。商业 KAG、多窗口、其他版本、长期运行和真人并发未验。通用入口后来迁入固定自写 Window，XP3／EXE 候选标记仍为 `adapter=null`、`control_verified=false`。来源、许可缺口与恢复见[实验说明](../plugins/kirikiri/README.md)，原始证据见 `<KiriKiri验证目录>/bridge-review/`。
 
 - **Emuera 固定构建实验桥。** 按[接入设计](superpowers/specs/2026-11-15-emuera-bridge-design.md)新增 `plugins/emuera/`：C# STA 原入口启动器、原按键处理返回后的消费观察、独立 Python／Job 宿主与取图工作进程，复用 v2 确认／等待。21 项真实检查覆盖场景推进、按下／松开、重复命令、暂停新观察、租约、UI 卡死、释放／退出长按、黑白图及截图失败；正常 Enter 在第 1 槽保存 `123`、改值后同进程与新会话读回 `123`，桥会话不随存档恢复。截图失败路径曾暴露回执先于暂停状态发布的竞态，已用失败用例修正为先状态后回执，原保护期限不变。原运行时和商业资源不分发，固定私家构建许可限制、使用方法和恢复方式见[实验说明](../plugins/emuera/README.md)。数字／文本菜单、其他版本、商业玩法、通用入口、长期运行及真人并发未验；产品识别标记不变。原始证据见 `<Emuera验证目录>/bridge-release-verified/`，此前失败现场另存于 `bridge-release-full/`。
 

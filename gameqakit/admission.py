@@ -96,6 +96,12 @@ def inspect(path, *, artifacts=None):
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
         if not result['blockers']:
             result.update(adapter='emuera_authored', profile_id='emuera-1.824-authored-fixed')
+    elif result['engine'] == 'kirikiri_authored_candidate':
+        from plugins.kirikiri import prepare_authored as kirikiri
+        result['blockers'] = kirikiri.inspect(result['root'], artifacts)
+        result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+        if not result['blockers']:
+            result.update(adapter='kirikiri_authored', profile_id='kirikiri-2.32.2.426-window-authored-fixed')
     elif result.get('profile_id') != 'srpgstudio-x86-fixed':
         result['launch_readiness'] = 'not_migrated'
         block('recipe_unavailable', '已识别引擎，但这个构建尚无已核查的产品启动流程。',
@@ -234,6 +240,17 @@ def make_plan(source, destination, *, artifacts):
                                 '在独立桌面暂停等待首图，存档和临时文件留在新会话目录',
                                 '结束自有进程并核对原组件和场景，保留回执与截图'])
         return {**payload, 'fingerprint': fingerprint(payload)}
+    if result['engine'] == 'kirikiri_authored_candidate':
+        from plugins.kirikiri import prepare_authored as kirikiri
+        validate_destination(artifacts, destination)
+        payload = dict(schema_version=1, backend='kirikiri_authored', engine='kirikiri', source=str(source),
+                       destination=str(destination), artifacts=str(artifacts),
+                       source_digests=kirikiri.source_digests(source), artifact_digests=kirikiri.artifact_digests(artifacts),
+                       data_policy='blank-authored-kirikiri-private-saves', desktop='private',
+                       changes=['仅复制登记的自写 Window 脚本、固定运行时与工具自带控制桥',
+                                '使用独立桌面，零输入等有效首图，存档和临时文件留在新会话目录',
+                                '结束自有进程并核对原组件与场景，保留回执和截图'])
+        return {**payload, 'fingerprint': fingerprint(payload)}
     keys = ('game.exe', 'game.ini', 'data.dts', 'runtime.rts', 'system.dat', 'environment.evs')
     payload = dict(schema_version=1, backend='native_input', source=str(source),
                    destination=str(destination), artifacts=str(artifacts),
@@ -249,7 +266,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored', 'emuera_authored'):
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored', 'emuera_authored', 'kirikiri_authored'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:

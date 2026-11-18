@@ -1,6 +1,10 @@
 # KiriKiri 固定构建实验控制桥
 
-本桥只验 KiriKiri 2.32.2.426／x86 的固定运行时、自写 Window 与自写 KAG 工程，包含原生启动／持续守卫和 KAG 监督器的同批验证。运行时必须匹配 [SOURCES.md](SOURCES.md) 中的 SHA-256；不分发 EXE、商业资源或原存档。通用 GUI／`game_prepare` 入口尚未接入，候选识别仍为 `adapter=null`、`control_verified=false`。
+本桥只验 KiriKiri 2.32.2.426／x86 的固定运行时、自写 Window 与自写 KAG 工程，包含原生启动／持续守卫和 KAG 监督器的同批验证。运行时必须匹配 [SOURCES.md](SOURCES.md) 中的 SHA-256，便携包附带自写 Window 脚本。商业候选仍为 `adapter=null`、`control_verified=false`。
+
+## 在通用入口启动自写 Window
+
+在 E 盘创建两个目录。把随包的 `_internal/plugins/kirikiri/samples/gameqa-kirikiri-fixture.tjs` 单独复制到场景目录，源码版使用本插件的 `samples/`。把自行备妥的固定运行时以 `runtime.exe` 命名，放到另一个组件目录。按[游戏接入说明](../../docs/GAME-ADMISSION.md)选择这两个目录并确认启动。首图暂停时可预览，MCP 绑定后显式恢复输入，支持 Enter 确认和等待。会话结束后，副本和证据保留在 QA 数据目录。自写 KAG 和商业工程仍使用独立审查与实验流程。
 
 ## 商业样本前置审查
 
@@ -48,7 +52,7 @@ $env:GAMEQAKIT_TEST_EVIDENCE = '<全新证据目录>'
 python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_kirikiri_bridge.KiriKiriBridgeTests tests.test_kirikiri_data tests.test_kirikiri_guard tests.test_kirikiri_startup tests.test_kirikiri_prepare tests.test_kirikiri_unicode_patch tests.test_kirikiri_kag.KagBridgeTests tests.test_kirikiri_guarded.GuardedKagTests tests.test_kirikiri_guarded.CommercialCompatKagTests -v
 ```
 
-普通桥测试只复制固定 EXE、`tests/kirikiri_fixture/startup.tjs` 与本桥 TJS；KAG 联合测试改用自写 KAG 夹具，并在 E 盘构建守卫／宿主。所有测试不含商业 XP3、原存档和原插件；归档用例在本地将自写启动脚本打包为 XP3，并移除散装脚本，验证加载、原处理器按下／松开、画布变化及去重。没有运行时的真实测试明确跳过。编码用例仅用自写日文／半角片假名脚本、场景及文本，在原生 `Scripts.execStorage`／`KAGParser`／`Array.load` 下核对字符和换行；再验证真实按下、松开、画面变化及去重。原生构建还要求本机已有的 x86 MSVC 工具链，不自动安装。手工构造普通自写布局后可运行：
+普通桥测试只复制固定 EXE、`samples/gameqa-kirikiri-fixture.tjs` 与本桥 TJS；KAG 联合测试改用自写 KAG 夹具，并在 E 盘构建守卫／宿主。所有测试不含商业 XP3、原存档和原插件；归档用例在本地将自写启动脚本打包为 XP3，并移除散装脚本，验证加载、原处理器按下／松开、画布变化及去重。没有运行时的真实测试明确跳过。编码用例仅用自写日文／半角片假名脚本、场景及文本，在原生 `Scripts.execStorage`／`KAGParser`／`Array.load` 下核对字符和换行；再验证真实按下、松开、画面变化及去重。原生构建还要求本机已有的 x86 MSVC 工具链，不自动安装。手工构造普通自写布局后可运行：
 
 ```powershell
 python plugins/kirikiri/host.py --runtime '<E 盘自写工程>/runtime.exe' --directory '<全新空会话目录>' --session '<新编号>'

@@ -45,7 +45,7 @@ class KiriKiriBridgeTests(common.EmueraBridgeTests):
         self.runtime.mkdir()
         self.exe = self.runtime / 'runtime.exe'
         shutil.copy2(self.source, self.exe)
-        shutil.copy2(BASE / 'tests/kirikiri_fixture/startup.tjs', self.runtime / 'startup.tjs')
+        shutil.copy2(PLUGIN / 'samples/gameqa-kirikiri-fixture.tjs', self.runtime / 'startup.tjs')
         shutil.copy2(PLUGIN / 'GameQaBridge.tjs', self.runtime / 'GameQaBridge.tjs')
         self.directory = self.root / 'bridge'
         self.directory.mkdir()

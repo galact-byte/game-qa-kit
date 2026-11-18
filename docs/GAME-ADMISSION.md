@@ -34,7 +34,7 @@
 | 构建不匹配或保存位置未核查 | 停止自动接入，不能通过改文件名或换配置强行启动 |
 | 未知引擎 | 仍可使用人工盯屏；后台操作需要单独适配 |
 
-支持从工具直接准备和启动的范围，目前包括 RPG Maker MV／MZ、VX Ace、已登记的 Unity 版本、固定 SRPG Studio x86 构建、Wolf 官方范例，以及 [Godot](../plugins/godot/README.md)、[Ren'Py](../plugins/renpy/README.md)、[TyranoScript](../plugins/tyrano/README.md) 和 [Emuera](../plugins/emuera/README.md) 的固定自写样本。这些自写样本仅接受登记的版本与运行组件。Unity 需要匹配游戏采用的运行时与输入接口。Wolf 商业构建、HSP 和 DuckStation 仍使用各自的插件入口。完整条件以[引擎支持范围](ENGINE-COVERAGE.md)为准。
+支持从工具直接准备和启动的范围，目前包括 RPG Maker MV／MZ、VX Ace、已登记的 Unity 版本、固定 SRPG Studio x86 构建、Wolf 官方范例，以及 [Godot](../plugins/godot/README.md)、[Ren'Py](../plugins/renpy/README.md)、[TyranoScript](../plugins/tyrano/README.md)、[Emuera](../plugins/emuera/README.md) 和 [KiriKiri](../plugins/kirikiri/README.md) 的固定自写样本。这些自写样本仅接受登记的版本与运行组件。Unity 需要匹配游戏采用的运行时与输入接口。Wolf 商业构建、HSP 和 DuckStation 仍使用各自的插件入口。完整条件以[引擎支持范围](ENGINE-COVERAGE.md)为准。
 
 ## 连接已有会话
 
