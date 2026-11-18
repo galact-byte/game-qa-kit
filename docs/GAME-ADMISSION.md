@@ -34,7 +34,7 @@
 | 构建不匹配或保存位置未核查 | 停止自动接入，不能通过改文件名或换配置强行启动 |
 | 未知引擎 | 仍可使用人工盯屏；后台操作需要单独适配 |
 
-支持从工具直接准备和启动的范围，目前包括 RPG Maker MV／MZ、VX Ace、已登记的 Unity 版本、固定 SRPG Studio x86 构建、Wolf 官方范例和 [Godot 4.5.1 自写样本](../plugins/godot/README.md)。Godot 仅接受登记的运行时与样本，不接入商业 PCK。Unity 需要匹配游戏采用的运行时与输入接口；Wolf 商业构建、HSP 和 DuckStation 仍使用各自的插件入口。完整条件以[引擎支持范围](ENGINE-COVERAGE.md)为准。
+支持从工具直接准备和启动的范围，目前包括 RPG Maker MV／MZ、VX Ace、已登记的 Unity 版本、固定 SRPG Studio x86 构建、Wolf 官方范例、[Godot 4.5.1 自写样本](../plugins/godot/README.md)和 [Ren'Py 8.3.2 自写样本](../plugins/renpy/README.md)。Godot 和 Ren'Py 仅接受登记的运行时与样本，不启动商业工程。Unity 需要匹配游戏采用的运行时与输入接口；Wolf 商业构建、HSP 和 DuckStation 仍使用各自的插件入口。完整条件以[引擎支持范围](ENGINE-COVERAGE.md)为准。
 
 ## 连接已有会话
 

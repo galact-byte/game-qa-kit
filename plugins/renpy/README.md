@@ -1,6 +1,12 @@
-# Ren'Py 实验控制桥
+# Ren'Py 固定自写样本接入
 
-本目录提供 `GameQaBridge.rpy`，复用现有 v2 毫秒协议与 `BridgeClient`。当前只在 Ren'Py 8.3.2.24090902 的自写工程中验证；尚无通用准备器、GUI 或 `game_prepare` 启动入口。
+本目录提供 `GameQaBridge.rpy`，复用现有 v2 毫秒协议与 `BridgeClient`。通用游戏接入只支持已登记的 Ren'Py 8.3.2.24090902 本机运行时与本目录的自写场景，不分发运行时、商业资源或原存档。
+
+## 从游戏接入启动
+
+在“游戏目录”选择本目录下的 `samples/`，在“后台组件目录”选择已登记的运行时根目录（含 `Eternum.py`、`lib/`、`renpy/`）；可通过现有 GUI 或 MCP `game_inspect`、`game_prepare`、`game_start` 操作。普通 Ren'Py 游戏目录仍只识别，不可受管启动。登记核对整个 `lib/`、`renpy/` 的相对路径与文件摘要，以及原启动脚本；文件不一致时不启动。
+
+启动时只复制登记文件到新的会话目录，零输入等待有效首图；确认绑定并显式恢复后才接受动作。停手时先确认松键，再回收独立桌面上的本次进程；黑屏会保留已消费的动作回执并停手。会话目录保留副本、截图和回执；旧会话不能重新作为源工程启动。
 
 ## 控制与观察
 
@@ -24,7 +30,7 @@ $env:TMP = '<E 盘测试临时目录>'
 $env:TEMP = $env:TMP
 $env:GAMEQAKIT_TEST_RENPY = '<已有复制运行时目录>'
 $env:GAMEQAKIT_TEST_EVIDENCE = '<全新测试证据目录>'
-python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_renpy_bridge -v
+python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_renpy_bridge tests.test_renpy_managed -v
 ```
 
 缺少 Windows 或未指定运行时时，真实运行测试明确跳过，不计为通过。证据目录保留状态、回执、截图、自写工程及引擎日志，不复制运行时。
@@ -35,4 +41,4 @@ python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_renpy_bridge 
 
 仅支持这个已测运行时与标准引擎入口。鼠标点击虽有独立探针，尚未加入 v2 协议；不提供 `click`、持续跨命令保持按键或仿真暂停。现有共用协议和其他引擎桥未修改。
 
-商业游戏脚本可能自行写文件、访问网络或注册表，也可能覆盖引擎回调；这些行为没有被独立桌面或桥隔离。商业副本的资源加载、完整保存边界、通用受管启动、实际玩法、其他版本、长期稳定性与真人并发尚未验证。不要把此文件直接放入原游戏作为通用安装方式。撤回本目录即可移除实验桥；测试工程与保存数据独立于原游戏。
+商业游戏脚本可能自行写文件、访问网络或注册表，也可能覆盖引擎回调；这些行为没有被独立桌面或桥隔离。商业启动与玩法、受管存读档、其他版本、长期稳定性与真人并发尚未验证。不要把此文件直接放入原游戏作为通用安装方式。回退接入提交可恢复原有只读识别，不迁移原游戏或存档。

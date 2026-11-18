@@ -25,6 +25,9 @@ def session_for(plan):
     if plan.get('backend') == 'godot_authored':
         from plugins.godot.session import GodotSession
         return GodotSession(plan)
+    if plan.get('backend') == 'renpy_authored':
+        from plugins.renpy.session import RenpySession
+        return RenpySession(plan)
     if plan['backend'] == 'rgss3':
         from plugins.rgss3.session import RgssSession
         return RgssSession(plan)

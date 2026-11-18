@@ -78,6 +78,12 @@ def inspect(path, *, artifacts=None):
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
         if not result['blockers']:
             result.update(adapter='godot_authored', profile_id='godot-4.5.1-authored-fixed')
+    elif result['engine'] == 'renpy_authored_candidate':
+        from plugins.renpy import prepare as renpy
+        result['blockers'] = renpy.inspect(result['root'], artifacts)
+        result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+        if not result['blockers']:
+            result.update(adapter='renpy_authored', profile_id='renpy-8.3.2-authored-fixed')
     elif result.get('profile_id') != 'srpgstudio-x86-fixed':
         result['launch_readiness'] = 'not_migrated'
         block('recipe_unavailable', '已识别引擎，但这个构建尚无已核查的产品启动流程。',
@@ -183,6 +189,17 @@ def make_plan(source, destination, *, artifacts):
                                 '使用独立桌面和会话内用户目录；暂停等首图，不自动输入',
                                 '结束自有进程，保留截图和回执；不支持商业游戏'])
         return {**payload, 'fingerprint': fingerprint(payload)}
+    if result['engine'] == 'renpy_authored_candidate':
+        from plugins.renpy import prepare as renpy
+        validate_destination(artifacts, destination)
+        payload = dict(schema_version=1, backend='renpy_authored', engine='renpy', source=str(source),
+                       destination=str(destination), artifacts=str(artifacts),
+                       source_digests=renpy.source_digests(source), artifact_digests=renpy.artifact_digests(artifacts),
+                       data_policy='blank-authored-renpy-private-saves', desktop='private',
+                       changes=['仅复制登记的自写脚本和固定运行时文件，不复制商业工程、原存档或原持久数据',
+                                '初始暂停，零输入等待有效首图；存档、持久数据和临时文件留在新会话目录',
+                                '结束自有进程并核对原样本及运行时；保留回执与截图'])
+        return {**payload, 'fingerprint': fingerprint(payload)}
     keys = ('game.exe', 'game.ini', 'data.dts', 'runtime.rts', 'system.dat', 'environment.evs')
     payload = dict(schema_version=1, backend='native_input', source=str(source),
                    destination=str(destination), artifacts=str(artifacts),
@@ -198,7 +215,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored'):
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:

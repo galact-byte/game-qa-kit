@@ -29,6 +29,7 @@ init -990 python:
             self.last_observation = 0.0
             self.observation = ""
             self.fault = ""
+            self.observation_error = ""
             self.last_pump = _gq_time.monotonic()
             self.started_drawing = False
             self.keys = dict(up="UP", down="DOWN", left="LEFT", right="RIGHT", ok="RETURN", cancel="ESCAPE")
@@ -98,7 +99,7 @@ init -990 python:
                 timing_mode="duration_ms", pause_scope="input", simulation_pause=False,
                 observation_seq=self.seq, max_duration_ms=1000, buttons=list(self.keys),
                 held=[self.held] if self.held else [], pause_id=self.pause_id,
-                observation_screenshot=self.observation, error=self.fault)
+                observation_screenshot=self.observation, error=self.fault, observation_error=self.observation_error)
 
         def watchdog(self):
             # 主线程停滞时不能声称已松键；只结束本桥所在的隔离测试进程。
@@ -259,6 +260,7 @@ init -990 python:
                     or active["release_consumed"])
                 if ready:
                     request = active["request"]
+                    observation_error = ""
                     result = dict(protocol=2, session_id=self.session, id=request["id"],
                         ok=not bool(active["error"]), error=active["error"],
                         timing_mode="duration_ms", pause_scope="input", simulation_pause=False,
@@ -273,12 +275,18 @@ init -990 python:
                             result.update(ok=False, error=str(error))
                             self.fault = str(error)
                             self.paused = True
+                            observation_error = self.fault
                     result["observation_seq"] = self.seq
                     self.write("status", self.status())
                     self.write("results/" + request["id"], result)
                     self.active = None
-                elif not self.fault and _gq_time.monotonic() - self.last_observation >= .2:
-                    self.capture("observation")
+                    self.observation_error = observation_error
+                elif not active and not self.fault and _gq_time.monotonic() - self.last_observation >= .2:
+                    try:
+                        self.capture("observation" if self.seq else "startup")
+                    except Exception as error:
+                        self.observation_error = str(error)
+                        raise
                 self.write("status", self.status())
                 renpy.display.interface.force_redraw = True
             except Exception as error:

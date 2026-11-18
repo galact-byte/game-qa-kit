@@ -108,6 +108,8 @@ def inspect_game(path):
                         return found('emuera_candidate', ['CSV/FLAG.csv', 'ERB/', image.name + ':MZ'])
     if (root / 'renpy/__init__.py').is_file() and (root / 'renpy/bootstrap.py').is_file():
         return found('renpy', ['renpy/__init__.py', 'renpy/bootstrap.py'])
+    if (root / 'gameqa-renpy-fixture.rpy').is_file():
+        return found('renpy_authored_candidate', ['gameqa-renpy-fixture.rpy'])
     for prefix in ('', 'resources/app/', 'resources/app/src/'):
         markers = [prefix + marker for marker in _TYRANO_SCRIPTS]
         if all((root / marker).is_file() for marker in markers):
