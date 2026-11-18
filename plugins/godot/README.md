@@ -1,12 +1,18 @@
-# Godot 4 实验控制桥
+# Godot 4.5.1 自写样本接入
 
-本目录提供 Godot 4 的实验桥 `GameQaBridge.gd`，使用现有 v1 文件协议与 `BridgeClient`。当前仅在 Godot 4.5.1 自写空白工程验证，尚未接入通用准备器、GUI 或 `game_prepare`；不要把本文件当作商业游戏的通用安装教程。
+本目录提供使用 v1 帧协议的 `GameQaBridge.gd`。通用「AI 后台接入」和 MCP `game_*` 入口仅接受本仓库的自写样本和已登记的 Godot 4.5.1 运行时，不支持商业 PCK 或其他版本。
+
+## 启动自写样本
+
+1. 在源码根目录运行 `python -c "from pathlib import Path; from tests.test_godot_bridge import fixture_pack; p = Path('godot-sample'); p.mkdir(); fixture_pack(p / 'fixture.pck')"`。选择新目录，避免覆盖已有样本。生成的目录只应包含 `fixture.pck`。
+2. 在后台组件目录准备本机已有的 `godot-runtime.exe`，SHA-256 必须为 `2a2ffce588f342dc40d4d913da7682bfda24fb986c543b1bf88afe69fe1e7aab`。只识别同一构建，不下载或分发运行时。
+3. 在「AI 后台接入」选择上述游戏目录、组件目录和 QA 数据目录，检查并确认准备后启动。启动时不会自动输入；须先取得有效首图，随后由 MCP 显式连接和恢复。动作后取图失败时停止输入，并回收本次启动的游戏进程。
 
 ## 已验证范围
 
 真实 Godot 进程在独立 Win32 Desktop／Job 中运行。输入经 `Input.parse_input_event` 交给引擎，画面从视口读取，不使用系统键鼠。桥按 SceneTree 的实际处理帧计数；暂停只停止合成输入，场景逻辑和预览继续运行。
 
-`tests/test_godot_bridge.py` 的 15 项真实运行测试覆盖：
+`tests/test_godot_managed.py` 的真实 MCP 用例覆盖暂停首图、右移 40 像素并读到松键、退出及回收、黑屏保留已消费回执并拒绝后续操作，以及准备后篡改副本时拒绝启动。`tests/test_godot_bridge.py` 的 15 项真实运行测试覆盖：
 
 - 初始暂停、场景首图与测试用户目录；正常方向输入后的场景位移与释放。
 - 引擎确认键、正常 GUI 按钮点击及鼠标释放；输入暂停时预览仍更新。
@@ -23,10 +29,10 @@
 ```powershell
 $env:GAMEQAKIT_TEST_GODOT = '<Godot 4.5.1 运行时 EXE 完整路径>'
 $env:GAMEQAKIT_TEST_EVIDENCE = '<全新测试证据目录>'
-python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_godot_bridge -v
+python -B -X utf8 -W error::ResourceWarning -m unittest tests.test_godot_managed tests.test_godot_bridge -v
 ```
 
-测试使用自写 PCK 和场景，不加载商业游戏资源；只把运行时 EXE 复制到测试目录。未指定运行时时，15 项集成检查明确跳过，不计为通过。设置 `TMP`／`TEMP` 可指定测试临时目录。证据目录保留状态、回执、PNG 与日志；运行时副本不随证据复制。
+测试使用自写 PCK 和场景，不加载商业游戏资源。未指定运行时时，实机用例明确跳过，不计为通过。设置 `TMP`／`TEMP` 可指定测试临时目录。证据目录保留状态、回执、PNG 与日志；运行时副本不随证据复制。
 
 连接校验要求协议、会话、PID、EXE 路径和引擎标识一致。脚本通过显式 `--script` 入口运行，项目必须使用默认 `SceneTree`；正常启动项目声明的主场景，不通过脚本直接修改任务结果。截图失败后保持暂停，不回退到桌面输入。
 

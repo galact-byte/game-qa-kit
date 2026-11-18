@@ -12,7 +12,7 @@
 | DuckStation／PS1 | 指定游戏的移动、存读档与首场战斗 | 仅验证指定模拟器版本，尚不支持从工具直接启动；不通用于其他 PS1 模拟器 |
 | SRPG Studio | 已测游戏的标题、环境设置与返回操作 | 仅支持已登记构建；游戏鼠标、移动与存读档未验 |
 | RPG Maker XP／VX、2000／2003 | 仅能识别引擎 | 暂不支持后台操作 |
-| Godot 4 | 实验：示例工程的移动、按钮点击与确认键 | 仅验证 4.5.1 的独立测试工程；尚不支持从工具直接启动游戏，见 [实验说明](../plugins/godot/README.md) |
+| Godot 4 | 自写样本的后台启动与移动；独立桥另验了按钮点击和确认 | 仅支持已登记的 4.5.1 运行时与自写样本；不支持商业 PCK，见[接入说明](../plugins/godot/README.md) |
 | Ren'Py | 实验：示例工程的移动、确认／取消与存读档 | 仅验证 8.3.2 的独立测试工程；暂停只停止合成输入，尚不支持从工具直接启动游戏，见 [实验说明](../plugins/renpy/README.md) |
 | TyranoScript | 实验：示例工程的 Enter 确认与正常存读档 | 仅验证 Ver5／Electron 7.1.2；有独立宿主的失联保护，尚无工具启动入口，见 [实验说明](../plugins/tyrano/README.md) |
 | Emuera | 实验：自写场景的 Enter 确认与正常存读档 | 仅验证固定 1.824／.NET Framework 4.5 构建；数字菜单和工具启动入口未做，见 [实验说明](../plugins/emuera/README.md) |
@@ -41,7 +41,7 @@ Unity 的传统 Input、Input System 与 Rewired 在总表中合并展示；适�
 | DuckStation／PS1 | 一个固定 Windows x64 构建；原生帧计时、数字手柄，指定游戏移动、存读档和首战 | 这是模拟器适配；不是所有 PS1 模拟器通用。音频、换盘、其他构建未验；见 [说明](../plugins/duckstation/README.md) |
 | SRPG Studio／x86 DirectInput | 一个固定商业 EXE 哈希 `8e123a4c07cfbc9143c266faf87bb66ef3600ab1254ee6d294fbaf685bb502a7`；`plugins/native_input/` 受限宿主／DLL，v2 显式毫秒动作，经真实 MCP 完成副本后台标题 → 环境设置 → 返回标题并逐图核对；自有窗口安全生命周期通过 | 自有窗口实体键鼠并发已通过并获参与者确认，不能替代正式游戏实体并发，后者仍未验；游戏鼠标、存档、玩法、其他构建及长期运行未验。只读档案识别不自动启动，也不将 `control_verified` 改为 true；见 [插件说明](../plugins/native_input/README.md) |
 | RPG Maker XP／VX、2000／2003 | 仅按文件证据识别，无已验证的控制适配器 | XP／VX 当前缺本机可验运行样本；取得样本后先核查保存边界，再验证后台输入和取图 |
-| Godot 4 | `plugins/godot/GameQaBridge.gd` 实验 v1 桥；4.5.1 自写工程通过 15 项真实运行检查：位移、正常 GUI 点击／确认、输入暂停时新预览、松键、租约、错误请求、黑图与写图失败、同帧输入消费回执、目标退出 | 尚无通用准备器或受管 GUI／MCP 启动入口；仅接受默认 SceneTree。另两个本机 4.6.3／4.7.2 运行时因 `disable_path_overrides` 拒绝当前入口，不外推其他构建；商业资源及保存边界未验，见 [实验说明](../plugins/godot/README.md) |
+| Godot 4 | 4.5.1 自写样本已迁入通用入口；真实 MCP 验证暂停首图、右移 40 像素、松键、黑屏停手与进程回收、变更已准备 PCK 后拒绝启动。既有 v1 桥另验按钮点击、确认、暂停时新预览、租约和取图失败 | 仅固定哈希和默认 SceneTree；本机 4.6.3／4.7.2 因 `disable_path_overrides` 拒绝现有入口，不外推其他构建。商业 PCK、存读档及真人键鼠并发未验，见[接入说明](../plugins/godot/README.md) |
 | Ren'Py | `plugins/renpy/GameQaBridge.rpy` 实验 v2 毫秒桥；8.3.2.24090902 自写工程验证正常事件位移、确认／取消、暂停时新预览、场景读到松键、租约／停滞、黑图／发布失败、短时文件共享冲突恢复，以及正常存读档后桥状态独立 | 仅输入暂停，不提供仿真暂停、帧数或鼠标动作；没有通用准备器或受管 GUI／MCP 启动入口。自写工程的普通存档、游戏目录存档、持久数据及签名密钥落点已核对，不代表商业游戏任意写入已隔离。其他版本、商业玩法及真人并发未验，见 [实验说明](../plugins/renpy/README.md) |
 | TyranoScript | `plugins/tyrano/` 实验 v2 毫秒桥及独立 Python／Job 宿主；Ver5（500）／Electron 7.1.2 自写工程验证真实 Enter 按下／松开、场景变化、暂停时新预览、重复命令、租约／停滞／释放确认、黑白图与截图失败，以及文件保存和 localStorage 的同进程／跨进程正常读取 | 只开放确认与等待，暂停仅停止输入；主进程、渲染页或取图停滞由独立宿主按原期限回收，正常关闭先确认松键并请求 Electron 刷盘退出。没有通用准备器、受管入口或商业游戏实证；鼠标只有早期探针，不属于本桥。识别仍为 `adapter=null`、`control_verified=false`，其他版本和真人并发未验，见 [实验说明](../plugins/tyrano/README.md)与[盘点记录](LOCAL-ENGINE-INVENTORY.md) |
 | Emuera | `plugins/emuera/` 实验 v2 毫秒桥；固定 1.824 私家构建的 C# STA 原入口启动器、目标内分发后输入观察器与独立 Python／Job 宿主；自写场景验证 Enter 按下／松开、画面推进、重复请求、暂停时新观察、租约／UI 卡死／释放确认、无效图像与截图失败，以及正常第 1 槽保存、同进程与新会话读取 | 只开放确认与等待，暂停只停止输入；15 秒启动、1.5 秒租约、1 秒 UI／释放／关闭、3 秒截图期限保持。数字／文本菜单、商业游戏、Skia 等其他版本、通用受管入口、长期稳定性和真人并发未验。六个候选识别仍为 `adapter=null`、`control_verified=false`；见 [实验说明](../plugins/emuera/README.md)和[来源限制](../plugins/emuera/SOURCES.md) |

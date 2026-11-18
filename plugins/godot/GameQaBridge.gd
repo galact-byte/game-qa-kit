@@ -29,7 +29,7 @@ var error = ""
 var observation_seq: int = 0
 var last_observation: int = 0
 var last_status: int = 0
-var failed_capture = false
+var capture_error = ""
 
 func _initialize():
     if directory.is_empty() or session.is_empty() or not directory.is_absolute_path():
@@ -100,7 +100,7 @@ func _integer(value) -> bool:
 func _view() -> Dictionary:
     return {"screen": [int(root.size.x), int(root.size.y)],
         "scene": str(current_scene.scene_file_path) if current_scene != null else "",
-        "input_ready": current_scene != null and observation_seq > 0 and not failed_capture}
+        "input_ready": current_scene != null and observation_seq > 0 and capture_error.is_empty()}
 
 func _status(force = false):
     if not force and Time.get_ticks_msec() - last_status < 200:
@@ -109,11 +109,14 @@ func _status(force = false):
         "exe_path": meta.exe_path, "engine": "godot", "plugin_pid": OS.get_process_id(),
         "updated_at": Time.get_unix_time_from_system(), "frame": frame, "paused": input_paused,
         "held": held, "command_id": active.get("request", {}).get("id"), "error": error,
-        "capabilities": [] if failed_capture or observation_seq == 0 else FIELDS.keys().filter(func(key): return key != "resume"),
+        "capabilities": [] if not capture_error.is_empty() or observation_seq == 0 else FIELDS.keys().filter(func(key): return key != "resume"),
         "buttons": BUTTONS.keys(), "max_input_frames": 120, "observation_seq": observation_seq,
         "observation_screenshot": "screenshots/observation.png" if observation_seq > 0 else null,
         "user_data_dir": OS.get_user_data_dir(), "engine_version": Engine.get_version_info().string}
     value.merge(_view())
+    value["pause_id"] = observed_pause
+    if not capture_error.is_empty():
+        value["observation_error"] = capture_error
     if _write("status.json", value):
         last_status = Time.get_ticks_msec()
 
@@ -195,7 +198,7 @@ func _poll(request: Dictionary):
         _fail("stale_command", request)
         return
     var payload = request.payload
-    if failed_capture or observation_seq == 0:
+    if not capture_error.is_empty() or observation_seq == 0:
         _fail("capture_unavailable", request)
         return
     if payload.action == "resume":
@@ -285,8 +288,12 @@ func _image_usable(image: Image) -> bool:
         count += 1
     return float(maxi(black, white)) / count < 0.999
 
+func _fail_capture(message: String):
+    capture_error = message
+    _fail(message)
+
 func _after_render():
-    if failed_capture or current_scene == null or frame < 3:
+    if not capture_error.is_empty() or current_scene == null or frame < 3:
         return
     var observing = Time.get_ticks_msec() - last_observation >= 200
     var completing = not active.is_empty() and active.phase == "capture"
@@ -297,18 +304,18 @@ func _after_render():
         active.consumed = true
     var image = root.get_texture().get_image()
     if image == null or image.is_empty():
-        failed_capture = true
-        _fail("capture_failed")
+        _fail_capture("capture_failed")
         return
     image.convert(Image.FORMAT_RGB8)
     if not _image_usable(image):
-        failed_capture = true
-        _fail("blank_capture")
+        _fail_capture("blank_capture")
         return
     if observing:
+        if observation_seq == 0 and not _save_image(image, "screenshots/startup.png"):
+            _fail_capture("capture_write_failed")
+            return
         if not _save_image(image, "screenshots/observation.png"):
-            failed_capture = true
-            _fail("capture_write_failed")
+            _fail_capture("capture_write_failed")
             return
         observation_seq += 1
         last_observation = Time.get_ticks_msec()
@@ -316,8 +323,7 @@ func _after_render():
         var request = active.request
         var relative = "screenshots/" + request.id + ".png"
         if not _save_image(image, relative):
-            failed_capture = true
-            _fail("capture_write_failed")
+            _fail_capture("capture_write_failed")
             return
         var result = {"protocol": 1, "session_id": session, "id": request.id,
             "ok": true, "consumed": true, "frame": frame, "capture_frame": frame,

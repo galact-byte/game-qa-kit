@@ -72,6 +72,12 @@ def inspect(path, *, artifacts=None):
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
         if not result['blockers']:
             result['profile_id'] = 'wolf-official-fixed'
+    elif result['engine'] == 'godot4':
+        from plugins.godot import prepare as godot
+        result['blockers'] = godot.inspect(result['root'], artifacts)
+        result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+        if not result['blockers']:
+            result.update(adapter='godot_authored', profile_id='godot-4.5.1-authored-fixed')
     elif result.get('profile_id') != 'srpgstudio-x86-fixed':
         result['launch_readiness'] = 'not_migrated'
         block('recipe_unavailable', '已识别引擎，但这个构建尚无已核查的产品启动流程。',
@@ -166,6 +172,17 @@ def make_plan(source, destination, *, artifacts):
                                 '显式零按键初始化，最多 120 完整循环／3 秒，首张有效图后暂停，不自动执行菜单',
                                 '默认旧入口不变；结束自有 Job 并核对原目录与产物，保留新进度和失败证据'])
         return {**payload, 'fingerprint': fingerprint(payload)}
+    if result['engine'] == 'godot4':
+        from plugins.godot import prepare as godot
+        validate_destination(artifacts, destination)
+        payload = dict(schema_version=1, backend='godot_authored', engine='godot', source=str(source),
+                       destination=str(destination), artifacts=str(artifacts),
+                       source_digests=godot.source_digests(source), artifact_digests=godot.artifact_digests(artifacts),
+                       data_policy='blank-authored-godot-private-user-dir', desktop='private',
+                       changes=['只复制已登记自写场景、固定运行时与工具自带的控制桥，不带存档',
+                                '使用独立桌面和会话内用户目录；暂停等首图，不自动输入',
+                                '结束自有进程，保留截图和回执；不支持商业游戏'])
+        return {**payload, 'fingerprint': fingerprint(payload)}
     keys = ('game.exe', 'game.ini', 'data.dts', 'runtime.rts', 'system.dat', 'environment.evs')
     payload = dict(schema_version=1, backend='native_input', source=str(source),
                    destination=str(destination), artifacts=str(artifacts),
@@ -181,7 +198,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf'):
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:
