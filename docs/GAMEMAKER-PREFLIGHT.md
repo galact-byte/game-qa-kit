@@ -2,11 +2,11 @@
 
 ## 当前结论
 
-2026-11-19 完成盘中一处 GameMaker 候选的只读结构核查与社区工具资料核对。尚未建立可复用的空白工程运行组件，也没有输入、取图或受管生命周期实测。没有新增产品控制入口。
+2026-11-19，官方 IDE 2026.0.0.16 与运行组件 2026.0.0.23 已在任务目录准备完成，官方空白模板、自写 VM 工程和自写 YYC 工程编译成功。两个自写构建均通过独立桌面后台零输入取图；YYC 生成源码的独立实验副本通过引擎内右键状态映射、普通 `keyboard_check` 消费、到期松键与画面验证。
 
-当前阻碍是缺少允许测试的空白工程运行包或可用开发环境；不能把商业 YYC 程序当作可加载任意自写数据的通用 runner。先取得自写样本，再评估引擎内部输入映射，正式桥架构须另行设计、批准。
+目前仍无产品控制入口。输入实验只覆盖自写 YYC 场景的一种按住查询，不等于 VM 输入、商业程序、统一 MCP 或故障生命周期已验。下一步是审阅[自写 YYC 受管入口设计](GAMEMAKER-ADMISSION-DESIGN.md)，批准后再实现正式桥；不再把缺开发环境或必须登录作为当前阻碍。
 
-## 本机文件证据
+## 商业候选的只读证据
 
 | 项目 | 本次观测 |
 | --- | --- |
@@ -15,39 +15,61 @@
 | 主程序 SHA-256 | `36ada9219f6e5d9e96b532efe5bfd2bf6e3afdb9257e080cb60fd956970be3f8` |
 | 数据文件 | `data.win`，64,538,501 字节；`FORM` 长度与实际大小相等，各分块完整落在文件范围内 |
 | 数据 SHA-256 | `7b1a37c68bda4504df0583c05cad539e1f8699ad2d1d189ed39d22d580915020` |
-| 编译线索 | 没有 `CODE` 块；EXE 中匹配 20,202 处 `gml_Object_…`、222 处 `gml_Script_…` 名称，符合 YYC 原生编译特征。这些是字符串匹配数，不等于独立函数数量 |
-| GEN8 原字段 | 字节码标记 17、版本字段 2.0.0.0、窗口字段 1280×800；不将这些字段当作实际运行时版本认证 |
-| 原目录完整性 | 2,384 文件、1,201,526,478 字节，核查前后逐文件摘要一致 |
+| 编译线索 | 无 `CODE` 块；EXE 匹配 20,202 处 `gml_Object_…`、222 处 `gml_Script_…` 名称，符合 YYC 特征。字符串匹配数不等于独立函数数量 |
+| GEN8 原字段 | 字节码标记 17、版本字段 2.0.0.0、窗口字段 1280×800；不作为实际运行时版本认证 |
+| 原目录完整性 | 初始清单为 2,384 文件、1,201,526,478 字节；最终复核见本地 `INPUT-VERIFICATION.json` |
 
-只读扫描本机工具、开发数据与源码工作目录（跳过常见依赖／构建目录）及所检查的安装目录顶层，没有找到 GameMaker、Igor、GMAssetCompiler、UndertaleModTool、Dogscepter 或 YYToolkit 可用工具。命中的三个编辑器图标不是运行组件；该结果不等于全机不存在任何开发环境。扫描范围的本机路径保留在本地恢复记录。
+商业程序未启动、未注入、未修改或重打包，不用它运行自写数据；存档未改。此前本机扫描未找到可用 GameMaker 环境是准备之前的历史结论，不能用于否定本轮已建立的环境。
 
-## 可复用方案与输入边界
+## 官方开发环境与构建
 
-优先评估 [YYToolkit](https://github.com/AurieFramework/YYToolkit) 的现有引擎接口，避免重新自建通用加载器。本次核对上游 `86c133dc7f4e87991dd2cb7f2eac056dc5f13124` 的 README、共享接口和事件定义：
+组件来源为官方 IDE 与 `https://gms.yoyogames.com/Zeus-Runtime-LTS2026.rss`，本地保存原始清单、归档长度、SHA-256 和安装记录。用户提供 Core 包，其余匹配主机与 Windows 组件经批准取得，官方安装流程校验签名并解包到任务目录；YYC 模块亦已由官方 Igor 安装。
 
-- `CallBuiltin`／`CallBuiltinEx` 可调用引擎函数；`CreateCallback` 提供事件回调。它们只证明上游存在接口，不证明本机候选兼容或后台输入已验。
-- `EVENT_FRAME` 定义为 `IDXGISwapChain::Present()`；`EVENT_OBJECT_CALL` 表示 `Code_Execute()`。不能将任意回调计数直接作为完整游戏逻辑帧。
-- README 将现代 x64 列为支持，但不同编译模式与版本的支持程度分别列示，不能由此追认该固定商业构建。
-- 项目许可为 AGPL-3.0；若采用其代码、链接或分发组件，须先独立核对适用义务与来源记录，再确定交付方式。本次未下载、安装或集成软件。
+- 账号运行组件页的完整列表确实没有 Windows 项。本版 feed 将 `base-module-windows-x64`、`windows` 和 `windowsYYC` 分开列出，不能继续要求用户在账号页面查找不存在的项目。
+- 官方空白模板 VM 编译退出码 0，自写 VM 编译退出码 0。实测未被账号登录阻断；之前将登录许可一概列为必要前置的判断已纠正，不代表所有发行模式或许可情况均可免登录。
+- YYC 生成工程默认使用 v142，而本机可用的是 VS 2022 v143。覆盖 `PlatformToolset=v143` 后编译退出码 0，未新增旧工具链。此覆盖只说明当前自写工程构建通过，不扩大为所有工程兼容。
+- 运行组件、缓存、工程、TEMP/TMP 和构建输出主要落在本地任务目录；IDE 启动记录仍列明系统崩溃标记路径，不能宣称零 C 盘写入或完整文件系统隔离。
 
-[官方 keyboard_key_press 手册](https://manual.gamemaker.io/monthly/en/GameMaker_Language/GML_Reference/Game_Input/Keyboard_Input/keyboard_key_press.htm)明确说明：Windows 上在 Step／Alarm 等事件反复调用时，可能在游戏之外触发按键。因此不得直接把此函数当作隔离的后台输入原语。对应的 [keyboard_key_release](https://manual.gamemaker.io/monthly/en/GameMaker_Language/GML_Reference/Game_Input/Keyboard_Input/keyboard_key_release.htm) 也不能替代输入隔离与正常查询消费的实测。
+源码库不提交官方安装包、运行库、编译器、生成的引擎头文件／反汇编或游戏二进制。具体本机路径和恢复操作只保留在本地记录。
 
-推荐后续在自写场景验证仅引擎内生效的输入状态映射／查询覆层，让正常 `keyboard_check` 等查询驱动场景，并单独观察消费与松键；不能直接改角色位置、调用任务完成或切换场景冒充正常输入。
+## 后台运行与输入实证
 
-`GEN8` 字段布局参考 [UndertaleModTool 源码](https://github.com/UnderminersTeam/UndertaleModTool/blob/bf485707c9c917fc3f153e78a82ef6f707c5821c/UndertaleModLib/Models/UndertaleGeneralInfo.cs)。本次只阅读公开源码，未安装其程序或重打包商业数据。
+所有运行批次使用现有 `DesktopProcess`／Job Object 和生产 `capture_worker.py`。首图先通过原有图像守卫，再进行有限输入；未使用置前台、实体光标或全局键鼠。
 
-## 下一批进入条件与顺序
+| 批次 | 实测结果 |
+| --- | --- |
+| `runtime-vm-01` | 窗口筛选误写成 640×480，实际为 512×384，未选中窗口；只修正筛选，未降低图像判据 |
+| `runtime-vm-02` | 失焦步数 2→42→81，三张图摘要不同，x 均为 80，无指令移动，目标已回收 |
+| `runtime-yyc-01` | 失焦步数 2→50→99，三张图摘要不同，x 均为 80，目标已回收 |
+| `input-yyc-red-01` | 未加入输入映射的原始自写 YYC 样本未消费有效命令，按预期失败；保留原始结果 |
+| `input-yyc-green-01` | 加入映射的独立生成源码副本通过；状态采样 x=80→82→130→188→188，普通查询返回按下／松开，目标已回收 |
 
-1. 取得允许使用的 GameMaker 开发环境，或含源码与匹配运行组件的最小空白工程运行包；新增下载／安装先取得用户批准。首批仅右移／等待，样本不含商业资源或存档。
-2. 固定运行组件与样本摘要，核对并明确程序旁、AppData、注册表等写入位置；新建任务副本，保留还原记录。未核清写入边界不启动。
-3. 在独立桌面先零输入验证持续新画面与失焦更新；首图无效立即停手，不降低现有图像门槛。
-4. 实证仅目标引擎内输入、普通查询消费、按住／释放后的画面、用户桌面输入隔离。不得使用全局键鼠或置前台回退。
-5. 原语成立后提交正式接入设计；复用统一 MCP 与既有监督生命周期，按真实计时证据决定协议，不把 Present 当作逻辑帧。随后才实现和验收租约、停帧、取图故障、双会话与创建者退出。
+输入实验在自写 Step 事件开始处调用自有 C++ 映射，只写当前进程 Runner 的 `_IO_KeyDown[39]`；原事件仍调用生成的 `YYGML_keyboard_check(39)` 决定是否执行原本的移动逻辑。没有直接修改位置、任务或场景。符号依据来自本地固定版本 Runner 库，不作为跨版本公开接口。
 
-## 证据与未完成项
+探针命令只含固定标记和 `GetTickCount64` 绝对期限，实验持键 900 ms，上限 1,000 ms。缺失、短读或无效数据不置键，到期不再置键。它只是原语探针，没有正式会话身份、消费回执、暂停或续租协议，不能用于真实 MCP 控制。
 
-本地 `<GameMaker预检目录>/preflight-01/` 保存 `inspect_candidate.py`、`source-manifest.json`、`result.json`、上游源码参考、`sources.json` 与恢复记录。原始商业文件、反汇编产物、截图和本机绝对路径不随源码提交。
+逐图复核的七张生产截图中，色块左边界为 80、80、104、154、188、188、188，均为 1,024 像素。持键两图继续右移，释放后两图和删除命令后的图均停在 188，界面步数继续增加。窗口标题采样与取图发生在不同时间，图上步数／位置以实际图像为准，不把标题当成同一帧图像。七图 `focus=0`；前台采样未出现目标窗口，不等于真人并发输入已验。
 
-REA 选定固定 EXE 后，IDA 在打开分析库阶段超时；关闭返回 `cleanup_incomplete`，不能宣称取得反编译结果或工具清理已确认。随后 IDA 会话枚举为空。只读结构结论来自本地文件解析；REA 诊断失败及其任务临时目录另记本地恢复文件，不擅自更改全局工具配置。
+## 社区方案与输入边界
 
-本次没有运行游戏、发送输入、改动存档、制作桥或改变产品识别／控制声明。回退本次文档不涉及数据迁移。
+仍保留 [YYToolkit](https://github.com/AurieFramework/YYToolkit) 作为后续无源码目标的候选路线。核对的上游为 `86c133dc7f4e87991dd2cb7f2eac056dc5f13124`：
+
+- `CallBuiltin`／`CallBuiltinEx` 和 `CreateCallback` 是上游接口存在的证据，不能追认为本机候选兼容。
+- `EVENT_FRAME` 对应 `IDXGISwapChain::Present()`，`EVENT_OBJECT_CALL` 对应 `Code_Execute()`；不能把回调数当完整逻辑帧，也不能由 VM 回调推断 YYC 事件边界。
+- 许可为 AGPL-3.0；本轮未下载安装、链接或分发 YYToolkit，未新增通用加载器。
+
+[官方 keyboard_key_press 手册](https://manual.gamemaker.io/monthly/en/GameMaker_Language/GML_Reference/Game_Input/Keyboard_Input/keyboard_key_press.htm)警告 Windows 上反复调用可能在游戏外触发按键。[keyboard_key_release](https://manual.gamemaker.io/monthly/en/GameMaker_Language/GML_Reference/Game_Input/Keyboard_Input/keyboard_key_release.htm) 也不能替代输入隔离。当前实验没有调用这两个接口。
+
+`GEN8` 布局参考 [UndertaleModTool 源码](https://github.com/UnderminersTeam/UndertaleModTool/blob/bf485707c9c917fc3f153e78a82ef6f707c5821c/UndertaleModLib/Models/UndertaleGeneralInfo.cs)，仅阅读公开源码，未安装程序或重打包商业数据。
+
+## 下一步与证据保留
+
+1. 正式接入设计须批准后实施；建议先接固定自写 YYC 构建的右移／等待，复用协议 2 和既有受管监督链。VM 输入、任意商业构建和第三方加载器不在该首版内。
+2. 正式桥需补严格身份／命令编号、目标消费与释放回执、暂停、断线、租约到期、目标停帧、取图失败、双会话和创建者退出；本轮原语成功不能代替这些验收。
+3. 商业运行与玩法仍未验；原目录及同名归档的条件式删除授权保留，相关验证收口前不提前删除。
+
+本地 `<GameMaker预检目录>/preflight-01/` 保存原始结构清单、官方来源、构建日志、实验源码与改动清单、各批 `result.json`、截图及 `INPUT-VERIFICATION.json`。源码库只提交本次文档和设计，不包含本机绝对证据路径或原始资产。
+
+历史 REA／IDA 打开分析库超时、关闭回执 `cleanup_incomplete`，随后会话枚举为空；不能宣称取得商业反编译结果或完整工具清理已确认。固定 Runner 库的本地符号／反汇编取证另记本轮实验材料，不追认那次商业分析成功。
+
+本次产品代码、识别登记、控制声明和发布资产未变。回退文档无需数据迁移；实验改动仅位于新建生成源码副本，原自写构建和商业文件保留用于摘要复核。
