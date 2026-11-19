@@ -93,6 +93,41 @@ class EngineTests(unittest.TestCase):
             data.unlink()
             self.assertIsNone(self.engines.inspect_game(self.root)['adapter'])
 
+    def test_bakin_pack_and_runtime_evidence_stays_unmanaged_and_read_only(self):
+        self.touch('bakinplayer.exe', b'MZ' + bytes(64))
+        self.touch('bakinengine.dll', b'MZ' + bytes(64))
+        self.touch('data.rbpack', b'BKNPAK\x00\x01' + bytes(8))
+        before = {p.name: p.read_bytes() for p in self.root.iterdir()}
+        result = self.engines.inspect_game(self.root / 'bakinplayer.exe')
+        self.assertEqual(result['engine'], 'bakin_candidate')
+        self.assertIsNone(result['adapter'])
+        self.assertFalse(result['control_verified'])
+        self.assertEqual(result['evidence'], ['bakinplayer.exe:MZ', 'bakinengine.dll:MZ',
+                                               'data.rbpack:BKNPAK'])
+        self.assertEqual(before, {p.name: p.read_bytes() for p in self.root.iterdir()})
+
+    def test_bakin_names_without_matching_pack_and_both_images_are_not_enough(self):
+        valid = {'bakinplayer.exe': b'MZ' + bytes(64),
+                 'bakinengine.dll': b'MZ' + bytes(64),
+                 'data.rbpack': b'BKNPAK\x00\x01' + bytes(8)}
+        for missing in valid:
+            with self.subTest(missing=missing):
+                for name, data in valid.items():
+                    path = self.root / name
+                    if name == missing:
+                        path.unlink(missing_ok=True)
+                    else:
+                        self.touch(name, data)
+                self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+        for corrupt, body in [('bakinplayer.exe', b'not executable'),
+                              ('bakinengine.dll', b'not a library'),
+                              ('data.rbpack', b'BKNPAK\x00'),
+                              ('data.rbpack', b'not a Bakin pack')]:
+            with self.subTest(corrupt=corrupt, body=body):
+                for name, data in valid.items():
+                    self.touch(name, body if name == corrupt else data)
+                self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+
     def test_hsp_bytecode_signature_is_required_and_not_control_verification(self):
         marker = self.touch('start.ax', b'not hsp')
         self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')

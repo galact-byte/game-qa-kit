@@ -19,6 +19,7 @@
 | Emuera | 自写场景的后台启动、Enter 确认和等待。独立桥另验正常存读档 | 仅支持已登记的 1.824／.NET Framework 4.5 构建和自写场景，见 [接入说明](../plugins/emuera/README.md) |
 | KiriKiri | 自写 Window 的后台启动、Enter 确认和等待。独立桥另验自写 Window 存读档与自写 KAG 确认 | 直接启动仅接受登记的 2.32.2.426／x86 构建与自写 Window。商用兼容性及诊断记录见[实验说明](../plugins/kirikiri/README.md) |
 | Flash／SWF | 固定自写 AVM1 样本的后台启动、连续预览、向右键按下与松开 | [通用入口](../plugins/flash/README.md)限定 Ruffle Web 0.7.1、已登记的 Edge 157.0.4341.60 和自写样本 |
+| RPG Developer Bakin | 仅按运行组件与资源包签名识别；1.13.1.1／2.5.1.0 已做静态输入接口核查 | 尚无自写空白工程实测，不支持后台操作；见[预检记录](BAKIN-PREFLIGHT.md) |
 | Unreal 等 | 暂无 | 暂不支持后台操作 |
 
 从界面启动游戏的具体条件见 [游戏接入说明](GAME-ADMISSION.md)。同一引擎的不同版本或插件可能需要不同适配，不能用一个样本的结果推断所有游戏均可用。
@@ -52,7 +53,8 @@ Unity 的传统 Input、Input System 与 Rewired 在总表中合并展示；适�
 | Flash／SWF | 官方 Ruffle Web 0.7.1 自托管包与无头 Chrome 在独立 Windows 桌面上通过 6 项自写 AVM1 预检。验证 320×240 连续画面、方向键右移 88 像素与松开回位、无效首图零输入、持键期间遇无效图／截图会话断开／截图目标查找超时后的松键，以及持键时终止整个浏览器后的回收 | Chrome 与 Edge 的三个渲染器卡死故障批次均由宿主独立回收，耗时 3,110–3,156 毫秒。Adobe 独立播放器 34.0.0.267 与 Ruffle Desktop 0.7.1 在现有 Win32 取图方式下未得到有效首图。商业 SWF／投影器、鼠标、存读档与真人并发待验。见 [Flash 接入设计](FLASH-ADMISSION-DESIGN.md) |
 | Artemis 固定 x64 构建 | `plugins/artemis/` Lua 桥复用协议 2 毫秒动作、现有监督／截图／Job；登记自写场景已通过源码和便携 MCP 的暂停首图、右移／等待、正常消费与释放、租约到期、双会话、截图故障、目标停帧及创建者中断回收。五帧图 x=80、84、90、98、98，见[预检记录](ARTEMIS-PREFLIGHT.md) | 只接固定摘要组件与原样自写场景，按钮仅 `right`；[使用与来源](../plugins/artemis/README.md)。历史首图偶发无效未归因，失败仍零输入停止；商业入口／玩法、其他构建、其他方向、菜单、存读档、音频、长期稳定性和真人并发未验 |
 | GameMaker 固定自写 YYC | `plugins/gamemaker/` 静态源码桥复用协议 2 毫秒动作、现有宿主／生产截图／Job；源码与便携真实 MCP 各 9 项通过，覆盖暂停首图、右移／等待、正常消费与释放、租约、双会话、截图／通道故障、目标停帧及创建者正常／强制退出。独立原生探针确认首个恢复采样拒绝过期持键，见[预检记录](GAMEMAKER-PREFLIGHT.md) | 只接登记 x64 自写 YYC 成品与原样场景，仅 `right` 和等待；组件另备，见[使用与来源](../plugins/gamemaker/README.md)及[设计](GAMEMAKER-ADMISSION-DESIGN.md)。VM 仅验证后台零输入取图；VM 输入、商业运行、其他构建／按键、鼠标、菜单、存读档、音频、长期稳定性及真人并发未验 |
-| Unreal、Bakin 等其他引擎 | 当前仓库没有已验控制通路；本机盘点只保留目录证据 | 不继承汉化工具的支持清单，不宣称已适配 |
+| Bakin | 两个本机构建已核对组件版本与输入接口；只读识别返回 `bakin_candidate`、`adapter=null`、`control_verified=false` | 1.13.1.1 未发现公开 `ForceSetState`，2.5.1.0 具有该接口；均未验后台循环、取图或输入。当前缺允许修改的自写空白工程／导出包；官方试用版不支持独立导出及插件，不作为替代，见[预检记录](BAKIN-PREFLIGHT.md) |
+| Unreal 等其他引擎 | 当前仓库没有已验控制通路；本机盘点只保留目录证据 | 不继承汉化工具的支持清单，不宣称已适配 |
 
 </details>
 

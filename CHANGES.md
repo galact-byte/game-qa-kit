@@ -1,5 +1,13 @@
 # 修改记录 — game-qa-kit
 
+## 2026-11-19 — Bakin 只读识别与自写样本前置核查
+
+- 联合检查 `bakinplayer.exe`／`bakinengine.dll` 的 MZ 头与 `data.rbpack` 的包签名，新增 `bakin_candidate` 识别；缺组件、签名不符均不认定。始终返回 `adapter=null`、`control_verified=false`，未增加启动、准备器或输入桥。新增正反与只读回归，Red／Green 日志留本地。
+- 只读核对本机 1.13.1.1／2.5.1.0：前者没有公开 `Input.ForceSetState`，后者有；文档和静态 API 不能证明后台更新、正常输入消费或释放。两个真实目录均仅做识别，没有执行或修改商业 Player、资源与存档。
+- 在四个已登记 Steam 库的有界查找中未找到 Bakin 编辑器，当前缺少允许修改的自写工程与对应导出包。[官方试用版](https://rpgbakin.com/en/products/rpg-developer-bakin-demo)不能导出独立程序或使用插件，因此本轮不下载它。同步[预检](docs/BAKIN-PREFLIGHT.md)、支持表、盘点与路线图；证据留在 `<bakin-preflight>`，商业组件、反编译文本和绝对路径不入库。
+- 相称回归 78 项全部通过、无跳过，覆盖识别、接入、CLI、MCP 及 Unity 相关模块；此前识别定向 48 项通过，两个真实目录只读识别及 8 个已登记原组件摘要复核通过。全仓首轮发现 758 项：448 通过、309 条件跳过、1 项 Unity 目录联接创建遇 `WinError 32`；该模块随后重跑通过，但共享冲突根因未确认，保留原失败，不宣称全仓首轮全绿或已修复 Unity。
+- 本批无新增运行控制能力、软件安装或 Release。回退本次识别与文档即可，无数据迁移；后续取得合法自写样本后先做隔离预检，正式桥仍须另行批准设计。
+
 ## 2026-11-19 — GameMaker 固定自写 YYC 受管入口
 
 - 实现已批准的[接入设计](docs/GAMEMAKER-ADMISSION-DESIGN.md)：新增 `plugins/gamemaker/` 的自有 C++ 状态机／输入桥、严格通道、固定成品构建与登记准备器、自写场景、宿主及会话；补统一识别、准备／worker 分派与便携自检。仅提供登记 x64 自写 YYC 的右移和等待，普通 `keyboard_check(39)` 消费后才确认按下／松键。

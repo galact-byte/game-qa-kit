@@ -89,6 +89,16 @@ def inspect_game(path):
     for marker in ('Data.wolf', 'Data/BasicData/Game.dat'):
         if (root / marker).is_file():
             return found('wolf_candidate', [marker], 'wolf')
+    bakin_markers = [('bakinplayer.exe', b'MZ'), ('bakinengine.dll', b'MZ'),
+                     ('data.rbpack', b'BKNPAK\x00\x01')]
+    if all((root / name).is_file() for name, _ in bakin_markers):
+        signatures = []
+        for name, signature in bakin_markers:
+            with (root / name).open('rb') as stream:
+                signatures.append(stream.read(len(signature)) == signature)
+        if all(signatures):
+            return found('bakin_candidate', ['bakinplayer.exe:MZ', 'bakinengine.dll:MZ',
+                                             'data.rbpack:BKNPAK'])
     bytecode = root / 'start.ax'
     if bytecode.is_file():
         with bytecode.open('rb') as stream:
