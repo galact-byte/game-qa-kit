@@ -7,3 +7,4 @@ plugins/flash/samples/gameqa-flash-fixture.swf binary
 plugins/flash/ruffle-0.7.1-web-selfhosted.zip binary
 plugins/artemis/samples/authored/gameqa-artemis-fixture.iet text eol=lf
 plugins/artemis/samples/authored/system.ini text eol=lf
+plugins/gamemaker/samples/** -text whitespace=cr-at-eol

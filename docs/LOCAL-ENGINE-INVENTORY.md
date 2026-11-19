@@ -40,7 +40,7 @@
 | HSP | 1 | 固定 HSP 3.7 x86 自写样本已迁入通用入口，商业候选沿用独立桥 |
 | SRPG Studio | 1 | 固定构建的受限原生后端有标题／设置实证 |
 | Artemis | 1 | 固定 x64 运行组件＋登记自写场景已接通源码／便携受管入口，首版仅右移／等待；正常消费、松键、租约及故障回收实测通过。历史首图偶发异常未归因；本表商业候选、其他构建与玩法仍未验，见[预检记录](ARTEMIS-PREFLIGHT.md)与[插件说明](../plugins/artemis/README.md) |
-| GameMaker | 1 | 固定商业候选仍仅只读静态核查。官方环境已准备，自写 VM／YYC 取图与自写 YYC 独立源码副本输入原语已验；正式桥设计待批准，产品入口、VM 输入和商业运行未验，见[预检记录](GAMEMAKER-PREFLIGHT.md)及[设计](GAMEMAKER-ADMISSION-DESIGN.md) |
+| GameMaker | 1 | 本表商业候选仍仅只读静态核查。原样自写场景＋固定 x64 YYC 成品已接入源码／便携 MCP，右移／等待、正常消费及释放、租约和故障回收实测通过；VM 仅验后台零输入取图，VM 输入及商业运行未验，见[预检记录](GAMEMAKER-PREFLIGHT.md)、[设计](GAMEMAKER-ADMISSION-DESIGN.md)及[插件说明](../plugins/gamemaker/README.md) |
 | Unreal | 1 | 无已验控制通路 |
 | KiriKiri | 1 | 商业候选为只读识别。固定 2.32.2.426／x86 自写 Window 已迁入受管入口，独立实验桥另验正常存读档 |
 | Flash | 1 | 自写 AVM1 样本已接入通用入口，表中的商业候选尚待验证 |

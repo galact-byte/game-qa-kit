@@ -8,7 +8,7 @@
 
 ## 当前进度与下一步
 
-通用游戏接入入口已实现。当前可启动的目标包括已登记的 RPG Maker MV／MZ、VX Ace 示例工程、Unity 四类输入后端、Wolf 官方范例、固定 SRPG Studio 构建、Godot 4.5.1、Ren'Py 8.3.2、TyranoScript Ver5／Electron 7.1.2、Emuera 1.824、KiriKiri 2.32.2.426／x86、HSP 3.7 x86、Flash AVM1 与 Artemis 固定 x64 自写样本；各目标仍需匹配资源与组件。使用方式见 [游戏接入说明](GAME-ADMISSION.md)，具体限制见 [引擎支持表](ENGINE-COVERAGE.md)。
+通用游戏接入入口已实现。当前可启动的目标包括已登记的 RPG Maker MV／MZ、VX Ace 示例工程、Unity 四类输入后端、Wolf 官方范例、固定 SRPG Studio 构建、Godot 4.5.1、Ren'Py 8.3.2、TyranoScript Ver5／Electron 7.1.2、Emuera 1.824、KiriKiri 2.32.2.426／x86、HSP 3.7 x86、Flash AVM1、Artemis 固定 x64 自写样本与 GameMaker 固定自写 YYC 构建；各目标仍需匹配资源与组件。使用方式见 [游戏接入说明](GAME-ADMISSION.md)，具体限制见 [引擎支持表](ENGINE-COVERAGE.md)。
 
 尚待完成的事项：
 
@@ -20,7 +20,7 @@
 - **Flash 后续验收**。已登记的 Edge 与 Ruffle Web 0.7.1 用于通用入口的自写 AVM1 样本。商业 SWF／投影器、其他 Edge 构建及真人使用键鼠同时运行的场景待验。见 [Flash 接入说明](../plugins/flash/README.md)。
 - **EasyRPG 自写 RM2K 已接受管入口**：经批准构建独立 `GameQaEasyRpg.exe`，以源码输入源和场景更新后的消费回执补齐原录制文件只在退出时刷盘的缺口。固定运行时与原样自写场景已通过真实 MCP 的移动／等待、暂停／恢复、双会话、篡改、过期、取图失败与停帧用例；原有两份 Player 不修改。范围和构建要求见[接入设计](EASYRPG-ADMISSION-DESIGN.md)。2003、商业内容、音频、菜单、存读档、长期稳定性和真人并发仍待分别验收。
 - **Artemis 首版受管通路已验**：在取得新增窗口／桌面／取图边界证据并通过有效首图后，完成目标端毫秒计时、到期撤销和 Lua 脚本桥。固定摘要运行组件＋登记自写场景已通过源码／便携真实 MCP 的暂停首图、右移／等待、正常消费与松键、租约到期、双会话隔离、截图故障、目标停帧及创建者中断回收；五帧生产截图 x=80、84、90、98、98。历史首图偶发异常仍未归因，失败批次保持零输入停止，不降低判据。商业入口与玩法、其他构建及动作、存读档、音频、长期稳定性和真人并发未验。操作、来源与回退见[插件说明](../plugins/artemis/README.md)，历史及证据见[预检记录](ARTEMIS-PREFLIGHT.md)；已随 [v0.4.2](releases/v0.4.2.md) 发布，运行组件须另备。
-- **GameMaker 自写 YYC 原语已验，正式设计待批准**：官方开发环境及匹配组件已准备完成，自写 VM／YYC 构建均通过后台零输入取图；独立 YYC 生成源码副本通过普通 `keyboard_check` 的右键映射与到期松键。仍无产品 MCP 入口，VM 输入与商业构建未验；首版建议只接登记自写 YYC 的右移／等待，见[预检记录](GAMEMAKER-PREFLIGHT.md)及[接入设计](GAMEMAKER-ADMISSION-DESIGN.md)。
+- **GameMaker 固定自写 YYC 已接受管入口**：设计获批后实现静态源码输入桥与严格消费记录，复用现有协议 2、生产截图与 Job。源码及便携真实 MCP 各 9 项通过，覆盖右移／等待、暂停恢复、租约、双会话、故障与创建者退出回收；独立探针确认挂起恢复后旧持键不重放，登记与组件要求见[插件说明](../plugins/gamemaker/README.md)、[预检记录](GAMEMAKER-PREFLIGHT.md)及[接入设计](GAMEMAKER-ADMISSION-DESIGN.md)。VM 输入、商业程序、其他构建和玩法、长期稳定性及真人并发未验；本批未新增 Release。
 - **YU-RIS 暂缓**：现有两处线索仅为同一 Translator++ 工程的暂存残留，不能证明完整游戏可用；用户确认保留研究，待以后取得完整且允许测试的同引擎游戏再适配。当前不下载开发包或运行残留，进入条件和恢复顺序见 [YU-RIS 预检记录](YURIS-PREFLIGHT.md)。
 - **扩充盘中未覆盖的引擎**：D／G 初次扫描遍历 49,950 个目录与 2,046 个 EXE。原 404 个未分类目录经两轮只读复核，388 个属于工具与运行时，2 个为 Wolf 候选，2 个为同一 YU-RIS 工程的原程序／补丁目录，1 个为 AGE_System 候选，2 个为已归类游戏组件，9 个仍待识别。EasyRPG Player 0.8.0.0 在两个工具附带目录中存在，EXE 摘要和架构不同；原 Player 的后台预检与后续独立源码构建受管接入分别记录，见上一项。两个 Wolf EXE 仍超出桥登记；YU-RIS／AGE_System 仅确认引擎标记。Bakin、GameMaker、Artemis、Unreal、Flash 原有 8 个候选目录的文件标记结论保留。进入控制预检仍需可复用运行组件、自写样本与明确的写入边界；商业样本另按构建授权、验证。已接入的自写场景以支持表为准。详见[盘点表](LOCAL-ENGINE-INVENTORY.md)。
 - **按任务扩展玩法与长期验证**：各引擎的战斗、存读档、全流程和长期稳定性分别验收，不用单次菜单成功推断。现阶段不追加 Wolf 玩法跑批。

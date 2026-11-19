@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "runtime": "GameMaker LTS 2026.0.0.23 Windows YYC x64",
+  "authored_source_sha256": {
+    "options.ini": "ade8784b4a03f43d0b329667b470e002458fc65e509e55df41004089bf1c5ed0",
+    "gameqa-gamemaker-fixture.json": "c7cd3002a55b18cc8458f6447db62b35601e1b1c4ce0a900a12942a55526305b",
+    "gqk_gamemaker_probe_20261119.yyp": "572ef231f4b6a88bbfaff7aeff4bb06e33e045138dceafd4ec97541d77c90ebb",
+    "objects/obj_probe/Create_0.gml": "a3877641c582ca9ea3d7b43fee89ec6c30ce919fbaccae610d29e0b4c46cb575",
+    "objects/obj_probe/Draw_0.gml": "7416f4dfbe48333632c753c7dc037cb070ce41b84191083bc34815a0ff04c68d",
+    "objects/obj_probe/obj_probe.yy": "0fc2b0807b65f7b4829a3354d38ea25ecea0c3796480aef15d2ee9045f7a735d",
+    "objects/obj_probe/Step_0.gml": "3a7969141f47db90b9a2e527c6b95432e59331f81b1370acb61103a8c2a01e41",
+    "rooms/Room1/Room1.yy": "056793bcf7fcc8964ed1626f8023e11b1d749951dfa788e0f29efcaf9dc93da9",
+    "rooms/Room1/RoomCreationCode.gml": "1384b734baec2e40dd82badb862c446aec78df01b2a19b936a0c158b0978dcc4"
+  },
+  "generated_source_sha256": {
+    "gmlids.h": "df8c90ff4229f3702a948251a433f833ca986c1596e23bdf2cf01dedf72d4e06",
+    "gml_Object_obj_probe_Create_0.gml.cpp": "29dfb77c85f698028770afe4433062daef5650f0e3ea76fe79620f6e235acae4",
+    "gml_Object_obj_probe_Draw_0.gml.cpp": "73a82b68a94827a0efb25b24cd6a9abf044311a8d0e53a9495cc6883fcf7b29f",
+    "gml_Object_obj_probe_Step_0.gml.cpp": "01910306c9c8594e2667ae735439c226bb26a5c2c3391fafb6b434fba5f79643",
+    "gml_Room_Room1_Create.gml.cpp": "2f4b63d22ffd95ac25ac69757b2cbeb4bddc02659dfee012873c30dcb867958d",
+    "gqk_gamemaker_probe_20261119.vars.cpp": "bba47a133c98b61d81f8225034d59ba6ece3f0ca9c76e19f70cd66be48265c5e",
+    "pch.cpp": "5fc0af6c5f539df950725cddb921766d3aca92c160a5ce7db15fa0ac4dc454ee",
+    "pch.hpp": "801f8beaa8150c237616ea156378b97307a540671b308d6ab6467cb96dd08baa"
+  },
+  "data_sha256": "40f37ea9d0796e974e5bbcd7694ce4207001a8b3de13abeac15767c26e144a24",
+  "license": "GameMaker runtime and SDK are proprietary; not distributed by this repository. Authored scene and bridge follow repository LICENSE."
+}

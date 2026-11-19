@@ -37,6 +37,9 @@ def session_for(plan):
     if plan.get('backend') == 'kirikiri_authored':
         from plugins.kirikiri.session import KiriKiriSession
         return KiriKiriSession(plan)
+    if plan.get('backend') == 'gamemaker_authored':
+        from plugins.gamemaker.session import GameMakerSession
+        return GameMakerSession(plan)
     if plan.get('backend') == 'artemis_authored':
         from plugins.artemis.session import ArtemisSession
         return ArtemisSession(plan)

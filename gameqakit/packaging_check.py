@@ -23,7 +23,8 @@ def check(report):
                    'plugins.rgss3.prepare', 'plugins.rpgmaker_js.prepare', 'plugins.native_input.session',
                    'plugins.godot.session', 'plugins.renpy.session', 'plugins.tyrano.session',
                    'plugins.emuera.session', 'plugins.kirikiri.session', 'plugins.kirikiri.capture_worker',
-                   'plugins.hsp.session', 'plugins.flash.session', 'plugins.easyrpg.session')
+                   'plugins.hsp.session', 'plugins.flash.session', 'plugins.easyrpg.session',
+                   'plugins.gamemaker.session')
         for name in modules:
             importlib.import_module(name)
         result['module_imports'] = list(modules)
@@ -37,7 +38,9 @@ def check(report):
                      'plugins/emuera/samples/gameqa-emuera-fixture.erb', 'plugins/kirikiri/GameQaBridge.tjs',
                      'plugins/kirikiri/samples/gameqa-kirikiri-fixture.tjs', 'plugins/hsp/samples/gameqa-hsp-fixture.ax',
                      'plugins/flash/samples/gameqa-flash-fixture.swf',
-                     'plugins/easyrpg/samples/rm2k-sha256.json', 'plugins/easyrpg/gameqa_input.cpp'):
+                     'plugins/easyrpg/samples/rm2k-sha256.json', 'plugins/easyrpg/gameqa_input.cpp',
+                     'plugins/gamemaker/Bridge.h', 'plugins/gamemaker/BridgeState.h',
+                     'plugins/gamemaker/source-manifest.json', 'plugins/gamemaker/runtime-manifest.json'):
             assert (root / name).is_file(), name
         from .admission import file_digest
         from plugins.flash.prepare import ARCHIVE, ARCHIVE_SHA, SCRIPT, SCRIPT_SHA
@@ -45,6 +48,8 @@ def check(report):
             assert file_digest(path) == digest, path
         from plugins.easyrpg.prepare import source_digests
         source_digests(root / 'plugins/easyrpg/samples/rm2k')
+        from plugins.gamemaker.prepare import source_digests as gamemaker_source_digests
+        gamemaker_source_digests(root / 'plugins/gamemaker/samples')
         marker = report.with_name('worker-self-test.json')
         subprocess.run([sys.executable, '--worker-self-test', str(marker)], check=True, timeout=20,
                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

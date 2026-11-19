@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "profile_id": "gamemaker-2026.0.0.23-yyc-authored-fixed",
+  "artifact_sha256": {
+    "gameqa-gamemaker.exe": "3787431ab05190a24addbd926b3bb266dccd922c2cf025d4622137af941972fb",
+    "data.win": "40f37ea9d0796e974e5bbcd7694ce4207001a8b3de13abeac15767c26e144a24"
+  },
+  "distribution": "Local registered authored build only; no official runtime, SDK or generated engine headers are included in the product package."
+}

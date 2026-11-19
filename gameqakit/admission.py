@@ -54,6 +54,12 @@ def inspect(path, *, artifacts=None):
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
         if not result['blockers']:
             result.update(adapter='easyrpg_authored', profile_id='easyrpg-0.8-rm2k-authored-fixed')
+    elif result['engine'] == 'gamemaker_authored_candidate':
+        from plugins.gamemaker import prepare as gamemaker
+        result['blockers'] = gamemaker.inspect(result['root'], artifacts)
+        result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+        if not result['blockers']:
+            result.update(adapter='gamemaker_authored', profile_id='gamemaker-2026.0.0.23-yyc-authored-fixed')
     elif result['engine'] == 'artemis_authored_candidate':
         from plugins.artemis import prepare as artemis
         result['blockers'] = artemis.inspect(result['root'], artifacts)
@@ -173,6 +179,18 @@ def make_plan(source, destination, *, artifacts):
                        changes=['仅复制登记的自写 RM2K 场景与独立源码运行时，不带商业工程或原存档',
                                 '独立桌面、软件渲染、零输入等首图；配置、存档与临时文件留在会话内',
                                 '按正常游戏逻辑消费输入后回执；结束进程树并复核原样本与运行时'])
+        return {**payload, 'fingerprint': fingerprint(payload)}
+    if result['engine'] == 'gamemaker_authored_candidate':
+        from plugins.gamemaker import prepare as gamemaker
+        validate_destination(artifacts, destination)
+        payload = dict(schema_version=1, backend='gamemaker_authored', engine='gamemaker', source=str(source),
+                       destination=str(destination), artifacts=str(artifacts),
+                       source_digests=gamemaker.source_digests(source), artifact_digests=gamemaker.artifact_digests(artifacts),
+                       data_policy='blank-authored-gamemaker-yyc-private-runtime', desktop='private',
+                       changes=['仅复制登记的自写 YYC 成品与配置，不带商业工程、原存档或开发工具',
+                                '独立桌面挂起创建，先绑定会话和目标，再恢复；有效首图前保持输入暂停',
+                                '普通 keyboard_check 消费后分别确认按下和松开；不发送用户桌面输入',
+                                '结束自有进程树并复核原工程与组件；独立桌面不等于文件系统沙箱'])
         return {**payload, 'fingerprint': fingerprint(payload)}
     if result['engine'] == 'artemis_authored_candidate':
         from plugins.artemis import prepare as artemis
@@ -334,7 +352,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored', 'emuera_authored', 'kirikiri_authored', 'hsp_authored', 'flash_authored', 'easyrpg_authored', 'artemis_authored'):
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored', 'emuera_authored', 'kirikiri_authored', 'hsp_authored', 'flash_authored', 'easyrpg_authored', 'artemis_authored', 'gamemaker_authored'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:
