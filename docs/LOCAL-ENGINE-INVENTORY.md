@@ -44,7 +44,7 @@
 | Unreal | 1 | 无已验控制通路 |
 | KiriKiri | 1 | 商业候选为只读识别。固定 2.32.2.426／x86 自写 Window 已迁入受管入口，独立实验桥另验正常存读档 |
 | Flash | 1 | 自写 AVM1 样本已接入通用入口，表中的商业候选尚待验证 |
-| YU-RIS 候选 | 2 | 同一暂存工程的原程序与翻译补丁目录；无已验控制通路 |
+| YU-RIS 候选 | 2 | 同一 Translator++ 暂存工程的残留，不计为完整可用游戏；保留研究，等待新样本，见[预检记录](YURIS-PREFLIGHT.md) |
 | AGE_System 候选 | 1 | 版本资源确认候选；无已验控制通路 |
 | 已归类游戏的子目录／启动器 | 2 | Unreal Shipping 子目录与 Unity 外层启动器，不增加两款游戏 |
 | 工具与独立运行时 | 388 | 两轮补审共 164＋224 个；包含随工具分发的 EasyRPG 运行时 |
@@ -83,7 +83,7 @@
 | 本轮复核结果 | 目录数 | 依据与范围 |
 |---|---:|---|
 | 工具、辅助程序与独立运行时 | 224 | Git／Python 依赖、提取翻译工具、编辑器、安装器、游戏辅助程序与附带组件等 |
-| YU-RIS 游戏候选 | 2 | `inkan_re_dl.exe` 与其翻译补丁 EXE 的 `ProductName` 均为 `YU-RIS Script Engine`，附带 YS DLL／`pac`；是同一暂存工程的两个目录 |
+| YU-RIS 引擎标记残留 | 2 | `inkan_re_dl.exe` 与其翻译补丁 EXE 的 `ProductName` 均为 `YU-RIS Script Engine`，附带 YS DLL／`pac`；同一暂存工程的两个目录，不能认定完整游戏仍可用 |
 | AGE_System 游戏候选 | 1 | 两个 EXE 的版本资源均为 `AGE_System`，附带 PAC／SRP 数据；两个 EXE 不计成两款游戏 |
 | 已归类游戏的组件 | 2 | Unreal 的 Shipping 子目录、Unity 的外层启动器；后者的 `GameData` 中有 `UnityPlayer.dll` 与托管程序集 |
 | 仍未分类 | 9 | 不因名称、封装体积或界面框架推断引擎或程序用途 |
@@ -97,7 +97,7 @@ EasyRPG Player 在 MTool 与 Translator++ 附带组件中各有一份，版本�
 
 九个待定目录分别是：“ふしだら幻想郷”汉化封装、“ハーレムロンド”、“東方淫夜抄”本体及两个翻译暂存副本、`LLC_BABEL/win-x64`、“堕とし舞”、`HypnosisNTR` 封装，以及 G 盘下载根层的混合程序。三处“東方淫夜抄”的 EXE SHA-256 相同；这只证明 EXE 相同，不证明全部资源相同。`HypnosisNTR` 只有通用 `game`／`KADOKAWA` 版本资源和不完整的外置 `www`，不能据此确认为 MV／MZ。混合根目录的判断只涉及清单登记的 EXE，不排除其子目录的游戏。
 
-本地逐目录观测、分类、摘要与 CSV 位于 `<引擎盘点目录>/review-20261119/`；复核脚本为 `<引擎盘点目录>/classify_remaining_20261119.py`。YU-RIS／AGE_System 进入控制预检前仍需确认可复用运行组件、自写样本和写入边界；此次只读核查不构成商业样本运行授权，也不改变[支持表](ENGINE-COVERAGE.md)。
+本地逐目录观测、分类、摘要与 CSV 位于 `<引擎盘点目录>/review-20261119/`；复核脚本为 `<引擎盘点目录>/classify_remaining_20261119.py`。用户确认 YU-RIS 暂缓，保留官方文档与开发包线索，待完整可用的新样本出现后恢复，当前不下载或运行，见[预检记录](YURIS-PREFLIGHT.md)。AGE_System 进入控制预检前仍需确认可复用运行组件、自写样本和写入边界；此次只读核查不构成商业样本运行授权，也不改变[支持表](ENGINE-COVERAGE.md)。
 
 ## KiriKiri 本轮核查
 
