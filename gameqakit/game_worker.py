@@ -37,6 +37,9 @@ def session_for(plan):
     if plan.get('backend') == 'kirikiri_authored':
         from plugins.kirikiri.session import KiriKiriSession
         return KiriKiriSession(plan)
+    if plan.get('backend') == 'easyrpg_authored':
+        from plugins.easyrpg.session import EasyRpgSession
+        return EasyRpgSession(plan)
     if plan.get('backend') == 'flash_authored':
         from plugins.flash.session import FlashSession
         return FlashSession(plan)

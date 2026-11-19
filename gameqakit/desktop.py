@@ -75,7 +75,10 @@ k.CloseHandle.argtypes = [W.HANDLE]
 
 class DesktopProcess:
     def __init__(self, argv, *, cwd, env=None, isolated_desktop=True, disable_extension_points=False,
-                 inherited_handles=()):
+                 inherited_handles=(), detached_stdio=False):
+        if type(detached_stdio) is not bool:
+            raise ValueError('detached_stdio 必须是布尔值')
+        self.detached_stdio = detached_stdio
         self.inherited_handles = tuple(inherited_handles)
         if any(type(handle) is not int or handle <= 0 or not os.get_handle_inheritable(handle)
                for handle in self.inherited_handles):
@@ -128,6 +131,9 @@ class DesktopProcess:
             si = STARTUPINFO()
             si.cb = ctypes.sizeof(si)
             si.lpDesktop = self.desktop_name
+            if self.detached_stdio:
+                # 不让无交互工作进程复用 MCP 正在读取的标准输入管道。
+                si.dwFlags |= 0x100  # STARTF_USESTDHANDLES, all three handles remain NULL.
             pi = PROCESS_INFORMATION()
             command = ctypes.create_unicode_buffer(subprocess.list2cmdline(self.argv))
             environment = ctypes.create_unicode_buffer('\0'.join(

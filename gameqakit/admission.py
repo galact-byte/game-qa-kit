@@ -48,6 +48,12 @@ def inspect(path, *, artifacts=None):
 
     if result['engine'] == 'unknown':
         block('unknown_engine', '尚未识别这个游戏的后台接入方式。', 'source', '请正常打开游戏，使用人工盯屏。')
+    elif result['engine'] == 'rpgmaker_2000_2003':
+        from plugins.easyrpg import prepare as easyrpg
+        result['blockers'] = easyrpg.inspect(result['root'], artifacts)
+        result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+        if not result['blockers']:
+            result.update(adapter='easyrpg_authored', profile_id='easyrpg-0.8-rm2k-authored-fixed')
     elif result['engine'] in ('unity_mono', 'unity_il2cpp'):
         from plugins.unity import prepare as unity
         result['blockers'] = unity.inspect(Path(result['root']), artifacts)
@@ -151,6 +157,17 @@ def make_plan(source, destination, *, artifacts):
         raise ValueError('; '.join(row['message'] for row in result['blockers']))
     destination = validate_destination(result['root'], destination)
     source, artifacts = Path(result['root']), Path(result.get('artifacts') or artifacts).absolute()
+    if result['engine'] == 'rpgmaker_2000_2003':
+        from plugins.easyrpg import prepare as easyrpg
+        validate_destination(artifacts, destination)
+        payload = dict(schema_version=1, backend='easyrpg_authored', engine='easyrpg', source=str(source),
+                       destination=str(destination), artifacts=str(artifacts),
+                       source_digests=easyrpg.source_digests(source), artifact_digests=easyrpg.artifact_digests(artifacts),
+                       data_policy='blank-authored-rm2k-private-config-save', desktop='private',
+                       changes=['仅复制登记的自写 RM2K 场景与独立源码运行时，不带商业工程或原存档',
+                                '独立桌面、软件渲染、零输入等首图；配置、存档与临时文件留在会话内',
+                                '按正常游戏逻辑消费输入后回执；结束进程树并复核原样本与运行时'])
+        return {**payload, 'fingerprint': fingerprint(payload)}
     if result['engine'] == 'flash_authored_candidate':
         from plugins.flash import prepare as flash
         validate_destination(artifacts, destination)
@@ -299,7 +316,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored', 'emuera_authored', 'kirikiri_authored', 'hsp_authored', 'flash_authored'):
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored', 'emuera_authored', 'kirikiri_authored', 'hsp_authored', 'flash_authored', 'easyrpg_authored'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:

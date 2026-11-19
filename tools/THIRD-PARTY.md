@@ -12,7 +12,7 @@
 | PyInstaller 引导程序 | https://pyinstaller.org/ | GPL 及引导程序分发例外；许可与例外文本随其 dist-info 保留 |
 | Ruffle Web 自托管包 0.7.1 | https://github.com/ruffle-rs/ruffle/releases/tag/v0.7.1 | MIT 或 Apache-2.0。上游原始 ZIP 随 `_internal/plugins/flash/` 分发，内含发布元数据及 `LICENSE_MIT`、`LICENSE_APACHE`。SHA-256 为 `ef12edbee135d581a9cd523837d746da30a07a64dbf1cf472d2e472c656f4b5e`。 |
 
-组合发行遵循上游开源许可，包括 PyQt6 的 GPLv3 义务。完整 GPLv3／LGPLv3 文本保存在 `_internal/licenses/open-source/`。本发行未修改上游组件；对应项目源码和构建配方在 GitHub Release 标签源码中公开，固定依赖见 `tools/requirements-windows.txt`。
+组合发行遵循上游开源许可，包括 PyQt6 的 GPLv3 义务。完整 GPLv3／LGPLv3 文本保存在 `_internal/licenses/open-source/`。本批 GameQA 主程序发行未修改上述组件；单独的 EasyRPG 验证运行时包含源码输入补丁，来源与构建方法见 `plugins/easyrpg/README.md`，对应源码及许可随本地运行时保存。对应项目源码和构建配方在 GitHub Release 标签源码中公开，固定依赖见 `tools/requirements-windows.txt`。
 
 与捆绑二进制对应的上游源码入口（均可免费取得，不需要商业账号）：
 
@@ -23,5 +23,7 @@
 - Pillow 11.1.0、rubymarshal 1.2.10、PyInstaller 6.16.0 的源码发行包可在对应 PyPI 版本页面的 Source Distribution 中取得。
 
 PyQt6-sip 的许可和元数据亦随其 dist-info 保留。
+
+`plugins/easyrpg/licenses/` 保留 EasyRPG Player 和 liblcf 的许可，`plugins/easyrpg/source-manifest.json` 记录固定提交及归档摘要。GameQA 主 ZIP 只包含适配器、自写样本及来源说明，另行准备的 `GameQaEasyRpg.exe` 不随主包分发。该独立运行时适用 GPL-3.0-or-later，包含修改后的正常输入源，不能按项目 MIT 许可处理；对外提供其二进制前须同时提供完整对应源码、构建配方及依赖许可。
 
 `plugins/native_input/licenses/` 和相关 `source-manifest.json` 保留 Proto Input、EasyHook、udis86 等插件代码的来源与许可。本便携包不捆绑商业游戏、游戏存档、BepInEx／NW.js／RGSS 等外部运行组件；相应组件仍由用户按已核查流程提供。

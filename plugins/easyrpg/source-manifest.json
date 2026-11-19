@@ -1,0 +1,162 @@
+{
+  "sources": [
+    {
+      "name": "Player",
+      "commit": "f8e41f43b619413f95847536412b56f85307d378",
+      "url": "https://codeload.github.com/EasyRPG/Player/zip/f8e41f43b619413f95847536412b56f85307d378",
+      "bytes": 7201545,
+      "sha256": "8e4e917e657ee72ba5870691f1224e49c8462409e22d1442e8904eefc24ec859"
+    },
+    {
+      "name": "liblcf",
+      "commit": "9c09529e3de0a4106470082ef48a00d4c3593c33",
+      "url": "https://codeload.github.com/EasyRPG/liblcf/zip/9c09529e3de0a4106470082ef48a00d4c3593c33",
+      "bytes": 521547,
+      "sha256": "4b3fdaa551212f75fd81c8c6f20c5c2f66f4b148515b0c2bf12043e82edbff01"
+    },
+    {
+      "name": "toolchain",
+      "commit": null,
+      "url": "https://ci.easyrpg.org/downloads/windows/toolchain-windows.zip",
+      "bytes": 1490110692,
+      "sha256": "2c2e621e4406bc2444edecffbf95f17ad377a2fbcbcd916f975db71d470e5dc4"
+    }
+  ],
+  "runtime_sha256": "4b38bcd36a8806547a607b796e30b19d941c20cebe8c30165f53d7c8076b8220",
+  "runtime_license": "GPL-3.0-or-later",
+  "linked_dependencies": {
+    "sdl2": [
+      {
+        "name": "sdl2",
+        "versionInfo": "2.32.10",
+        "downloadLocation": "git+https://github.com/Microsoft/vcpkg#ports/sdl2",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "sdl2:x64-windows-static",
+        "versionInfo": "5ba576d7dab87431f7c969e0c9388541abd3eea115d5270b49a48c11b642163f",
+        "downloadLocation": "NONE",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "libsdl-org/SDL",
+        "downloadLocation": "git+https://github.com/libsdl-org/SDL@release-2.32.10",
+        "licenseDeclared": "NOASSERTION"
+      }
+    ],
+    "icu-easyrpg": [
+      {
+        "name": "icu-easyrpg",
+        "versionInfo": "78.2",
+        "downloadLocation": "git+https://github.com/Microsoft/vcpkg#ports/icu-easyrpg",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "icu-easyrpg:x64-windows-static",
+        "versionInfo": "7dd322c024a941c5af89dd0e9867e8f87b9a79e3de8ff1f37477478456b2817c",
+        "downloadLocation": "NONE",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "icu4c-78.2-sources.tgz",
+        "downloadLocation": "https://github.com/unicode-org/icu/releases/download/release-78.2/icu4c-78.2-sources.tgz",
+        "licenseDeclared": "NOASSERTION"
+      }
+    ],
+    "expat": [
+      {
+        "name": "expat",
+        "versionInfo": "2.8.0",
+        "downloadLocation": "git+https://github.com/Microsoft/vcpkg#ports/expat",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "expat:x64-windows-static",
+        "versionInfo": "719f02f760df5de61293cdd483313b1f1a2e15b46b62a219033f661d4cccb273",
+        "downloadLocation": "NONE",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "libexpat/libexpat",
+        "downloadLocation": "git+https://github.com/libexpat/libexpat@${REF}",
+        "licenseDeclared": "NOASSERTION"
+      }
+    ],
+    "libpng": [
+      {
+        "name": "libpng",
+        "versionInfo": "1.6.58",
+        "downloadLocation": "git+https://github.com/Microsoft/vcpkg#ports/libpng",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "libpng:x64-windows-static",
+        "versionInfo": "f81be0ae4af489a44b336d2382cb569afa6b6b52f1188362e9536c1c6b6e95d5",
+        "downloadLocation": "NONE",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "pnggroup/libpng",
+        "downloadLocation": "git+https://github.com/pnggroup/libpng@v1.6.58",
+        "licenseDeclared": "NOASSERTION"
+      }
+    ],
+    "zlib": [
+      {
+        "name": "zlib",
+        "versionInfo": "1.3.2",
+        "downloadLocation": "git+https://github.com/Microsoft/vcpkg#ports/zlib",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "zlib:x64-windows-static",
+        "versionInfo": "25e87435ccf966cab838a1785b5548ccf79c3da9aa6ab5a4917546b506f9be78",
+        "downloadLocation": "NONE",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "madler/zlib",
+        "downloadLocation": "git+https://github.com/madler/zlib@v1.3.2",
+        "licenseDeclared": "NOASSERTION"
+      }
+    ],
+    "fmt": [
+      {
+        "name": "fmt",
+        "versionInfo": "12.1.0",
+        "downloadLocation": "git+https://github.com/Microsoft/vcpkg#ports/fmt",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "fmt:x64-windows-static",
+        "versionInfo": "47839c3fb47f3ea2abcf7dccaf1c194959f693f781842af8976e91aca419ee34",
+        "downloadLocation": "NONE",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "fmtlib/fmt",
+        "downloadLocation": "git+https://github.com/fmtlib/fmt@12.1.0",
+        "licenseDeclared": "NOASSERTION"
+      }
+    ],
+    "pixman": [
+      {
+        "name": "pixman",
+        "versionInfo": "0.46.4#1",
+        "downloadLocation": "git+https://github.com/Microsoft/vcpkg#ports/pixman",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "pixman:x64-windows-static",
+        "versionInfo": "750048c6fc6294b07874b00d1283b3eee8b69aa4a0294d3b74bdf8371d9c40a1",
+        "downloadLocation": "NONE",
+        "licenseDeclared": "NOASSERTION"
+      },
+      {
+        "name": "pixman/pixman",
+        "downloadLocation": "git+https://gitlab.freedesktop.org/pixman/pixman@pixman-0.46.4",
+        "licenseDeclared": "NOASSERTION"
+      }
+    ]
+  }
+}

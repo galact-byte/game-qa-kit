@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 import time
 from unittest import mock
@@ -84,6 +85,32 @@ time.sleep(30)
         finally:
             k.CloseHandle(handle)
         self.assertGreater(os.getpid(), 0)
+
+    def test_detached_worker_starts_while_parent_waits_for_pipe_input(self):
+        marker = self.root / 'worker.json'
+        script = self.root / 'pipe_parent.py'
+        code = f"from pathlib import Path;Path({str(marker)!r}).write_text('{{}}')"
+        script.write_text(
+            'import sys,threading,time\n'
+            f'sys.path.insert(0,{str(Path(__file__).resolve().parents[1])!r})\n'
+            'from gameqakit.desktop import DesktopProcess\n'
+            'reader=threading.Thread(target=lambda:sys.stdin.buffer.read(1))\n'
+            'reader.start()\n'
+            'time.sleep(.1)\n'
+            f'code={code!r}\n'
+            'with DesktopProcess([sys.executable,"-c",code],cwd=".",isolated_desktop=False,detached_stdio=True) as child:\n'
+            ' child.run()\n'
+            ' reader.join(10)\n', encoding='utf-8')
+        with subprocess.Popen([sys.executable, str(script)], cwd=self.root,
+                              stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL) as parent:
+            try:
+                self.assertEqual(self.wait_file(marker), {})
+            finally:
+                parent.stdin.write(b'x')
+                parent.stdin.flush()
+            parent.wait(5)
+        self.assertEqual(parent.returncode, 0)
 
     def test_capture_contains_entire_client_without_title_bar(self):
         self.exercise_capture()

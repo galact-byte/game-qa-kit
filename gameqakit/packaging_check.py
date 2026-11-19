@@ -23,7 +23,7 @@ def check(report):
                    'plugins.rgss3.prepare', 'plugins.rpgmaker_js.prepare', 'plugins.native_input.session',
                    'plugins.godot.session', 'plugins.renpy.session', 'plugins.tyrano.session',
                    'plugins.emuera.session', 'plugins.kirikiri.session', 'plugins.kirikiri.capture_worker',
-                   'plugins.hsp.session', 'plugins.flash.session')
+                   'plugins.hsp.session', 'plugins.flash.session', 'plugins.easyrpg.session')
         for name in modules:
             importlib.import_module(name)
         result['module_imports'] = list(modules)
@@ -36,12 +36,15 @@ def check(report):
                      'plugins/tyrano/samples/gameqa-tyrano-fixture.ks', 'plugins/emuera/Launcher.cs',
                      'plugins/emuera/samples/gameqa-emuera-fixture.erb', 'plugins/kirikiri/GameQaBridge.tjs',
                      'plugins/kirikiri/samples/gameqa-kirikiri-fixture.tjs', 'plugins/hsp/samples/gameqa-hsp-fixture.ax',
-                     'plugins/flash/samples/gameqa-flash-fixture.swf'):
+                     'plugins/flash/samples/gameqa-flash-fixture.swf',
+                     'plugins/easyrpg/samples/rm2k-sha256.json', 'plugins/easyrpg/gameqa_input.cpp'):
             assert (root / name).is_file(), name
         from .admission import file_digest
         from plugins.flash.prepare import ARCHIVE, ARCHIVE_SHA, SCRIPT, SCRIPT_SHA
         for path, digest in ((ARCHIVE, ARCHIVE_SHA), (ARCHIVE.parent / 'samples' / SCRIPT, SCRIPT_SHA)):
             assert file_digest(path) == digest, path
+        from plugins.easyrpg.prepare import source_digests
+        source_digests(root / 'plugins/easyrpg/samples/rm2k')
         marker = report.with_name('worker-self-test.json')
         subprocess.run([sys.executable, '--worker-self-test', str(marker)], check=True, timeout=20,
                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

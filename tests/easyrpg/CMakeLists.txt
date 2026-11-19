@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(EasyRpgBridgeTests LANGUAGES CXX)
+add_executable(bridge-state-tests BridgeStateTests.cpp)
+target_include_directories(bridge-state-tests PRIVATE ../../plugins/easyrpg)
+target_compile_features(bridge-state-tests PRIVATE cxx_std_17)
+enable_testing()
+add_test(NAME bridge-state COMMAND bridge-state-tests)

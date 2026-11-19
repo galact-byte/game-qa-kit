@@ -38,3 +38,7 @@ AGENTS.md
 CLAUDE.md
 GEMINI.md
 .omc/
+
+# Authored EasyRPG fixture assets are required for reproducible admission.
+!/plugins/easyrpg/samples/rm2k/CharSet/Probe.png
+!/plugins/easyrpg/samples/rm2k/ChipSet/Probe.png

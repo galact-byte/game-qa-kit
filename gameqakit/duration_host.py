@@ -213,7 +213,7 @@ class Supervisor:
                    else [sys.executable, '-B', '-X', 'utf8', str(self.capture_worker)])
         worker = DesktopProcess([*command, str(self.directory), token,
             str(self.observer['hwnd']), str(destination), self.target.desktop_name],
-            cwd=Path(__file__).resolve().parents[2], isolated_desktop=False)
+            cwd=Path(__file__).resolve().parents[2], isolated_desktop=False, detached_stdio=True)
         worker.__enter__()
         self.capture = dict(worker=worker, started=time.monotonic(), token=token,
                             destination=destination, purpose=purpose)

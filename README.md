@@ -60,7 +60,7 @@
 
 截图能否在后台正常更新，取决于游戏和窗口状态。最小化或后台停帧可能导致采集失败。
 
-后台控制已在 RPG Maker MV／MZ、VX Ace、Unity、Wolf RPG、HSP3、SRPG Studio 和 DuckStation 的指定版本或样本上验证过。**支持某个引擎，不代表该引擎的所有游戏都能接入。** 不同游戏需要的组件、可执行的操作也有区别。
+后台控制已在 RPG Maker MV／MZ、VX Ace、Unity、Wolf RPG、HSP3、SRPG Studio 和 DuckStation 的指定版本或样本上验证过。另有 EasyRPG 等引擎的固定自写样本受管入口，覆盖范围以表内记录为准。**支持某个引擎，不代表该引擎的所有游戏都能接入。** 不同游戏需要的组件、可执行的操作也有区别。
 
 接入前请查看 [引擎覆盖表](docs/ENGINE-COVERAGE.md)；准备组件和操作步骤见 [游戏接入说明](docs/GAME-ADMISSION.md)。
 
