@@ -1,0 +1,49 @@
+[caption data="GameQA Artemis authored fixture"]
+[lyc id="1.0" width="640" height="480" color="203050"]
+[lyc id="1.1" width="41" height="61" color="F040C0"]
+[lyprop id="1.1" left="80" top="200"]
+[trans type="1" time="1"]
+[lua]
+local M = dofile('GameQaBridge.lua')
+local engine, state
+local x, sample = 80, 0
+local function refresh()
+    state:update(M.readCommand(state),engine:now())
+    if state.desired then engine:overrideKey{key=39,status=4}
+    else engine:overrideKey{key=39} end
+end
+function gameqaFrame()
+    if not state then return end
+    state.callbacks=(state.callbacks or 0)+1
+    local ok=pcall(refresh)
+    if not ok then state:fail('script_error'); engine:overrideKey{key=39} end
+end
+function gameqaInit(e)
+    engine=e
+    local f=assert(io.open('session.txt','rb')); local text=f:read(129); f:close()
+    local token,pid=text:match('^([a-f0-9]+) (%d+)\n$')
+    state=M.new(token,tonumber(pid))
+    e:setEventHandler{onEnterFrame='gameqaFrame'}
+end
+function gameqaTick(e)
+    -- Check expiry again directly before normal sampling, without moving the scene in the bridge.
+    local ok=pcall(refresh)
+    if not ok then state:fail('script_error'); e:overrideKey{key=39} end
+    local down=e:isDown(39)
+    if down then x=math.min(540,x+2) end
+    sample=sample+1
+    e:tag{'lyprop',id='1.1',left=x,top=200}
+    local record=state:consumed(down,sample,e:now())
+    local f=assert(io.open('consumed.part','wb')); assert(f:write(record)); assert(f:close())
+    -- Rename to an unused name: CRT rename on Windows cannot replace an existing file.
+    assert(os.rename('consumed.part','consumed.'..sample..'.tsv'))
+    if sample>3 then os.remove('consumed.'..(sample-3)..'.tsv') end
+    if state.closed then e:tag{'exit'} end
+end
+[/lua]
+[calllua function="gameqaInit"]
+*poll
+[calllua function="gameqaTick"]
+[trans type="1" time="1"]
+[wait time="100"]
+[jump label="poll"]

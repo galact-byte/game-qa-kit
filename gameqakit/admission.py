@@ -54,6 +54,12 @@ def inspect(path, *, artifacts=None):
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
         if not result['blockers']:
             result.update(adapter='easyrpg_authored', profile_id='easyrpg-0.8-rm2k-authored-fixed')
+    elif result['engine'] == 'artemis_authored_candidate':
+        from plugins.artemis import prepare as artemis
+        result['blockers'] = artemis.inspect(result['root'], artifacts)
+        result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+        if not result['blockers']:
+            result.update(adapter='artemis_authored', profile_id='artemis-x64-authored-fixed')
     elif result['engine'] in ('unity_mono', 'unity_il2cpp'):
         from plugins.unity import prepare as unity
         result['blockers'] = unity.inspect(Path(result['root']), artifacts)
@@ -167,6 +173,18 @@ def make_plan(source, destination, *, artifacts):
                        changes=['仅复制登记的自写 RM2K 场景与独立源码运行时，不带商业工程或原存档',
                                 '独立桌面、软件渲染、零输入等首图；配置、存档与临时文件留在会话内',
                                 '按正常游戏逻辑消费输入后回执；结束进程树并复核原样本与运行时'])
+        return {**payload, 'fingerprint': fingerprint(payload)}
+    if result['engine'] == 'artemis_authored_candidate':
+        from plugins.artemis import prepare as artemis
+        validate_destination(artifacts, destination)
+        payload = dict(schema_version=1, backend='artemis_authored', engine='artemis', source=str(source),
+                       destination=str(destination), artifacts=str(artifacts),
+                       source_digests=artemis.source_digests(source), artifact_digests=artemis.artifact_digests(artifacts),
+                       data_policy='blank-authored-artemis-private-save', desktop='private',
+                       changes=['只复制登记的自写场景和本机固定运行时，不带商业脚本与原存档',
+                                '会话内安装 Lua 输入桥，独立桌面启动，首图合格前保持零输入',
+                                '普通场景采样后分别确认按下与松开；保存和临时目录留在副本内',
+                                '结束自有进程树并复核原场景和运行时；不分发商业 EXE 或 DLL'])
         return {**payload, 'fingerprint': fingerprint(payload)}
     if result['engine'] == 'flash_authored_candidate':
         from plugins.flash import prepare as flash
@@ -316,7 +334,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored', 'emuera_authored', 'kirikiri_authored', 'hsp_authored', 'flash_authored', 'easyrpg_authored'):
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored', 'emuera_authored', 'kirikiri_authored', 'hsp_authored', 'flash_authored', 'easyrpg_authored', 'artemis_authored'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:

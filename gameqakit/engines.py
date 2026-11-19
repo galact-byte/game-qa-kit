@@ -112,6 +112,8 @@ def inspect_game(path):
         return found('renpy_authored_candidate', ['gameqa-renpy-fixture.rpy'])
     if (root / 'gameqa-tyrano-fixture.ks').is_file():
         return found('tyrano_authored_candidate', ['gameqa-tyrano-fixture.ks'])
+    if (root / 'gameqa-artemis-fixture.iet').is_file():
+        return found('artemis_authored_candidate', ['gameqa-artemis-fixture.iet'])
     if (root / 'gameqa-emuera-fixture.erb').is_file():
         return found('emuera_authored_candidate', ['gameqa-emuera-fixture.erb'])
     if (root / 'gameqa-kirikiri-fixture.tjs').is_file():

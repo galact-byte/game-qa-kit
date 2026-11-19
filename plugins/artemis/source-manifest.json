@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "bridge": {
+    "source": "本仓库 plugins/artemis 与 tests/test_artemis_*",
+    "license": "MIT",
+    "license_file": "../../LICENSE",
+    "revision": "随本仓库提交记录追溯"
+  },
+  "local_components": [
+    {
+      "file": "HaitokunoShoudou.exe",
+      "sha256": "4480a20da5857ea329036c3031e671241f5efb73e9f75bf07412834d3c0a60b2",
+      "source": "使用者本机持有的《背徳の衝動》ver1.10 运行程序",
+      "architecture": "x64",
+      "upstream_revision": null,
+      "license": "未确认该固定构建的再分发授权",
+      "redistributed": false
+    },
+    {
+      "file": "d3dcompiler_47.dll",
+      "sha256": "efbdbbcd0d954f8fdc53467de5d89ad525e4e4a9cfff8a15d07c6fdb350c407f",
+      "source": "同一本地组件目录中的配套文件",
+      "upstream_revision": null,
+      "license": "不适用本项目 MIT；未确认本文件的再分发授权",
+      "redistributed": false
+    }
+  ],
+  "limitations": "没有可核实的引擎源代码 commit；不得将游戏材料版本当作通用引擎版本。仅接登记自写场景，不分发商业组件或静态分析产物。"
+}
