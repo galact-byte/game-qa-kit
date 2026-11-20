@@ -8,3 +8,5 @@ plugins/flash/ruffle-0.7.1-web-selfhosted.zip binary
 plugins/artemis/samples/authored/gameqa-artemis-fixture.iet text eol=lf
 plugins/artemis/samples/authored/system.ini text eol=lf
 plugins/gamemaker/samples/** -text whitespace=cr-at-eol
+# Preserve the upstream Python license bytes, including its whitespace.
+tools/licenses/Python-3.12.7.txt -text whitespace=-blank-at-eol,-blank-at-eof

@@ -84,4 +84,3 @@ gui.main()
             log = Path(directory) / 'startup-error.log'
             self.assertIn('启动失败，请查看：', stderr.getvalue())
             self.assertIn('RuntimeError', log.read_text(encoding='utf-8'))
-
