@@ -24,7 +24,10 @@ for _s, _kw in ((sys.stdout, {"newline": "\n"}), (sys.stdin, {}), (sys.stderr, {
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from gameqakit import profile as _profile          # noqa: E402
-from gameqakit import win32, dedup, watch as _watch, saves as _saves, inputs, sessions  # noqa: E402
+from gameqakit import dedup, watch as _watch, saves as _saves, sessions  # noqa: E402
+from gameqakit.platform_support import window_backend as win32, info as platform_info  # noqa: E402
+if sys.platform == 'win32':
+    from gameqakit import inputs
 
 SERVER_NAME = "gameqakit"
 SERVER_VERSION = "0.2.1"
@@ -70,7 +73,8 @@ def t_profile(_a):
         return {**_BINDING.status(), 'available': _profile.list_profiles()}
     p = P()
     return {"active": p.name, "proc": p.proc, "exe_path": p.exe_path,
-            "target_pid": win32.profile_target(p)["pid"], "data_dir": str(p.data_path),
+            "target_pid": win32.profile_target(p)["pid"] if sys.platform == 'win32' else None,
+            "data_dir": str(p.data_path),
             "savedata": str(p.savedata_path) if p.savedata_path else None,
             "save_globs": p.save_globs, "regions": p.regions,
             "available": _profile.list_profiles()}
@@ -359,6 +363,13 @@ TOOLS = {
     "list_saves": ("列出所有存档快照。", _obj({}), t_list_saves),
     "kill_game": ("可靠终止游戏进程（改档前必先游戏内存盘）。需 confirm=true。", _obj({**CONFIRM}), t_kill_game),
 }
+
+
+TOOLS['platform_info'] = ('查询当前平台、架构及本版本可用功能。', _obj({}), lambda _a: platform_info())
+if sys.platform != 'win32':
+    _COMMON_TOOLS = {'platform_info', 'profile', 'save', 'list_saves', 'watch_report',
+                     'watch_status', 'watch_events', 'engine_inspect'}
+    TOOLS = {name: tool for name, tool in TOOLS.items() if name in _COMMON_TOOLS}
 
 
 def _tool_list():

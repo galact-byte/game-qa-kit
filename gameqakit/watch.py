@@ -10,7 +10,13 @@ import threading
 import time
 from pathlib import Path
 
-from .win32 import find_window, grab_image, clamp_region, capture, window_text
+from .platform_support import window_backend
+
+find_window = window_backend.find_window
+grab_image = window_backend.grab_image
+clamp_region = window_backend.clamp_region
+capture = window_backend.capture
+window_text = window_backend.window_text
 from .dedup import dhash_from_image, hamming
 from .analysis import FrameAnalyzer
 from .sessions import SessionLease, write_json

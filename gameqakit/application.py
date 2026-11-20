@@ -16,6 +16,10 @@ def main(argv=None):
     if args[0] == '--worker-self-test' and len(args) == 2:
         Path(args[1]).write_text(json.dumps({'frozen': bool(getattr(sys, 'frozen', False))}), encoding='utf-8')
         return 0
+    if args[0] == '--smoke-test' and len(args) == 2:
+        from .startup_check import check
+        check(Path(args[1]))
+        return 0
     if args[0] == '--self-test' and len(args) == 2:
         from .packaging_check import check
         check(Path(args[1]))
@@ -31,3 +35,7 @@ def main(argv=None):
     finally:
         sys.argv = original
     return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

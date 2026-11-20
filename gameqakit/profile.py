@@ -37,11 +37,16 @@ class GameProfile:
     # ---- 派生目录 ----
     @property
     def data_path(self) -> Path:
-        d = (self.data_dir
-             or os.environ.get("GAMEQAKIT_DATA")
-             or str(Path(sys.executable).resolve().parent / 'data' / self.name
-                    if getattr(sys, 'frozen', False) else Path.home() / ".gameqakit" / self.name))
-        return Path(d)
+        explicit = self.data_dir or os.environ.get('GAMEQAKIT_DATA')
+        if explicit:
+            return Path(explicit).expanduser()
+        if sys.platform == 'darwin':
+            return Path.home() / 'Library/Application Support/game-qa-kit/data' / self.name
+        if sys.platform.startswith('linux'):
+            return Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share') / 'game-qa-kit' / self.name
+        if getattr(sys, 'frozen', False):
+            return Path(sys.executable).resolve().parent / 'data' / self.name
+        return Path.home() / '.gameqakit' / self.name
 
     @property
     def saves_dir(self) -> Path:
@@ -117,6 +122,12 @@ def save_profile(p: GameProfile) -> Path:
 
 
 def profiles_dir() -> Path:
+    if os.environ.get('GAMEQAKIT_PROFILES'):
+        return Path(os.environ['GAMEQAKIT_PROFILES']).expanduser()
+    if sys.platform == 'darwin':
+        return Path.home() / 'Library/Application Support/game-qa-kit/profiles'
+    if sys.platform.startswith('linux'):
+        return Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'game-qa-kit/profiles'
     if getattr(sys, 'frozen', False):
         return Path(sys.executable).resolve().parent / 'profiles'
     return _PROFILES_DIR

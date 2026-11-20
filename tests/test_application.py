@@ -31,13 +31,17 @@ class ApplicationTests(unittest.TestCase):
             run.assert_called_once_with('gameqakit.mcp_server', run_name='__main__', alter_sys=True)
 
     def test_frozen_profiles_and_default_data_are_beside_executable(self):
+        import tempfile
         from gameqakit import profile
-        with mock.patch.object(sys, 'frozen', True, create=True), \
-                mock.patch.object(sys, 'executable', 'E:/portable/GameQA.exe'):
-            self.assertEqual(profile.profiles_dir(), Path('E:/portable/profiles'))
-            with mock.patch.dict('os.environ', {}, clear=True):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            with mock.patch.object(sys, 'platform', 'win32'), \
+                    mock.patch.object(sys, 'frozen', True, create=True), \
+                    mock.patch.object(sys, 'executable', str(root / 'GameQA.exe')), \
+                    mock.patch.dict('os.environ', {}, clear=True):
+                self.assertEqual(profile.profiles_dir(), root / 'profiles')
                 self.assertEqual(profile.GameProfile(name='sample', proc='Game').data_path,
-                                 Path('E:/portable/data/sample'))
+                                 root / 'data/sample')
 
 
 if __name__ == '__main__':

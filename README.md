@@ -33,6 +33,10 @@
 
 请保留完整解压目录，EXE 需要旁边的 `_internal`。升级时解压到新目录，再迁移自己的 `profiles/` 和 `data/`；配置中另行指定的数据目录继续使用原路径。
 
+## macOS／Linux 通用测试版
+
+正在适配可直接打开的 macOS／Linux 测试包，x64 与 arm64 分别构建，无需另装 Python。此阶段提供配置、存档快照、已有证据复核与公共 MCP 工具；游戏窗口采集和后台控制暂仅在 Windows 开放。构建方式、验证口径及已知限制见 [通用版说明](docs/UNIVERSAL-BUILD.md)。测试包由手动 Actions 工作流生成，未并入现有 Windows Release。
+
 ## 让 AI 调用
 
 便携包内有两个入口：

@@ -8,6 +8,9 @@ import sys
 
 
 def check(report):
+    if sys.platform != 'win32':
+        from .startup_check import check as portable_check
+        return portable_check(report, require_frozen=True)
     from . import profile
     report.parent.mkdir(parents=True, exist_ok=True)
     result = {'frozen': bool(getattr(sys, 'frozen', False))}

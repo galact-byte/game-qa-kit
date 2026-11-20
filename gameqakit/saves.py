@@ -16,7 +16,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from .win32 import find_window
+from .platform_support import window_backend, require_windows
+
+find_window = window_backend.find_window
 
 
 def _ts() -> str:
@@ -118,6 +120,7 @@ def list_saves(saves_dir: Path) -> list[dict]:
 
 
 def is_game_running(proc: str) -> bool:
+    require_windows('游戏进程状态检查')
     try:
         find_window(proc)
         return True
@@ -127,6 +130,7 @@ def is_game_running(proc: str) -> bool:
 
 def kill_game(proc: str, pid: int | None = None) -> dict:
     """可靠终止游戏进程（subprocess 列参，避开 Git Bash 对 $ 变量的提前展开坑）。"""
+    require_windows('终止游戏进程')
     name = proc if proc.lower().endswith(".exe") else proc + ".exe"
     if pid is not None and (type(pid) is not int or pid <= 0):
         raise ValueError("目标 PID 必须是正整数")

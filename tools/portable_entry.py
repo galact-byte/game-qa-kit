@@ -6,6 +6,15 @@ import sys
 import traceback
 
 
+def _write_startup_error(message):
+    log = Path(sys.executable).resolve().parent / 'startup-error.log'
+    try:
+        log.write_text(message, encoding='utf-8')
+    except OSError:
+        return None
+    return log
+
+
 def main():
     multiprocessing.freeze_support()
     for name in ('stdout', 'stderr'):
@@ -19,14 +28,14 @@ def main():
         return application(args)
     except Exception:
         if not args:
-            import ctypes
-            log = Path(sys.executable).resolve().parent / 'startup-error.log'
-            try:
-                log.write_text(traceback.format_exc(), encoding='utf-8')
-                message = '启动失败，请查看：' + str(log)
-            except OSError:
-                message = traceback.format_exc()
-            ctypes.windll.user32.MessageBoxW(None, message, 'Game QA Kit', 0x10)
+            details = traceback.format_exc()
+            log = _write_startup_error(details)
+            message = '启动失败，请查看：' + str(log) if log else details
+            if sys.platform == 'win32':
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(None, message, 'Game QA Kit', 0x10)
+            else:
+                print(message, file=sys.stderr)
         else:
             traceback.print_exc()
         return 1

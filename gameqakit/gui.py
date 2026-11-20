@@ -14,10 +14,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from gameqakit import profile as _profile          # noqa: E402
-from gameqakit import win32, watch as _watch, saves as _saves, icons, sessions  # noqa: E402
+from gameqakit import watch as _watch, saves as _saves, icons, sessions  # noqa: E402
+from gameqakit.platform_support import window_backend as win32, require_windows  # noqa: E402
 
-from PyQt6.QtCore import Qt, QObject, QSize, QTimer, pyqtSignal  # noqa: E402
-from PyQt6.QtGui import QPixmap  # noqa: E402
+from PyQt6.QtCore import Qt, QObject, QSize, QTimer, QUrl, pyqtSignal  # noqa: E402
+from PyQt6.QtGui import QDesktopServices, QPixmap  # noqa: E402
 from PyQt6.QtWidgets import (  # noqa: E402
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox,
@@ -242,7 +243,14 @@ class ProfileDialog(QDialog):
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         bb.accepted.connect(self._on_ok); bb.rejected.connect(self.reject)
         form.addRow(bb)
-        self._refresh_processes()
+        if sys.platform == 'win32':
+            self._refresh_processes()
+        else:
+            intro.setText('手动填写配置名称、游戏标识和 QA 数据目录。\n'
+                          '可以配置存档目录并复核已有记录；游戏窗口采集暂未开放。')
+            self.cb_process.setEnabled(False)
+            refresh.setEnabled(False)
+            self.lb_process_hint.setText('当前通用版支持手动配置；自动读取游戏进程暂仅支持 Windows。')
 
     def _manual_process_changed(self):
         if self._selected:
@@ -381,8 +389,10 @@ class App(QMainWindow):
         sl.addLayout(prow)
         sl.addSpacing(10)
         sl.addWidget(QLabel("工具", objectName="sectionLabel"))
-        sl.addWidget(self._nav("search", "检测窗口", lambda: self._run(self._check_window)))
-        sl.addWidget(self._nav("play", "AI 后台接入", self._game_admission))
+        self.b_window = self._nav("search", "检测窗口", lambda: self._run(self._check_window))
+        self.b_admission = self._nav("play", "AI 后台接入", self._game_admission)
+        sl.addWidget(self.b_window)
+        sl.addWidget(self.b_admission)
         sl.addWidget(self._nav("database", "列出快照", lambda: self._run(self._list_saves)))
         sl.addWidget(self._nav("folder", "打开数据目录", self._open_data))
         sl.addStretch(1)
@@ -458,6 +468,17 @@ class App(QMainWindow):
         # 自定义下拉箭头(避免默认带边框方块) + 弹出列表圆角
         chevron = icons.save_png("chevron", "#8a9099", 24)
         self.setStyleSheet(QSS + f'\nQComboBox::down-arrow {{ image: url("{chevron}"); }}\n')
+        if sys.platform != 'win32':
+            notice = QLabel('通用测试版：可编辑配置、查看存档快照及复核已有证据。\n'
+                            '游戏窗口截图、持续采集与后台控制目前仅支持 Windows。')
+            notice.setWordWrap(True)
+            notice.setObjectName('hint')
+            ml.insertWidget(1, notice)
+            for widget in (self.b_window, self.b_admission, self.card_watch, self.card_mark,
+                           self.card_shot, self.e_interval, self.e_threshold,
+                           self.e_region, self.e_note, self.cb_analysis):
+                widget.setEnabled(False)
+                widget.setToolTip('此功能目前仅支持 Windows')
 
     # ---------------- 基础设施 ----------------
     def _log(self, msg):
@@ -482,6 +503,7 @@ class App(QMainWindow):
 
     # ---------------- 动作 ----------------
     def _game_admission(self):
+        require_windows('AI 后台接入')
         from .admission_gui import AdmissionDialog
         AdmissionDialog(self).exec()
 
@@ -584,6 +606,9 @@ class App(QMainWindow):
             self.card_watch.set_icon("play"); self.card_watch.set_text("开始盯屏", "自动留证，画面变化才截图")
 
     def _toggle_watch(self):
+        if sys.platform != 'win32':
+            self._log('游戏窗口采集目前仅支持 Windows')
+            return
         if self._watch_busy:
             return
         try:
@@ -630,10 +655,10 @@ class App(QMainWindow):
         self._watch_running = result.get("running", False)
         self._set_watch_state(self._watch_running)
         stopping = result.get("watch") == "stopping"
-        self.card_watch.setEnabled(not self._watch_busy and not stopping)
+        self.card_watch.setEnabled(sys.platform == 'win32' and not self._watch_busy and not stopping)
         if stopping:
             self.card_watch.set_text("停止中", "正在排空分析队列，证据会保留")
-        self.cb_analysis.setEnabled(not self._watch_running and not self._watch_busy)
+        self.cb_analysis.setEnabled(sys.platform == 'win32' and not self._watch_running and not self._watch_busy)
         counts = "  ·  ".join(f"{label} {result.get(key, 0)}" for label, key in (
             ("采集", "captured"), ("留图", "saved"), ("分析", "analyzed"),
             ("疑点", "suspects"), ("分析丢帧", "dropped"), ("积压", "queue_depth")))
@@ -684,9 +709,9 @@ class App(QMainWindow):
     def _open_data(self):
         if not self.profile:
             return
-        import os
         d = self.profile.data_path; d.mkdir(parents=True, exist_ok=True)
-        os.startfile(str(d))  # noqa: S606
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(d.resolve()))):
+            self._log(f"无法打开数据目录，请手动访问：{d}")
 
     def _show_thumb(self, path):
         pix = QPixmap(path)

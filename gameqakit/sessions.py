@@ -124,6 +124,8 @@ def watch_status(profile):
 
 
 def start_watch(profile, *, interval=2.0, threshold=4, region=None, downscale=None, analysis_mode="rules"):
+    from .platform_support import require_windows
+    require_windows('持续窗口采集')
     from .watch import validate_options
     options = dict(interval=interval, threshold=threshold, region=region,
                    downscale=downscale, analysis_mode=analysis_mode)

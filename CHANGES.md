@@ -1,5 +1,39 @@
 # 修改记录 — game-qa-kit
 
+## 2026-11-20 — macOS／Linux 公共入口与通用测试包
+
+### 背景与目标
+
+为 macOS／Linux 用户试用软件提供公共入口和原生构建配方；本阶段支持界面、配置、存档快照与已有证据复核，不迁移游戏后台控制。
+
+### 影响与兼容性
+
+- GUI、CLI、MCP 在非 Windows 上不再于导入阶段加载 Win32；窗口相关按钮禁用并说明原因，MCP 仅列出公共工具。
+- macOS 配置和数据使用用户的 Application Support 目录；Linux 遵循 XDG，支持显式环境变量覆盖。Windows 便携目录约定保持。
+- 侧栏打开数据目录改用 Qt 系统服务；非 Windows 启动失败时保留错误日志，不再调用 Windows 消息框。升级无需迁移游戏数据；回滚整批源码与构建文件即可，配置和证据仍保留在原数据目录。
+
+### 文件与实现
+
+| 操作 | 路径 | 说明 |
+| --- | --- | --- |
+| 新增 | `gameqakit/platform_support.py`、`gameqakit/startup_check.py` | 平台能力边界、实际创建界面并连接 MCP 的启动检查 |
+| 修改 | `gameqakit/{application,cli,gui,mcp_server,packaging_check,profile,saves,sessions,watch}.py` | 公共入口、可写目录、平台功能提示与运行期限制 |
+| 新增／修改 | `tests/test_platform_support.py`、`tests/test_startup_check.py`、`tests/test_application.py` | 禁止 Win32 导入、平台状态、配置路径及真实启动回归 |
+| 新增 | `tools/build_unix.py`、`tools/GameQA-unix.spec`、`tools/requirements-unix.txt`、`.github/workflows/universal-desktop.yml` | 四个原生目标、冻结产物自检、归档与摘要、手动 CI 构建 |
+| 修改 | `tools/portable_entry.py` | 非 Windows 启动异常不再调用 Win32 消息框，保留原始异常与日志 |
+| 新增／修改 | `tools/UNIVERSAL-README.md`、`tools/THIRD-PARTY.md`、`tools/licenses/Python-3.12.7.txt`、`docs/UNIVERSAL-BUILD.md`、`README.md`、`docs/ENGINE-COVERAGE.md` | 使用说明、许可、支持边界与构建入口 |
+
+### 验证
+
+- Windows 本机运行 `PYTHONPATH=tests python -X utf8 -B -m unittest tests.test_platform_support tests.test_startup_check tests.test_application tests.test_release_build tests.test_gui tests.test_core tests.test_sessions tests.test_monitoring tests.test_analysis tests.test_game_mcp -v`：73 项通过，无跳过；包括两平台禁用 Win32 导入、实际 Qt 窗口、配置与快照、报告、真实 MCP 子进程及非 Windows 启动异常记录。
+- 构建脚本与 spec 语法检查、`git diff --check` 通过。日志保留在 `<跨平台验证目录>/isolated-regression.log`。
+
+### 已知限制与后续
+
+- 原生远端构建与启动结果待对应 Actions 运行记录确认；本机的平台分支模拟不算 macOS／Linux 实机验收。
+- macOS 测试包仅临时签名、未公证；Linux x64／arm64 分别要求 glibc 2.35／2.39。较旧系统、Wayland 及用户日常桌面操作仍需验证。
+- Bakin 加载生命周期的隔离实现和未完成验收单独保留，不包含在本次通用版提交中。
+
 ## 2026-11-19 — Bakin 只读识别与自写样本前置核查
 
 - 联合检查 `bakinplayer.exe`／`bakinengine.dll` 的 MZ 头与 `data.rbpack` 的包签名，新增 `bakin_candidate` 识别；缺组件、签名不符均不认定。始终返回 `adapter=null`、`control_verified=false`，未增加启动、准备器或输入桥。新增正反与只读回归，Red／Green 日志留本地。
@@ -201,7 +235,6 @@
 - 固定运行时串行回归 19 项通过，真实 MCP 核对暂停首图、实际右移 40 像素、场景读取松键、黑屏停手，以及变更已准备 PCK 后拒绝启动。较早的并行批次中，独立桥有一次恢复后报 `lease_expired`；串行未复现，未确认根因，未改保护期限。
 - 常规 Python 回归 419 项通过、254 项跳过；MV/MZ 28 项通过；本地 Windows 便携构建自检验证桥脚本、冻结 worker、MCP 工具列表及 Qt 主窗口，不发布新版本。原始证据见 `<Godot验证目录>/managed-01/`。
 - 不分发运行时，不支持商业 PCK 或其他 Godot 版本；存读档、真人键鼠并发和长期稳定性未验。既有协议及其他引擎适配不变，无数据迁移；回滚接入提交即可恢复原识别状态。
-
 ## 2026-11-18 — KiriKiri 自写 KAG 输入与黑屏停手回归
 
 - `gameqakit/duration_host.py` 给已锁定且仍存活的故障会话写入确定的恢复失败回执，沿用原故障原因，不恢复输入、不采集新图，不改守卫、协议字段或生命周期期限；该监督器由 KiriKiri 与 Emuera 共用。

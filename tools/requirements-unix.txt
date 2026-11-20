@@ -1,0 +1,7 @@
+# 公共 GUI／MCP 与原生打包使用的固定依赖，不包含可选模型。
+Pillow==11.1.0
+PyQt6==6.10.0
+PyQt6-Qt6==6.10.0
+PyQt6-sip==13.10.2
+rubymarshal==1.2.10
+pyinstaller==6.16.0

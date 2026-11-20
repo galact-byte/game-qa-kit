@@ -17,7 +17,8 @@ import os
 import sys
 
 from . import profile as _profile
-from . import win32, watch as _watch
+from .platform_support import window_backend as win32, require_windows
+from . import watch as _watch
 
 
 def _resolve(args) -> _profile.GameProfile:
@@ -49,6 +50,7 @@ def _game(args):
     if args.operation == 'status':
         output(Manager().status(args.path))
         return 0
+    require_windows('受管游戏启动')
     plan = admission.make_plan(args.path, args.destination, artifacts=args.artifacts)
     if plan['fingerprint'] != args.fingerprint:
         raise ValueError('摘要已变化，请重新运行 game inspect 并确认')

@@ -1,0 +1,99 @@
+name: Universal desktop test builds
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '测试包版本，不创建 Release 或标签'
+        required: true
+        default: v0.4.1-universal-test
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: universal-desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - runner: macos-15-intel
+            platform: macos
+            arch: x64
+          - runner: macos-15
+            platform: macos
+            arch: arm64
+          - runner: ubuntu-22.04
+            platform: linux
+            arch: x64
+          - runner: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    env:
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      QT_QPA_PLATFORM: offscreen
+      BUILD_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12.7'
+          architecture: ${{ matrix.arch }}
+          cache: pip
+          cache-dependency-path: tools/requirements-unix.txt
+      - name: Install Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0
+          libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0
+          libxcb-xinerama0 xvfb
+      - name: Install pinned build requirements
+        run: python -m pip install --disable-pip-version-check --only-binary=:all: -r tools/requirements-unix.txt
+      - name: Run public-entry regressions
+        run: >-
+          python -X utf8 -B -m unittest tests.test_platform_support
+          tests.test_startup_check tests.test_application -v
+      - name: Build and check native package
+        run: python -X utf8 -B tools/build_unix.py --version "$BUILD_VERSION" --output "$RUNNER_TEMP/universal-build"
+      - name: Check Linux window on X11
+        if: runner.os == 'Linux'
+        run: >-
+          xvfb-run -a env QT_QPA_PLATFORM=xcb
+          "$RUNNER_TEMP/universal-build/dist/GameQA/GameQA"
+          --smoke-test "$RUNNER_TEMP/universal-build/desktop-check.json"
+      - name: Check macOS Cocoa window
+        if: runner.os == 'macOS'
+        run: >-
+          QT_QPA_PLATFORM=cocoa "$RUNNER_TEMP/universal-build/dist/GameQA.app/Contents/MacOS/GameQA"
+          --smoke-test "$RUNNER_TEMP/universal-build/desktop-check.json"
+      - name: Upload test package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: universal-${{ matrix.platform }}-${{ matrix.arch }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/universal-build/game-qa-kit-*.tar.gz
+            ${{ runner.temp }}/universal-build/SHA256SUMS.txt
+      - name: Upload startup evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: universal-${{ matrix.platform }}-${{ matrix.arch }}-checks
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/universal-build/self-test.json
+            ${{ runner.temp }}/universal-build/self-test.png
+            ${{ runner.temp }}/universal-build/desktop-check.json
+            ${{ runner.temp }}/universal-build/desktop-check.png
