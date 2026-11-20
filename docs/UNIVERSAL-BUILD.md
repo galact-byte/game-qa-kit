@@ -22,6 +22,8 @@ python -m pip install --only-binary=:all: -r tools/requirements-unix.txt
 python -B tools/build_unix.py --version v0.4.1-universal-test --output /path/to/new-build
 ```
 
+Linux 构建环境还须具备 `fonts-noto-cjk` 和 Qt X11 依赖（含 `libxcb-shape0`）；工作流安装这些构建依赖。Noto 字体与完整许可一起装入 Linux 包并由应用加载，不要求试用者自行安装中文字体。
+
 输出目录必须不存在，以免覆盖已有构建。构建脚本不安装依赖；PyInstaller 生成完整目录后，脚本从实际冻结程序执行 `--self-test`，创建界面、保存截图、验证配置与独立测试存档、生成证据报告并连接真实 MCP 子进程，然后打包 `.tar.gz` 并写入 SHA-256 摘要。macOS 说明写入 `.app` 后重新作临时签名并校验签名。
 
 下载后的用户无需 Python。Linux 解压后打开 `GameQA/GameQA`；macOS 解压后打开 `GameQA.app`。详细用户说明随包提供，源码见 [UNIVERSAL-README](../tools/UNIVERSAL-README.md)。
@@ -39,7 +41,7 @@ gh workflow run universal-desktop.yml --ref <构建分支> -f version=v0.4.1-uni
 ## 验证口径
 
 - 本机 Windows 的平台分支检查：禁止导入 Win32 模块后，分别模拟 `darwin`／`linux`，确认 GUI、CLI、MCP 公共入口可导入，平台专用功能禁用，公共功能可用。
-- 启动检查：实际创建并截图窗口，保存／读取配置，处理独立测试存档，生成报告，并通过子进程执行 MCP 握手与工具查询。
+- 启动检查：实际创建并截图窗口，检查中文字符覆盖，保存／读取配置，处理独立测试存档，生成报告，并通过子进程执行 MCP 握手与工具查询。
 - 原生构建记录：对应 Actions job、产物摘要、`self-test.json`、`desktop-check.json` 和截图。
 - 真实用户电脑：下载安全提示、文件管理器打开目录及日常操作反馈，不能仅凭 CI 建包成功声称全部通过。
 

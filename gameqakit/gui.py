@@ -18,7 +18,7 @@ from gameqakit import watch as _watch, saves as _saves, icons, sessions  # noqa:
 from gameqakit.platform_support import window_backend as win32, require_windows  # noqa: E402
 
 from PyQt6.QtCore import Qt, QObject, QSize, QTimer, QUrl, pyqtSignal  # noqa: E402
-from PyQt6.QtGui import QDesktopServices, QPixmap  # noqa: E402
+from PyQt6.QtGui import QDesktopServices, QFontDatabase, QPixmap  # noqa: E402
 from PyQt6.QtWidgets import (  # noqa: E402
     QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox,
@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import (  # noqa: E402
 
 ACCENT = "#2f6bff"
 QSS = f"""
-* {{ font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif; font-size: 13px; color: #1f2328; }}
+* {{ font-family: "Microsoft YaHei UI", "Segoe UI", "Noto Sans CJK SC", sans-serif; font-size: 13px; color: #1f2328; }}
 QMainWindow {{ background: #ffffff; }}
 #main {{ background: #ffffff; }}
 QLabel {{ background: transparent; }}
@@ -345,6 +345,10 @@ class ProfileDialog(QDialog):
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
+        if sys.platform == 'linux' and getattr(sys, 'frozen', False):
+            font = Path(sys._MEIPASS) / 'fonts/NotoSansCJK-Regular.ttc'
+            if not font.is_file() or QFontDatabase.addApplicationFont(str(font)) < 0:
+                raise RuntimeError('包内中文字体缺失或损坏，请重新解压完整的 Linux 测试包')
         self.profile = None
         self._watch_running = self._watch_busy = self._owns_watch = self._closing = False
         self._last_warning = self._last_error = ""

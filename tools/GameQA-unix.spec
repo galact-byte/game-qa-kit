@@ -10,6 +10,12 @@ licenses = [(str(ROOT / 'LICENSE'), 'licenses/game-qa-kit'),
             (str(ROOT / 'plugins/native_input/samples/srpgstudio-x86-fixed.json'),
              'plugins/native_input/samples')]
 metadata = []
+if sys.platform == 'linux':
+    font = Path('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc')
+    font_license = Path('/usr/share/doc/fonts-noto-cjk/copyright')
+    if not font.is_file() or not font_license.is_file():
+        raise RuntimeError('Linux 构建需要 fonts-noto-cjk，字体和许可必须同时存在')
+    licenses += [(str(font), 'fonts'), (str(font_license), 'licenses/NotoCJK')]
 for package in ('Pillow', 'PyQt6', 'PyQt6-Qt6', 'PyQt6-sip', 'rubymarshal', 'pyinstaller'):
     metadata += copy_metadata(package)
 a = Analysis([str(ROOT / 'tools/portable_entry.py')], pathex=[str(ROOT)], binaries=[],

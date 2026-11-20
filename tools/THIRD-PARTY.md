@@ -10,6 +10,7 @@
 | Qt 6 | https://www.qt.io/ | LGPLv3／GPLv3 及模块第三方许可，详见 PyQt6-Qt6 元数据与上游许可；保留动态共享库，允许依许可替换兼容库 |
 | rubymarshal | https://pypi.org/project/rubymarshal/ | 以捆绑 dist-info 中的上游许可与元数据为准 |
 | PyInstaller 引导程序 | https://pyinstaller.org/ | GPL 及引导程序分发例外；许可与例外文本随其 dist-info 保留 |
+| Noto Sans CJK（仅 Linux 包） | https://github.com/notofonts/noto-cjk | SIL Open Font License 1.1；随包保留构建系统 `fonts-noto-cjk` 的完整 copyright／许可，位于 `_internal/licenses/NotoCJK/`。字体以应用字体加载，无需用户另行安装。 |
 | Ruffle Web 自托管包 0.7.1（仅 Windows 包） | https://github.com/ruffle-rs/ruffle/releases/tag/v0.7.1 | MIT 或 Apache-2.0。上游原始 ZIP 随 `_internal/plugins/flash/` 分发，内含发布元数据及 `LICENSE_MIT`、`LICENSE_APACHE`。SHA-256 为 `ef12edbee135d581a9cd523837d746da30a07a64dbf1cf472d2e472c656f4b5e`。 |
 
 组合发行遵循上游开源许可，包括 PyQt6 的 GPLv3 义务。完整 GPLv3／LGPLv3 文本和 Python 许可随包保留：Windows／Linux 位于 `_internal/licenses/`，macOS 位于 `.app/Contents/Resources/licenses/`。本批 GameQA 主程序发行未修改上述组件；单独的 EasyRPG 验证运行时包含源码输入补丁，来源与构建方法见 `plugins/easyrpg/README.md`，对应源码及许可随本地运行时保存。项目源码和构建配方在 GitHub 公开，固定依赖见 `tools/requirements-windows.txt` 与 `tools/requirements-unix.txt`。正式发行源码以 Release 标签为准；通用测试包不创建 Release，其对应源码以 GitHub Actions 的构建提交为准。

@@ -22,7 +22,8 @@ def check(report: Path, *, require_frozen=False):
         from . import profile, saves, watch
         from .platform_support import info
         from .engines import inspect_game
-        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtWidgets import QApplication, QLabel
+        from PyQt6.QtGui import QTextLayout
         from .gui import App
         result.update(info())
         with tempfile.TemporaryDirectory(prefix='startup-', dir=report.parent) as directory:
@@ -72,6 +73,15 @@ def check(report: Path, *, require_frozen=False):
             window = App()
             window.show()
             app.processEvents()
+            layout = QTextLayout('盯屏巡检配置存档', window.findChild(QLabel, 'h1').font())
+            layout.beginLayout()
+            layout.createLine()
+            layout.endLayout()
+            runs = layout.glyphRuns()
+            result['chinese_glyphs'] = bool(runs) and all(
+                0 not in run.glyphIndexes() for run in runs)
+            if not result['chinese_glyphs']:
+                raise RuntimeError('界面字体缺少中文字符，无法交付可读界面')
             image = window.grab()
             if image.isNull() or not image.save(str(report.with_suffix('.png'))):
                 raise RuntimeError('界面创建或截图失败')

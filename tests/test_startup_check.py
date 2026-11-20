@@ -30,6 +30,7 @@ class StartupCheckTests(unittest.TestCase):
             self.assertTrue(result['profile_roundtrip'])
             self.assertTrue(result['save_snapshot'])
             self.assertTrue(result['evidence_report'])
+            self.assertTrue(result['chinese_glyphs'])
             self.assertGreater(result['mcp_tool_count'], 0)
             self.assertGreater(result['qt_window_size'][0], 0)
             self.assertTrue(report.with_suffix('.png').is_file())
@@ -66,6 +67,18 @@ gui.main()
             self.assertNotEqual(run.returncode, 0)
             self.assertTrue(report.is_file(), '失败也必须留下自检报告')
             self.assertFalse(json.loads(report.read_text(encoding='utf-8'))['ok'])
+
+    def test_frozen_linux_refuses_to_open_without_bundled_chinese_font(self):
+        from PyQt6.QtWidgets import QApplication
+        from gameqakit import gui
+        app = QApplication.instance() or QApplication([])
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(sys, 'platform', 'linux'), \
+                mock.patch.object(sys, 'frozen', True, create=True), \
+                mock.patch.object(sys, '_MEIPASS', directory, create=True):
+            with self.assertRaisesRegex(RuntimeError, '中文字体'):
+                gui.App()
+        app.processEvents()
 
     def test_unix_frozen_startup_failure_writes_log_without_win32_api(self):
         spec = importlib.util.spec_from_file_location(
