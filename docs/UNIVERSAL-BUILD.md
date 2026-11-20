@@ -13,6 +13,19 @@
 
 两个架构分别提供包，不提供合并架构包。Linux 目标分别要求 glibc 2.35／2.39；这来自构建环境与固定 Qt wheel 的最低要求，不包含 Alpine／musl 支持。macOS 使用临时签名，不具备开发者签名或公证；较旧 macOS、Wayland 桌面和各发行版的日常使用仍需反馈。
 
+## 已验证测试包
+
+版本 `v0.4.2-universal-test`，源码 `3532d01e61f7dc5261d24424769dd1e4e04e6b2b`。[运行 44746750109](https://github.com/galact-byte/game-qa-kit/actions/runs/44746750109) 的四个 job 全部通过，各平台 12 项公共入口回归、冻结程序自检及 Cocoa／X11 桌面启动检查通过；8 份结果 JSON 与四张桌面截图已回读，中文正常。
+
+| 平台 | 下载 artifact |
+| --- | --- |
+| macOS Apple Silicon | [universal-macos-arm64](https://github.com/galact-byte/game-qa-kit/actions/runs/44746750109/artifacts/14632958547) |
+| macOS Intel | [universal-macos-x64](https://github.com/galact-byte/game-qa-kit/actions/runs/44746750109/artifacts/14633417025) |
+| Linux x64 | [universal-linux-x64](https://github.com/galact-byte/game-qa-kit/actions/runs/44746750109/artifacts/14633152854) |
+| Linux arm64 | [universal-linux-arm64](https://github.com/galact-byte/game-qa-kit/actions/runs/44746750109/artifacts/14634081145) |
+
+Actions 下载需登录 GitHub；artifact 保留 14 天。每份下载包含 `.tar.gz` 程序包和 SHA-256 文件，解压外层下载文件后再解压程序包。用户真实桌面的日常交互与 Wayland 仍待反馈。
+
 ## 本地构建
 
 在目标系统、目标架构上准备 Python 3.12.7 及已有或经授权安装的依赖：

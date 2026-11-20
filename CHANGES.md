@@ -11,6 +11,7 @@
 - GUI、CLI、MCP 在非 Windows 上不再于导入阶段加载 Win32；窗口相关按钮禁用并说明原因，MCP 仅列出公共工具。
 - macOS 配置和数据使用用户的 Application Support 目录；Linux 遵循 XDG，支持显式环境变量覆盖。Windows 便携目录约定保持。
 - 侧栏打开数据目录改用 Qt 系统服务；非 Windows 启动失败时保留错误日志，不再调用 Windows 消息框。升级无需迁移游戏数据；回滚整批源码与构建文件即可，配置和证据仍保留在原数据目录。
+- Linux 包随附 Noto CJK 字体及完整许可并由应用加载，启动自检检查实际中文字形；原生 X11 构建环境补齐 `libxcb-shape0` 等依赖。
 
 ### 文件与实现
 
@@ -25,12 +26,13 @@
 
 ### 验证
 
-- Windows 本机运行 `PYTHONPATH=tests python -X utf8 -B -m unittest tests.test_platform_support tests.test_startup_check tests.test_application tests.test_release_build tests.test_gui tests.test_core tests.test_sessions tests.test_monitoring tests.test_analysis tests.test_game_mcp -v`：73 项通过，无跳过；包括两平台禁用 Win32 导入、实际 Qt 窗口、配置与快照、报告、真实 MCP 子进程及非 Windows 启动异常记录。
-- 构建脚本与 spec 语法检查、`git diff --check` 通过。日志保留在 `<跨平台验证目录>/isolated-regression.log`。
+- Windows 本机运行 `PYTHONPATH=tests python -X utf8 -B -m unittest tests.test_platform_support tests.test_startup_check tests.test_application tests.test_release_build tests.test_gui tests.test_core tests.test_sessions tests.test_monitoring tests.test_analysis tests.test_game_mcp tests.test_engines -v`：102 项通过，无跳过；覆盖入口、中文排版、配置与快照、报告、真实 MCP 子进程和既有 Windows 流程。
+- [原生验证运行 44746750109](https://github.com/galact-byte/game-qa-kit/actions/runs/44746750109) 基于源码 `3532d01e61f7dc5261d24424769dd1e4e04e6b2b`：四个平台各 12 项公共入口回归通过，四份冻结包的自检与 Cocoa／X11 桌面启动检查全部通过，8 份 JSON 与四张桌面截图已回读，中文显示正常。
+- 构建脚本与 spec 语法检查、YAML 解析和 `git diff --check` 通过。日志留在 `<跨平台验证目录>/font-green-regression.log`、`native-final.log` 和 `artifacts/final/`。
 
 ### 已知限制与后续
 
-- 原生远端构建与启动结果待对应 Actions 运行记录确认；本机的平台分支模拟不算 macOS／Linux 实机验收。
+- 四平台已取得原生构建与桌面启动证据；这仍不替代用户电脑的安装、安全提示与日常操作反馈。
 - macOS 测试包仅临时签名、未公证；Linux x64／arm64 分别要求 glibc 2.35／2.39。较旧系统、Wayland 及用户日常桌面操作仍需验证。
 - Bakin 加载生命周期的隔离实现和未完成验收单独保留，不包含在本次通用版提交中。
 
