@@ -83,6 +83,7 @@ def run(root, fixture, executable):
         (root/'desktop-proof.png').rename(root/f'{phase}-desktop.png')
         return row
     try:
+        result['phases'] = phases
         children.append(subprocess.Popen([str(fixture),'target',str(root)]))
         ready = wait_value(lambda: json.loads((root/'target-ready.json').read_text()), lambda x: 'window' in x)
         assert ready.get('rendering', {}).get('renderer') == renderer, ready
@@ -121,15 +122,18 @@ def run(root, fixture, executable):
                 (root/'freeze').unlink(); (root/'resize').touch()
                 wait_value(state, lambda x: x.get('width') == 400)
             rows = []
+            phases[phase] = rows
             for index in range(4):
                 path = root/f'{phase}-{index}.png'
+                target_before = state()
                 begin = time.monotonic()
                 response = client.call('capture', out=str(path))
                 with Image.open(path) as image:
                     counter = decode_counter(image.convert('RGB'))
                     size = list(image.size)
                 rows.append({'counter':counter,'size':size,'file':path.name,
-                             'elapsed_ms':(time.monotonic()-begin)*1000,'target':state(),'response':response})
+                             'elapsed_ms':(time.monotonic()-begin)*1000,'target_before':target_before,
+                             'target':state(),'response':response})
                 time.sleep(.35)
             counters = [x['counter'] for x in rows]
             if phase == 'frozen':
