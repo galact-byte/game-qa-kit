@@ -1,0 +1,53 @@
+name: X11 Occluded Capture Probe
+
+on:
+  push:
+    branches:
+      - experiment/x11-occluded-capture
+    paths:
+      - tools/probe_x11_capture.py
+      - .github/workflows/x11-capture-probe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: x11-capture-probe-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Record preinstalled environment
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/x11-probe"
+          {
+            uname -a
+            python3 --version
+            command -v xvfb-run
+            command -v timeout
+            ldconfig -p
+          } > "$RUNNER_TEMP/x11-probe/environment.txt" 2>&1
+      - name: Capture target pixmap while another process covers it
+        shell: bash
+        run: |
+          timeout --signal=TERM --kill-after=5s 60s \
+            xvfb-run -a -s "-screen 0 1024x768x24 -nolisten tcp +extension Composite" \
+            python3 -B tools/probe_x11_capture.py \
+            --output "$RUNNER_TEMP/x11-probe/frames" \
+            > "$RUNNER_TEMP/x11-probe/probe.log" 2>&1
+      - name: Upload probe evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: x11-capture-probe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/x11-probe
+          if-no-files-found: error
+          retention-days: 14
