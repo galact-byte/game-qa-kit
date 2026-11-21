@@ -174,7 +174,8 @@ class MacOSCaptureSession:
             while not self.stop.is_set():
                 started = time.monotonic()
                 row, payload = self.pipe.request({'op': 'capture', 'source': self.target})
-                if _identity(row.get('source')) != self.source.source_id:
+                if (_identity(row.get('source')) != self.source.source_id
+                        or row['source'].get('exe_path') != self.target.get('exe_path')):
                     raise CaptureEnded('目标窗口来源变化，请重新选择')
                 serial = row.get('sequence')
                 if type(serial) is not int or serial <= sequence:

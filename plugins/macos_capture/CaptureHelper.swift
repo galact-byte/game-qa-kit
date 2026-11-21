@@ -72,6 +72,9 @@ func windowIdentity(_ window: SCWindow) throws -> [String: Any] {
                      Int((filter.contentRect.height * scale).rounded(.up))]]
 }
 
+#if !GAMEQA_NONISOLATED_CAPTURE
+@MainActor
+#endif
 @available(macOS 14.0, *)
 func execute(_ request: [String: Any], sequence: inout Int) async throws {
     guard CGPreflightScreenCaptureAccess() else {
@@ -108,7 +111,10 @@ func execute(_ request: [String: Any], sequence: inout Int) async throws {
             throw CaptureFailure(code: "window_closed")
         }
         var identity = try windowIdentity(window)
-        guard identity["started_at"] as? String == stamp else { throw CaptureFailure(code: "source_changed") }
+        guard identity["started_at"] as? String == stamp,
+              identity["exe_path"] as? String == wanted["exe_path"] as? String else {
+            throw CaptureFailure(code: "source_changed")
+        }
         guard let rows = CGWindowListCopyWindowInfo(.optionIncludingWindow, window.windowID) as? [[String: Any]],
               let record = rows.first, (record[kCGWindowOwnerPID as String] as? Int) == pid else {
             throw CaptureFailure(code: "window_closed")
@@ -133,8 +139,14 @@ func execute(_ request: [String: Any], sequence: inout Int) async throws {
         diagnostic("recheck.begin")
         let refreshed = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
         diagnostic("recheck.end")
-        guard let same = refreshed.windows.first(where: { $0.windowID == window.windowID && $0.owningApplication?.processID == pid_t(pid) }),
-              try windowIdentity(same)["started_at"] as? String == stamp else { throw CaptureFailure(code: "source_changed") }
+        guard let same = refreshed.windows.first(where: { $0.windowID == window.windowID && $0.owningApplication?.processID == pid_t(pid) }) else {
+            throw CaptureFailure(code: "source_changed")
+        }
+        let rechecked = try windowIdentity(same)
+        guard rechecked["started_at"] as? String == stamp,
+              rechecked["exe_path"] as? String == wanted["exe_path"] as? String else {
+            throw CaptureFailure(code: "source_changed")
+        }
         guard let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else {
             throw CaptureFailure(code: "png_encode_failed")
         }

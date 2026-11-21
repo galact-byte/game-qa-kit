@@ -60,6 +60,10 @@ class MacOSCaptureTests(unittest.TestCase):
                     self.frame(session)
                 session.close()
 
+    def test_executable_change_with_same_pid_and_start_time_is_terminal(self):
+        with self.assertRaisesRegex(CaptureEnded, '来源变化'):
+            self.frame(self.session('changed_path'))
+
     def test_permission_failure_has_recovery_message(self):
         with self.assertRaisesRegex(CaptureEnded, '屏幕录制'):
             self.frame(self.session('permission'))

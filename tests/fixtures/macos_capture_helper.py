@@ -38,6 +38,8 @@ for line in sys.stdin.buffer:
         row = {'version': 1, 'ok': False, 'error': 'permission_denied', 'payload_bytes': 0}
     if scenario == 'changed':
         row['source']['started_at'] = '101.25'
+    if scenario == 'changed_path':
+        row['source']['exe_path'] = '/tmp/Replacement'
     if scenario == 'bad_png':
         payload = b'bad png'
         row['payload_bytes'] = len(payload)
