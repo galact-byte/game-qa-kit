@@ -69,15 +69,20 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
     var completedCommands = 0
     var gpuFailure = ""
     var presentations = [[String: Any]]()
+    var readbackRecords = [[String: Any]]()
+    var readbackFailure = ""
+    let readbackRoot: URL?
     let transactionalPresentation = ProcessInfo.processInfo.environment["GAMEQA_PROBE_METAL_TRANSACTION"] == "1"
     var rendererInfo: [String: Any] {
         gpuLock.lock(); defer { gpuLock.unlock() }
         return ["renderer": "metal", "gpu": device?.name ?? "unknown",
                 "completed_commands": completedCommands, "gpu_error": gpuFailure,
-                "presentations": presentations]
+                "presentations": presentations, "gpu_readbacks": readbackRecords,
+                "readback_error": readbackFailure, "readback_enabled": readbackRoot != nil]
     }
 
-    init(probeGPU gpu: MTLDevice) throws {
+    init(probeGPU gpu: MTLDevice, evidenceRoot: URL) throws {
+        readbackRoot = ProcessInfo.processInfo.environment["GAMEQA_PROBE_GPU_READBACK"] == "1" ? evidenceRoot : nil
         guard let queue = gpu.makeCommandQueue() else {
             throw ProbeError("Metal command queue unavailable")
         }
@@ -107,6 +112,7 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
         commandQueue = queue
         super.init(frame: .zero, device: gpu)
         colorPixelFormat = .bgra8Unorm
+        if readbackRoot != nil { framebufferOnly = false }
         isPaused = true
         enableSetNeedsDisplay = false
         delegate = self
@@ -134,6 +140,26 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         encoder.endEncoding()
         let renderedCounter = counter
+        // Diagnostic only: copy the rendered middle row before presentation, without a CPU wait.
+        var readbackBuffer: MTLBuffer?
+        let textureWidth = drawable.texture.width
+        let rowBytes = ((textureWidth * 4 + 255) / 256) * 256
+        if readbackRoot != nil && renderedCounter <= 256 {
+            if let buffer = device?.makeBuffer(length: rowBytes, options: .storageModeShared),
+               let blit = command.makeBlitCommandEncoder() {
+                memset(buffer.contents(), 0, rowBytes)
+                blit.copy(from: drawable.texture, sourceSlice: 0, sourceLevel: 0,
+                          sourceOrigin: MTLOrigin(x: 0, y: drawable.texture.height / 2, z: 0),
+                          sourceSize: MTLSize(width: textureWidth, height: 1, depth: 1),
+                          to: buffer, destinationOffset: 0, destinationBytesPerRow: rowBytes,
+                          destinationBytesPerImage: rowBytes)
+                blit.endEncoding()
+                readbackBuffer = buffer
+            } else {
+                gpuLock.lock(); readbackFailure = "GPU readback buffer or blit encoder unavailable"; gpuLock.unlock()
+            }
+        }
+        let completedReadback = readbackBuffer
         drawable.addPresentedHandler { [weak self] presented in
             guard let self = self else { return }
             self.gpuLock.lock(); defer { self.gpuLock.unlock() }
@@ -145,6 +171,24 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
         if !transactionalPresentation { command.present(drawable) }
         command.addCompletedHandler { [weak self] completed in
             guard let self = self else { return }
+            if let root = self.readbackRoot, let buffer = completedReadback,
+               completed.status == .completed {
+                do {
+                    let filename = "gpu-readback-\(renderedCounter).bgra"
+                    try Data(bytes: buffer.contents(), count: rowBytes).write(
+                        to: root.appendingPathComponent(filename), options: .atomic)
+                    let row: [String: Any] = ["counter": renderedCounter, "width": textureWidth,
+                                             "row_bytes": rowBytes, "file": filename,
+                                             "gpu_status": "completed"]
+                    try saveJSON(row, root.appendingPathComponent("gpu-readback-\(renderedCounter).json"))
+                    self.gpuLock.lock()
+                    self.readbackRecords.append(row)
+                    self.readbackRecords = Array(self.readbackRecords.suffix(16))
+                    self.gpuLock.unlock()
+                } catch {
+                    self.gpuLock.lock(); self.readbackFailure = String(describing: error); self.gpuLock.unlock()
+                }
+            }
             self.gpuLock.lock(); defer { self.gpuLock.unlock() }
             if completed.status == .completed { self.completedCommands += 1 }
             if let error = completed.error { self.gpuFailure = error.localizedDescription }
@@ -170,7 +214,7 @@ final class Fixture: NSObject, NSApplicationDelegate {
         do {
             if !cover && ProcessInfo.processInfo.environment["GAMEQA_PROBE_RENDERER"] == "metal" {
                 guard let gpu = MTLCreateSystemDefaultDevice() else { throw ProbeError("Metal device unavailable") }
-                let metal = try MetalCounterView(probeGPU: gpu)
+                let metal = try MetalCounterView(probeGPU: gpu, evidenceRoot: root)
                 view = metal; renderer = metal
             } else {
                 let appkit = CounterView(cover: cover)

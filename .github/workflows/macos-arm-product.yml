@@ -49,7 +49,7 @@ jobs:
         run: >-
           python -X utf8 -B -m unittest tests.test_macos_capture tests.test_macos_entry
           tests.test_capture_session tests.test_platform_support tests.test_application
-          tests.test_release_assembly tests.test_release_build -v
+          tests.test_release_assembly tests.test_release_build tests.test_metal_readback -v
       - name: Verify native helper failure and recovery paths
         run: >-
           python -X utf8 -B tools/verify_macos_native_failures.py --root product-output/native-failures
@@ -110,12 +110,15 @@ jobs:
         env:
           GAMEQA_PROBE_RENDERER: metal
         run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source-metal --fixture product-output/native/fixture
-      - name: Compare source Metal capture while keeping the main thread available
+      - name: Diagnose source Metal pixels before presentation
         if: ${{ !cancelled() }}
         env:
           GAMEQA_PROBE_RENDERER: metal
-          GAMEQAKIT_NATIVE_ASYNC_STDIN: '1'
-        run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source-metal-async-stdin --fixture product-output/native/fixture
+          GAMEQA_PROBE_GPU_READBACK: '1'
+        run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source-metal-readback --fixture product-output/native/fixture
+      - name: Independently decode source GPU readback bytes
+        if: ${{ !cancelled() }}
+        run: python -X utf8 -B tools/verify_metal_readback.py product-output/source-metal-readback > product-output/source-metal-readback-verification.json
       - name: Build arm64 application with native capture component
         if: ${{ !cancelled() }}
         run: python -X utf8 -B tools/build_unix.py --version v0.4.3-macos-capture-test --output "$RUNNER_TEMP/macos-product-build"
@@ -148,15 +151,18 @@ jobs:
           python -X utf8 -B tools/verify_macos_product.py --root product-output/frozen-metal
           --fixture product-output/native/fixture
           --executable "$RUNNER_TEMP/macos-product-build/dist/GameQA.app/Contents/MacOS/GameQA"
-      - name: Compare frozen Metal capture while keeping the main thread available
+      - name: Diagnose frozen Metal pixels before presentation
         if: ${{ !cancelled() }}
         env:
           GAMEQA_PROBE_RENDERER: metal
-          GAMEQAKIT_NATIVE_ASYNC_STDIN: '1'
+          GAMEQA_PROBE_GPU_READBACK: '1'
         run: >-
-          python -X utf8 -B tools/verify_macos_product.py --root product-output/frozen-metal-async-stdin
+          python -X utf8 -B tools/verify_macos_product.py --root product-output/frozen-metal-readback
           --fixture product-output/native/fixture
           --executable "$RUNNER_TEMP/macos-product-build/dist/GameQA.app/Contents/MacOS/GameQA"
+      - name: Independently decode frozen GPU readback bytes
+        if: ${{ !cancelled() }}
+        run: python -X utf8 -B tools/verify_metal_readback.py product-output/frozen-metal-readback > product-output/frozen-metal-readback-verification.json
       - name: Verify Cocoa UI
         if: ${{ !cancelled() }}
         run: >-
