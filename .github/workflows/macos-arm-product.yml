@@ -2,6 +2,11 @@ name: macOS arm64 product capture validation
 
 on:
   workflow_dispatch:
+    inputs:
+      frame_timing_only:
+        description: Run only the independent frame timing diagnostic
+        type: boolean
+        default: false
   push:
     branches: [feature/macos-arm-capture-product]
     paths:
@@ -19,6 +24,7 @@ permissions:
 
 jobs:
   product:
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.frame_timing_only }}
     runs-on: macos-15
     timeout-minutes: 25
     env:
@@ -183,4 +189,72 @@ jobs:
             ${{ runner.temp }}/macos-product-build/game-qa-kit-*.tar.gz
             ${{ runner.temp }}/macos-product-build/SHA256SUMS.txt
             ${{ runner.temp }}/macos-product-build/self-test.*
+          retention-days: 14
+
+  frame-timing:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.frame_timing_only }}
+    runs-on: macos-15
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Compile independent fixture
+        run: |
+          mkdir -p frame-timing/native
+          uname -a > frame-timing/environment.txt
+          sw_vers >> frame-timing/environment.txt
+          test "$(uname -m)" = arm64
+          xcrun swiftc -parse-as-library -swift-version 5 -O tools/probe_macos_capture.swift -o frame-timing/native/fixture -framework AppKit -framework ScreenCaptureKit -framework CoreMedia -framework CoreVideo -framework CoreImage -framework Metal -framework MetalKit
+      - name: Collect bounded image and sample-buffer controls
+        run: |
+          python3 -B - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import signal
+          import subprocess
+
+          fixture = Path('frame-timing/native/fixture').resolve()
+          for name, renderer, sample_buffer in [
+              ('metal-image', 'metal', False),
+              ('metal-sample-buffer', 'metal', True),
+              ('appkit-sample-buffer', 'appkit', True),
+          ]:
+              root = Path('frame-timing', name).resolve()
+              root.mkdir(exist_ok=False)
+              env = dict(os.environ, GAMEQA_CAPTURE_MODE='snapshot',
+                         GAMEQA_PROBE_PRODUCT_CADENCE='1', GAMEQA_PROBE_RENDERER=renderer)
+              if sample_buffer:
+                  env['GAMEQA_PROBE_SAMPLE_BUFFER'] = '1'
+              cleanup = {'timed_out': False}
+              with (root / 'run.log').open('wb') as log:
+                  process = subprocess.Popen([str(fixture), 'capture', str(root)],
+                                             stdout=log, stderr=subprocess.STDOUT,
+                                             start_new_session=True, env=env)
+                  try:
+                      process.wait(timeout=100)
+                  except subprocess.TimeoutExpired:
+                      cleanup['timed_out'] = True
+                  finally:
+                      try:
+                          os.killpg(process.pid, signal.SIGTERM)
+                          cleanup['remaining_group_terminated'] = True
+                      except ProcessLookupError:
+                          cleanup['remaining_group_terminated'] = False
+                      try:
+                          process.wait(timeout=5)
+                      except subprocess.TimeoutExpired:
+                          os.killpg(process.pid, signal.SIGKILL)
+                          process.wait(timeout=5)
+                          cleanup['forced_kill'] = True
+                      cleanup['parent_exit_code'] = process.returncode
+                      (root / 'watchdog.json').write_text(json.dumps(cleanup, indent=2))
+              assert not cleanup['timed_out'], (name, cleanup)
+              assert (root / 'result.json').is_file(), name
+          PY
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: metal-frame-timing-evidence
+          path: frame-timing/
           retention-days: 14

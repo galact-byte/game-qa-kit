@@ -24,6 +24,10 @@ macOS arm64 产品工作流保留源码／冻结两组默认 Metal 验收，分�
 
 新证据证明诊断组纹理中有对应的新内容；仍不能在 drawable 呈现与系统采集输出之间确定唯一根因。所有呈现回调的 `presented_time` 仍为 0。证据为 `<macOS产品实施目录>/cloud-24/independent-metal-readback-review.json`，默认组与诊断组分别保留，不重复已否定的 stdin 对照。
 
+Apple 对 [`MTLDrawable.presentedTime`](https://developer.apple.com/documentation/metal/mtldrawable/presentedtime) 的定义明确指出，0 既可能表示尚未呈现，也可能表示该帧被丢弃；单独这个值不能确定帧被丢弃或唯一故障原因。夹具当前的事务分支已按 [`presentsWithTransaction`](https://developer.apple.com/documentation/quartzcore/cametallayer/presentswithtransaction) 要求先提交、等待排程，再直接调用 drawable 的 `present()`，默认分支仍采用命令缓冲区呈现。该实现无需再次修改；cloud-19 的事务对照遮挡计数 `14、14、23、23` 已失败，flush 对照也已在 cloud-18／19 失败，不重复运行。
+
+目标原生记录报告的 GPU 为 `Apple Paravirtual device`。这是当前云端环境的实际属性，不能据此认定虚拟 GPU 是根因；也不能以本地单元测试代替物理 GPU／普通授权桌面证据。下一层需要能区分呈现与系统采集的新增原生观测，或具备对照条件的真实 arm64 桌面，不能仅重跑已有开关。
+
 同批 AppKit 源码／冻结产品链独立核对 33／37 张 PNG，原生故障链各 11 项、各回收 12 个辅助进程。当前源码完整回归 966 项，652 通过、314 环境跳过、零失败，运行 198.089 秒；跳过项与未通过的 Metal 原生链不计入支持结论。
 
 ## 回退

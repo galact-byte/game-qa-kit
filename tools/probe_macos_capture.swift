@@ -6,6 +6,7 @@ import CoreVideo
 import CoreImage
 import QuartzCore
 import MetalKit
+import Darwin
 
 struct ProbeError: Error, CustomStringConvertible {
     let description: String
@@ -140,6 +141,7 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         encoder.endEncoding()
         let renderedCounter = counter
+        let submittedMach = mach_absolute_time()
         // Diagnostic only: copy the rendered middle row before presentation, without a CPU wait.
         var readbackBuffer: MTLBuffer?
         let textureWidth = drawable.texture.width
@@ -165,7 +167,9 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
             self.gpuLock.lock(); defer { self.gpuLock.unlock() }
             self.presentations.append(["counter": renderedCounter,
                                        "drawable_id": presented.drawableID,
-                                       "presented_time": presented.presentedTime])
+                                       "presented_time": presented.presentedTime,
+                                       "submitted_mach": submittedMach,
+                                       "callback_mach": mach_absolute_time()])
             self.presentations = Array(self.presentations.suffix(16))
         }
         if !transactionalPresentation { command.present(drawable) }
@@ -253,6 +257,7 @@ final class Fixture: NSObject, NSApplicationDelegate {
                 }
                 try? saveJSON(["counter": renderer.counter, "draws": renderer.draws,
                                "rendering": renderer.rendererInfo,
+                               "recorded_mach": mach_absolute_time(),
                                "occlusion_visible": window.occlusionState.contains(.visible),
                                "width": window.frame.width, "height": window.frame.height],
                               root.appendingPathComponent("target-state.json"))
@@ -270,6 +275,24 @@ final class Frames: NSObject, SCStreamOutput, SCStreamDelegate {
     var failure: String?
     var statuses = [String: Int]()
     var snapshotLatencies = [Double]()
+    var sampleRecords = [[String: Any]]()
+    func recordSample(_ buffer: CMSampleBuffer, started: UInt64, ended: UInt64) {
+        let attachments = CMSampleBufferGetSampleAttachmentsArray(buffer, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]]
+        let info = attachments?.first
+        var timebase = mach_timebase_info_data_t()
+        mach_timebase_info(&timebase)
+        let pts = buffer.presentationTimeStamp.seconds
+        let row: [String: Any] = [
+            "request_mach": started, "returned_mach": ended,
+            "timebase_numer": timebase.numer, "timebase_denom": timebase.denom,
+            "pts_seconds": pts.isFinite ? pts as Any : NSNull(),
+            "display_time_mach": info?[.displayTime] ?? NSNull(),
+            "status": info?[.status] ?? NSNull(),
+            "attachments_present": info != nil]
+        lock.lock(); defer { lock.unlock() }
+        sampleRecords.append(row)
+        sampleRecords = Array(sampleRecords.suffix(64))
+    }
     func acceptSnapshot(_ snapshot: CGImage, elapsed: Double) {
         lock.lock(); defer { lock.unlock() }
         serial += 1; image = snapshot; timestamp = ProcessInfo.processInfo.systemUptime
@@ -278,7 +301,7 @@ final class Frames: NSObject, SCStreamOutput, SCStreamDelegate {
     func diagnostics() -> [String: Any] {
         lock.lock(); defer { lock.unlock() }
         return ["complete_frames": serial, "statuses": statuses, "failure": failure ?? "",
-                "snapshot_latencies_ms": snapshotLatencies]
+                "snapshot_latencies_ms": snapshotLatencies, "sample_records": sampleRecords]
     }
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         lock.lock(); failure = String(describing: error); lock.unlock()
@@ -365,7 +388,8 @@ func collect(_ name: String, frames: Frames, root: URL, frozen: Bool = false,
         let stateData = try Data(contentsOf: root.appendingPathComponent("target-state.json"))
         let state = try JSONSerialization.jsonObject(with: stateData)
         rows.append(["file": file, "counter": counter, "serial": serial, "pts": timestamp,
-                     "width": image.width, "height": image.height, "target_state": state])
+                     "width": image.width, "height": image.height, "target_state": state,
+                     "frame_diagnostics": frames.diagnostics()])
         try saveJSON(["rows": rows], root.appendingPathComponent("\(name)-samples.json"))
     }
     if frozen {
@@ -496,7 +520,20 @@ struct Probe {
                     } else {
                         snapshotFilter = filter
                     }
-                    let image = try await SCScreenshotManager.captureImage(contentFilter: snapshotFilter, configuration: config)
+                    let image: CGImage
+                    if ProcessInfo.processInfo.environment["GAMEQA_PROBE_SAMPLE_BUFFER"] == "1" {
+                        let requestMach = mach_absolute_time()
+                        let buffer = try await SCScreenshotManager.captureSampleBuffer(contentFilter: snapshotFilter, configuration: config)
+                        frames.recordSample(buffer, started: requestMach, ended: mach_absolute_time())
+                        guard let pixels = buffer.imageBuffer else { throw ProbeError("Screenshot sample has no image buffer") }
+                        let ci = CIImage(cvPixelBuffer: pixels)
+                        guard let cg = frames.context.createCGImage(ci, from: ci.extent) else {
+                            throw ProbeError("Screenshot sample image conversion failed")
+                        }
+                        image = cg
+                    } else {
+                        image = try await SCScreenshotManager.captureImage(contentFilter: snapshotFilter, configuration: config)
+                    }
                     frames.acceptSnapshot(image, elapsed: ProcessInfo.processInfo.systemUptime - started)
                 }
                 try await sample?()
