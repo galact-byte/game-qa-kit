@@ -31,7 +31,8 @@ jobs:
           cache: pip
           cache-dependency-path: tools/requirements-unix.txt
       - name: Install existing pinned requirements
-        run: python -m pip install --disable-pip-version-check --only-binary=:all: -r tools/requirements-unix.txt
+        run: >-
+          python -m pip install --disable-pip-version-check --only-binary=:all: -r tools/requirements-unix.txt
       - name: Compile native component and independent windows
         run: |
           mkdir -p product-output/native
