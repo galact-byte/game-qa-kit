@@ -43,6 +43,15 @@ func readRequest() throws -> [String: Any]? {
     return nil
 }
 
+func asyncReadRequest() async throws -> [String: Any]? {
+    try await withCheckedThrowingContinuation { continuation in
+        DispatchQueue.global(qos: .userInitiated).async {
+            do { continuation.resume(returning: try readRequest()) }
+            catch { continuation.resume(throwing: error) }
+        }
+    }
+}
+
 @available(macOS 14.0, *)
 func windowIdentity(_ window: SCWindow) throws -> [String: Any] {
     guard let app = window.owningApplication else { throw CaptureFailure(code: "missing_owner") }
@@ -153,7 +162,14 @@ struct CaptureHelper {
         }
         var sequence = 0
         do {
-            while let request = try readRequest() {
+            while true {
+                let request: [String: Any]?
+                if ProcessInfo.processInfo.environment["GAMEQAKIT_NATIVE_ASYNC_STDIN"] == "1" {
+                    request = try await asyncReadRequest()
+                } else {
+                    request = try readRequest()
+                }
+                guard let request else { break }
                 let watchdog = DispatchSource.makeTimerSource(queue: .global())
                 watchdog.schedule(deadline: .now() + 4)
                 watchdog.setEventHandler { _exit(124) }

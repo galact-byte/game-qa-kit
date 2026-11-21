@@ -10,12 +10,12 @@ import subprocess
 def run(fixture, output):
     output.mkdir(parents=True, exist_ok=False)
     summaries = []
-    for name, refresh in [('reference', False), ('refreshed-filter', True)]:
+    for name, extra in [('reference', {}), ('default-config', {'GAMEQA_PROBE_DEFAULT_CONFIG': '1'}),
+                        ('exclude-desktop', {'GAMEQA_PROBE_EXCLUDE_DESKTOP': '1'})]:
         root = output/name
         root.mkdir()
-        env = {**os.environ, 'GAMEQA_CAPTURE_MODE': 'snapshot',
-               'GAMEQA_PROBE_REFRESH_FILTER': '1' if refresh else '0'}
-        row = {'name': name, 'refresh_filter': refresh, 'timed_out': False}
+        env = {**os.environ, 'GAMEQA_CAPTURE_MODE': 'snapshot', **extra}
+        row = {'name': name, 'options': extra, 'timed_out': False}
         with (root/'run.log').open('wb') as log:
             process = subprocess.Popen([str(fixture), 'capture', str(root)], env=env,
                                        stdout=log, stderr=subprocess.STDOUT, start_new_session=True)

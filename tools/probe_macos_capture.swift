@@ -398,7 +398,8 @@ struct Probe {
             let target = try launch("target", root: root); children.append(target)
             let ready = try await waitReady(root.appendingPathComponent("target-ready.json"), process: target)
             try await pause(0.5)
-            let updated = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+            let updated = try await SCShareableContent.excludingDesktopWindows(
+                ProcessInfo.processInfo.environment["GAMEQA_PROBE_EXCLUDE_DESKTOP"] == "1", onScreenWindowsOnly: false)
             guard let window = updated.windows.first(where: { $0.windowID == UInt32(ready["window"] as! Int) && $0.owningApplication?.processID == target.processIdentifier }) else {
                 throw ProbeError("Target not found by pid/window id")
             }
@@ -408,8 +409,10 @@ struct Probe {
             let config = SCStreamConfiguration()
             config.width = 320; config.height = 180; config.showsCursor = false
             config.pixelFormat = kCVPixelFormatType_32BGRA
-            config.minimumFrameInterval = CMTime(value: 1, timescale: 20)
-            config.queueDepth = 3
+            if ProcessInfo.processInfo.environment["GAMEQA_PROBE_DEFAULT_CONFIG"] != "1" {
+                config.minimumFrameInterval = CMTime(value: 1, timescale: 20)
+                config.queueDepth = 3
+            }
             config.ignoreShadowsSingleWindow = true
             let sample: (() async throws -> Void)?
             if mode == "snapshot" {
