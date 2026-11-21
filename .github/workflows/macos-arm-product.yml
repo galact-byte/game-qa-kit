@@ -110,6 +110,12 @@ jobs:
         env:
           GAMEQA_PROBE_RENDERER: metal
         run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source-metal --fixture product-output/native/fixture
+      - name: Compare source Metal capture while keeping the main thread available
+        if: ${{ !cancelled() }}
+        env:
+          GAMEQA_PROBE_RENDERER: metal
+          GAMEQAKIT_NATIVE_ASYNC_STDIN: '1'
+        run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source-metal-async-stdin --fixture product-output/native/fixture
       - name: Build arm64 application with native capture component
         if: ${{ !cancelled() }}
         run: python -X utf8 -B tools/build_unix.py --version v0.4.3-macos-capture-test --output "$RUNNER_TEMP/macos-product-build"
@@ -140,6 +146,15 @@ jobs:
           GAMEQA_PROBE_RENDERER: metal
         run: >-
           python -X utf8 -B tools/verify_macos_product.py --root product-output/frozen-metal
+          --fixture product-output/native/fixture
+          --executable "$RUNNER_TEMP/macos-product-build/dist/GameQA.app/Contents/MacOS/GameQA"
+      - name: Compare frozen Metal capture while keeping the main thread available
+        if: ${{ !cancelled() }}
+        env:
+          GAMEQA_PROBE_RENDERER: metal
+          GAMEQAKIT_NATIVE_ASYNC_STDIN: '1'
+        run: >-
+          python -X utf8 -B tools/verify_macos_product.py --root product-output/frozen-metal-async-stdin
           --fixture product-output/native/fixture
           --executable "$RUNNER_TEMP/macos-product-build/dist/GameQA.app/Contents/MacOS/GameQA"
       - name: Verify Cocoa UI
