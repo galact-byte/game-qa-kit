@@ -188,7 +188,8 @@ class CaptureSessionTests(unittest.TestCase):
         def event(row):
             if row.get("polls", 0) >= 3:
                 stop.set()
-        with mock.patch.object(watch, "find_window", side_effect=[123, 456, 456]), \
+        with mock.patch.object(watch.sys, "platform", "win32"), \
+             mock.patch.object(watch, "find_window", side_effect=[123, 456, 456]), \
              mock.patch.object(watch, "grab_image", return_value=Image.new("RGB", (80, 60), "gray")), \
              mock.patch.object(watch, "window_text", return_value=""):
             result = watch.watch(self.out, "test", self.state, interval=0.01,
