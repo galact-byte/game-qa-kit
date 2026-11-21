@@ -33,6 +33,7 @@ class GameProfile:
     notes: str = ""
     exe_path: str | None = None                 # 可选精确程序路径，避免同名 Game.exe 串窗
     target_pid: int | None = field(default=None, repr=False)  # 仅本次选择，不写入配置
+    target_source: dict | None = field(default=None, repr=False)  # 当前原生窗口身份，不写入配置
 
     # ---- 派生目录 ----
     @property

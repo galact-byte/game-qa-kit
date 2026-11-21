@@ -1,0 +1,76 @@
+name: macOS arm64 product capture validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/macos-arm-capture-product]
+    paths:
+      - gameqakit/**
+      - plugins/macos_capture/**
+      - tools/**
+      - tests/test_macos_*.py
+      - .github/workflows/macos-arm-product.yml
+
+permissions:
+  contents: read
+
+jobs:
+  product:
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.12.7'
+          architecture: arm64
+          cache: pip
+          cache-dependency-path: tools/requirements-unix.txt
+      - name: Install existing pinned requirements
+        run: python -m pip install --disable-pip-version-check --only-binary=:all: -r tools/requirements-unix.txt
+      - name: Compile native component and independent windows
+        run: |
+          mkdir -p product-output/native
+          uname -a > product-output/environment.txt
+          sw_vers >> product-output/environment.txt
+          test "$(uname -m)" = arm64
+          xcrun swiftc -parse-as-library -swift-version 5 -O -target arm64-apple-macosx14.0 plugins/macos_capture/CaptureHelper.swift -o plugins/macos_capture/GameQACapture -framework AppKit -framework ScreenCaptureKit
+          xcrun swiftc -parse-as-library -swift-version 5 -O tools/probe_macos_capture.swift -o product-output/native/fixture -framework AppKit -framework ScreenCaptureKit -framework CoreMedia -framework CoreVideo -framework CoreImage -framework Metal -framework MetalKit
+      - name: Check contracts and entry lifecycle
+        run: >-
+          python -X utf8 -B -m unittest tests.test_macos_capture tests.test_macos_entry
+          tests.test_capture_session tests.test_platform_support tests.test_application
+          tests.test_release_assembly tests.test_release_build -v
+      - name: Verify source MCP observation against real windows
+        run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source --fixture product-output/native/fixture
+      - name: Build arm64 application with native capture component
+        run: python -X utf8 -B tools/build_unix.py --version v0.4.3-macos-capture-test --output "$RUNNER_TEMP/macos-product-build"
+      - name: Verify frozen MCP and observation worker against real windows
+        run: >-
+          python -X utf8 -B tools/verify_macos_product.py --root product-output/frozen
+          --fixture product-output/native/fixture
+          --executable "$RUNNER_TEMP/macos-product-build/dist/GameQA.app/Contents/MacOS/GameQA"
+      - name: Verify Cocoa UI
+        run: >-
+          QT_QPA_PLATFORM=cocoa "$RUNNER_TEMP/macos-product-build/dist/GameQA.app/Contents/MacOS/GameQA"
+          --smoke-test product-output/desktop-check.json
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: macos-arm-product-evidence
+          path: product-output/
+          retention-days: 14
+      - name: Upload checked application
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: macos-arm-product-package
+          path: |
+            ${{ runner.temp }}/macos-product-build/game-qa-kit-*.tar.gz
+            ${{ runner.temp }}/macos-product-build/SHA256SUMS.txt
+            ${{ runner.temp }}/macos-product-build/self-test.*
+          retention-days: 14

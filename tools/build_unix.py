@@ -26,10 +26,20 @@ def build(version, output):
     if output.exists():
         raise FileExistsError('构建目录必须不存在，禁止覆盖已有产物')
     output.mkdir(parents=True)
+    build_env = {**os.environ, 'PYINSTALLER_CONFIG_DIR': str(output / 'cache')}
+    if sys.platform == 'darwin' and arch == 'arm64':
+        helper = output / 'native/GameQACapture'
+        helper.parent.mkdir(parents=True)
+        subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '5', '-O',
+                        '-target', 'arm64-apple-macosx14.0',
+                        str(ROOT / 'plugins/macos_capture/CaptureHelper.swift'), '-o', str(helper),
+                        '-framework', 'AppKit', '-framework', 'ScreenCaptureKit'], check=True)
+        subprocess.run(['codesign', '--force', '--sign', '-', str(helper)], check=True)
+        build_env['GAMEQA_MAC_CAPTURE_HELPER'] = str(helper)
     subprocess.run([sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean',
                     '--distpath', str(output / 'dist'), '--workpath', str(output / 'work'),
                     str(ROOT / 'tools/GameQA-unix.spec')], cwd=ROOT, check=True,
-                   env={**os.environ, 'PYINSTALLER_CONFIG_DIR': str(output / 'cache')})
+                   env=build_env)
     mac = sys.platform == 'darwin'
     app = output / ('dist/GameQA.app' if mac else 'dist/GameQA')
     resources = app / 'Contents/Resources' if mac else app

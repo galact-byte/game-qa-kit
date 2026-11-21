@@ -141,7 +141,8 @@ def main(argv=None):
     elif args.cmd == "mark":
         print(json.dumps(_watch.mark(args.note, p.proc, p.state_dir, p.watch_dir,
                                      title_substr=p.title_substr, exe_path=p.exe_path,
-                                     target_pid=win32.profile_target(p)["pid"]), ensure_ascii=False))
+                                     target_pid=win32.profile_target(p)["pid"],
+                                     **({'target_source': win32.find_profile_window(p)} if sys.platform == 'darwin' else {})), ensure_ascii=False))
     elif args.cmd == "report":
         print(json.dumps(_watch.watch_report(p.state_dir, p.watch_dir), ensure_ascii=False))
     elif args.cmd == "capture":

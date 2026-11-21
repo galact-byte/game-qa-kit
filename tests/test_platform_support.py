@@ -19,6 +19,9 @@ class PlatformEntryTests(unittest.TestCase):
 import importlib.abc
 import json
 import sys
+import platform
+platform.machine = lambda: 'x86_64'
+platform.mac_ver = lambda: ('13.0', ('', '', ''), 'x86_64')
 sys.platform = sys.argv[1]
 class NoWindows(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
@@ -57,6 +60,13 @@ else:
     raise AssertionError('Unavailable capture must fail explicitly')
 result = mcp_server.handle('tools/call', {'name': 'platform_info', 'arguments': {}})
 assert json.loads(result['content'][0]['text'])['platform'] == sys.platform, result
+import unittest
+from tests.test_capture_session import CaptureSessionTests
+suite = unittest.TestSuite(CaptureSessionTests(name) for name in (
+    'test_stream_frame_reaches_evidence_with_original_time_and_source',
+    'test_changed_source_ends_session_without_archiving_another_window',
+    'test_close_failure_is_reported_and_analysis_thread_is_drained'))
+assert unittest.TextTestRunner().run(suite).wasSuccessful()
 print('PLATFORM_OK')
 '''
         with tempfile.TemporaryDirectory() as directory:

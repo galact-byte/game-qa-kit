@@ -352,6 +352,19 @@ struct Probe {
         guard CommandLine.arguments.count == 3 else { fputs("usage: probe target|cover|capture output-dir\n", stderr); exit(2) }
         let role = CommandLine.arguments[1]
         let root = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
+        if role == "evidence" {
+            let app = NSApplication.shared
+            app.setActivationPolicy(.accessory)
+            _ = NSScreen.screens
+            do {
+                let ready = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("target-ready.json"))) as! [String: Any]
+                let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+                let coverage = try await captureDesktop("desktop-proof.png", content: content, root: root,
+                                                       target: CGWindowID(ready["window"] as! Int))
+                try saveJSON(["coverage": coverage, "frontmost": NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1], root.appendingPathComponent("proof.json"))
+            } catch { fputs("Evidence failed: \(error)\n", stderr); exit(1) }
+            return
+        }
         if role == "target" || role == "cover" {
             let app = NSApplication.shared
             app.setActivationPolicy(.accessory)

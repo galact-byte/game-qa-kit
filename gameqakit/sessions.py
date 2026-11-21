@@ -149,8 +149,8 @@ def watch_status(profile):
 
 
 def start_watch(profile, *, interval=2.0, threshold=4, region=None, downscale=None, analysis_mode="rules"):
-    from .platform_support import require_windows
-    require_windows('持续窗口采集')
+    from .platform_support import require_capture, window_backend
+    require_capture('持续窗口采集')
     from .watch import validate_options
     options = dict(interval=interval, threshold=threshold, region=region,
                    downscale=downscale, analysis_mode=analysis_mode)
@@ -165,7 +165,9 @@ def start_watch(profile, *, interval=2.0, threshold=4, region=None, downscale=No
         write_json(config, {"out": str(directory.resolve()), "proc": profile.proc,
                             "state_dir": str(profile.state_dir.resolve()),
                             "title_substr": profile.title_substr, "exe_path": profile.exe_path,
-                            "target_pid": profile.target_pid, **options})
+                            "target_pid": profile.target_pid,
+                            **({'target_source': window_backend.find_profile_window(profile)} if sys.platform == 'darwin' else {}),
+                            **options})
         with (directory / "worker.log").open("x", encoding="utf-8") as log:
             child = subprocess.Popen([sys.executable, "-m", "gameqakit.sessions", str(config.resolve())],
                                      cwd=str(Path(__file__).resolve().parent.parent),

@@ -55,11 +55,14 @@ class EventStore:
         text = task["native_text"] + "\n" + ocr_text
         findings = classify(text)
         hwnd = task["hwnd"]
+        capture_source = task.get("capture_source")
+        source_key = ((capture_source["platform"], capture_source["backend"], capture_source["source_id"])
+                      if capture_source else hwnd)
         if not findings:
-            self.active.pop(hwnd, None)
+            self.active.pop(source_key, None)
             return None
         fingerprint = hashlib.sha256(re.sub(r"\s+", " ", text).strip().encode("utf-8")).hexdigest()
-        if self.active.get(hwnd) == fingerprint:
+        if self.active.get(source_key) == fingerprint:
             return None
         sequence = self.count + 1
         folder = self.out / "events" / f"{sequence:04d}_{findings[0]['category']}"
@@ -68,6 +71,8 @@ class EventStore:
         try:
             task["image"].save(raw, "PNG")
             metadata = {key: task[key] for key in ("hwnd", "captured_at", "capture_region", "native_text")}
+            if capture_source:
+                metadata.update(capture_source=dict(capture_source), frame_sequence=task["frame_sequence"])
             metadata.update(sequence=sequence, findings=findings, source=source,
                             ocr_text=ocr_text[:16000], verdict="待复核", image=str(raw.resolve()),
                             image_size=list(task["image"].size),
@@ -80,7 +85,7 @@ class EventStore:
             self.count = sequence
             raise
         self.count = sequence
-        self.active[hwnd] = fingerprint
+        self.active[source_key] = fingerprint
         return metadata
 
 
@@ -127,7 +132,8 @@ class FrameAnalyzer:
             started = time.perf_counter()
             try:
                 text = ocr(task["image"]) if ocr else ""
-                item = self.store.inspect(task, text, "Win32+OCR" if ocr else "Win32")
+                source = task.get("capture_source", {}).get("backend", "Win32")
+                item = self.store.inspect(task, text, source + "+OCR" if ocr else source)
                 self.update(analyzed=1, suspects=1 if item else 0)
                 if item:
                     self.notify({"kind": "suspect", **item})

@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from gameqakit import profile as _profile          # noqa: E402
 from gameqakit import watch as _watch, saves as _saves, icons, sessions  # noqa: E402
-from gameqakit.platform_support import window_backend as win32, require_windows  # noqa: E402
+from gameqakit.platform_support import window_backend as win32, require_windows, info as platform_info  # noqa: E402
 
 from PyQt6.QtCore import Qt, QObject, QSize, QTimer, QUrl, pyqtSignal  # noqa: E402
 from PyQt6.QtGui import QDesktopServices, QFontDatabase, QPixmap  # noqa: E402
@@ -243,7 +243,7 @@ class ProfileDialog(QDialog):
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         bb.accepted.connect(self._on_ok); bb.rejected.connect(self.reject)
         form.addRow(bb)
-        if sys.platform == 'win32':
+        if platform_info()['features']['window_capture']:
             self._refresh_processes()
         else:
             intro.setText('手动填写配置名称、游戏标识和 QA 数据目录。\n'
@@ -339,7 +339,8 @@ class ProfileDialog(QDialog):
             save_globs=globs, data_dir=self.e_data.text().strip() or None,
             regions=self._regions, client_size=self._client_size, notes=self._notes,
             exe_path=self.e_path.text().strip() or None,
-            target_pid=self._selected["pid"] if self._selected else None)
+            target_pid=self._selected["pid"] if self._selected else None,
+            target_source=self._selected if self._selected and sys.platform == 'darwin' else None)
 
 
 class App(QMainWindow):
@@ -473,16 +474,20 @@ class App(QMainWindow):
         chevron = icons.save_png("chevron", "#8a9099", 24)
         self.setStyleSheet(QSS + f'\nQComboBox::down-arrow {{ image: url("{chevron}"); }}\n')
         if sys.platform != 'win32':
-            notice = QLabel('通用测试版：可编辑配置、查看存档快照及复核已有证据。\n'
-                            '游戏窗口截图、持续采集与后台控制目前仅支持 Windows。')
+            capture_available = platform_info()['features']['window_capture']
+            notice = QLabel('可选择游戏窗口截图、持续采集及人工标记；首次使用请允许屏幕录制。\n'
+                            'AI 后台控制尚未接入此平台。' if capture_available else
+                            '通用测试版：可编辑配置、查看存档快照及复核已有证据。\n'
+                            '此平台的游戏窗口采集与后台控制尚未接入。')
             notice.setWordWrap(True)
             notice.setObjectName('hint')
             ml.insertWidget(1, notice)
-            for widget in (self.b_window, self.b_admission, self.card_watch, self.card_mark,
-                           self.card_shot, self.e_interval, self.e_threshold,
-                           self.e_region, self.e_note, self.cb_analysis):
+            for widget in ((self.b_admission,) if capture_available else
+                           (self.b_window, self.b_admission, self.card_watch, self.card_mark,
+                            self.card_shot, self.e_interval, self.e_threshold,
+                            self.e_region, self.e_note, self.cb_analysis)):
                 widget.setEnabled(False)
-                widget.setToolTip('此功能目前仅支持 Windows')
+                widget.setToolTip('此功能尚未接入当前平台')
 
     # ---------------- 基础设施 ----------------
     def _log(self, msg):
@@ -610,8 +615,8 @@ class App(QMainWindow):
             self.card_watch.set_icon("play"); self.card_watch.set_text("开始盯屏", "自动留证，画面变化才截图")
 
     def _toggle_watch(self):
-        if sys.platform != 'win32':
-            self._log('游戏窗口采集目前仅支持 Windows')
+        if not platform_info()['features']['window_capture']:
+            self._log('此平台的游戏窗口采集尚未接入')
             return
         if self._watch_busy:
             return
@@ -659,10 +664,10 @@ class App(QMainWindow):
         self._watch_running = result.get("running", False)
         self._set_watch_state(self._watch_running)
         stopping = result.get("watch") == "stopping"
-        self.card_watch.setEnabled(sys.platform == 'win32' and not self._watch_busy and not stopping)
+        self.card_watch.setEnabled(platform_info()['features']['window_capture'] and not self._watch_busy and not stopping)
         if stopping:
             self.card_watch.set_text("停止中", "正在排空分析队列，证据会保留")
-        self.cb_analysis.setEnabled(sys.platform == 'win32' and not self._watch_running and not self._watch_busy)
+        self.cb_analysis.setEnabled(platform_info()['features']['window_capture'] and not self._watch_running and not self._watch_busy)
         counts = "  ·  ".join(f"{label} {result.get(key, 0)}" for label, key in (
             ("采集", "captured"), ("留图", "saved"), ("分析", "analyzed"),
             ("疑点", "suspects"), ("分析丢帧", "dropped"), ("积压", "queue_depth")))
@@ -688,7 +693,8 @@ class App(QMainWindow):
         p = self._need_profile()
         r = _watch.mark(self.e_note.text().strip(), p.proc, p.state_dir, p.watch_dir,
                         title_substr=p.title_substr, exe_path=p.exe_path,
-                        target_pid=win32.profile_target(p)["pid"])
+                        target_pid=win32.profile_target(p)["pid"],
+                        **({'target_source': win32.find_profile_window(p)} if sys.platform == 'darwin' else {}))
         self.sig.log.emit(f"已标记：{r['marked']}")
         self.sig.thumb.emit(r["marked"])
 

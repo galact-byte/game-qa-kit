@@ -13,6 +13,8 @@ import os
 from ctypes import wintypes
 from pathlib import Path
 
+from .capture_session import clamp_region
+
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -220,16 +222,6 @@ def client_size(hwnd: int) -> tuple[int, int]:
     rect = wintypes.RECT()
     user32.GetClientRect(hwnd, ctypes.byref(rect))
     return rect.right - rect.left, rect.bottom - rect.top
-
-
-def clamp_region(region, w: int, h: int) -> tuple[int, int, int, int]:
-    """把 (x,y,rw,rh) 约束到客户区 [0,w)×[0,h)：左上越界报错，右下越界收缩。"""
-    x, y, rw, rh = (int(v) for v in region)
-    if rw <= 0 or rh <= 0:
-        raise RuntimeError(f"裁剪区域宽高必须为正：{rw}x{rh}")
-    if not (0 <= x < w and 0 <= y < h):
-        raise RuntimeError(f"裁剪区域左上角 ({x},{y}) 超出客户区 {w}x{h}")
-    return x, y, min(rw, w - x), min(rh, h - y)
 
 
 def _frame_blank_ratio(raw: bytes, w: int, h: int) -> float:

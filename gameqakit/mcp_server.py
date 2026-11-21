@@ -73,7 +73,7 @@ def t_profile(_a):
         return {**_BINDING.status(), 'available': _profile.list_profiles()}
     p = P()
     return {"active": p.name, "proc": p.proc, "exe_path": p.exe_path,
-            "target_pid": win32.profile_target(p)["pid"] if sys.platform == 'win32' else None,
+            "target_pid": win32.profile_target(p)["pid"] if platform_info()['features']['window_capture'] else None,
             "data_dir": str(p.data_path),
             "savedata": str(p.savedata_path) if p.savedata_path else None,
             "save_globs": p.save_globs, "regions": p.regions,
@@ -108,7 +108,8 @@ def t_watch_mark(a):
     p = P()
     return _watch.mark(a.get("note", ""), p.proc, p.state_dir, p.watch_dir,
                        title_substr=p.title_substr, exe_path=p.exe_path,
-                       target_pid=win32.profile_target(p)["pid"])
+                       target_pid=win32.profile_target(p)["pid"],
+                       **({'target_source': win32.find_profile_window(p)} if sys.platform == 'darwin' else {}))
 
 
 def t_watch_report(a):
@@ -379,6 +380,8 @@ TOOLS['platform_info'] = ('查询当前平台、架构及本版本可用功能�
 if sys.platform != 'win32':
     _COMMON_TOOLS = {'platform_info', 'profile', 'save', 'list_saves', 'watch_report',
                      'watch_status', 'watch_events', 'engine_inspect'}
+    if platform_info()['features']['window_capture']:
+        _COMMON_TOOLS |= {'win', 'capture', 'mark', 'watch_start', 'watch_stop', 'processes'}
     TOOLS = {name: tool for name, tool in TOOLS.items() if name in _COMMON_TOOLS}
 
 

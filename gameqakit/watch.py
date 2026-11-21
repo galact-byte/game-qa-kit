@@ -6,20 +6,21 @@ import hashlib
 import json
 import math
 import os
+import sys
 import threading
 import time
 from pathlib import Path
 
 from .platform_support import window_backend
+from .dedup import dhash_from_image, hamming
+from .analysis import FrameAnalyzer
+from .capture_session import CaptureEnded, CaptureFrame, CaptureSession, WindowsCaptureSession, clamp_region
+from .sessions import SessionLease, write_json
 
 find_window = window_backend.find_window
 grab_image = window_backend.grab_image
-clamp_region = window_backend.clamp_region
 capture = window_backend.capture
 window_text = window_backend.window_text
-from .dedup import dhash_from_image, hamming
-from .analysis import FrameAnalyzer
-from .sessions import SessionLease, write_json
 
 
 def _ts():
@@ -49,17 +50,22 @@ def validate_options(interval=2.0, threshold=4, region=None, downscale=None, ana
 def watch(out_dir: Path, proc: str, state_dir: Path, interval: float = 2.0,
           threshold: int = 4, region=None, downscale: int | None = None,
           stop_event=None, on_event=None, title_substr: str | None = None,
-          analysis_mode: str = "rules", exe_path=None, target_pid=None) -> dict:
-    """同一 profile 跨进程仅一个会话。停止采集后排空至多四帧的分析队列。"""
+          analysis_mode: str = "rules", exe_path=None, target_pid=None, target_source=None,
+          *, capture_session: CaptureSession | None = None) -> dict:
+    """同一 profile 跨进程仅一个会话。停止采集后排空至多四帧的分析队列。
+
+    capture_session 在参数、会话锁及输出目录检查通过后由观察循环接管并关闭；
+    检查拒绝时仍由调用方持有。它仅接入采集，不授予游戏输入或进程控制权。
+    """
     validate_options(interval, threshold, region, downscale, analysis_mode)
     with SessionLease(Path(state_dir) / "watch.lock"):
         return _run_watch(Path(out_dir).resolve(), proc, Path(state_dir), interval, threshold,
                           region, downscale, stop_event or threading.Event(), on_event,
-                          title_substr, analysis_mode, exe_path, target_pid)
+                          title_substr, analysis_mode, exe_path, target_pid, capture_session, target_source)
 
 
 def _run_watch(out_dir, proc, state_dir, interval, threshold, region, downscale,
-               stop_event, on_event, title_substr, analysis_mode, exe_path, target_pid):
+               stop_event, on_event, title_substr, analysis_mode, exe_path, target_pid, capture_session, target_source=None):
     if (out_dir / "index.jsonl").exists() or (out_dir / "status.json").exists():
         raise ValueError("会话目录已有记录，请使用新的输出目录，避免覆盖证据")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -71,9 +77,12 @@ def _run_watch(out_dir, proc, state_dir, interval, threshold, region, downscale,
               "analysis_warning": "", "last_error": "", "polls": 0, "captured": 0,
               "saved": 0, "analyzed": 0, "dropped": 0, "suspects": 0,
               "capture_errors": 0, "analysis_errors": 0, "storage_errors": 0,
-              "capture_ms": 0.0, "analysis_ms": 0.0, "queue_depth": 0}
+              "capture_ms": 0.0, "analysis_ms": 0.0, "queue_depth": 0,
+              "capture_status": "starting", "capture_source": None,
+              "empty_polls": 0, "duplicate_frames": 0,
+              "last_frame_sequence": None, "last_frame_at": None}
     counters = {"polls", "captured", "saved", "analyzed", "dropped", "suspects",
-                "capture_errors", "analysis_errors", "storage_errors"}
+                "capture_errors", "analysis_errors", "storage_errors", "empty_polls", "duplicate_frames"}
     lock = threading.Lock()
     analyzer = None
 
@@ -96,8 +105,21 @@ def _run_watch(out_dir, proc, state_dir, interval, threshold, region, downscale,
         emit({"kind": "stats", **snapshot})
         return snapshot
 
-    write_json(state_dir / "watch_current.json", {"dir": str(out_dir), "started": status["started_at"]})
-    publish()
+    if capture_session is not None:
+        session = capture_session
+    elif sys.platform == 'darwin':
+        from .platform_support import require_capture
+        from .macos_capture import MacOSCaptureSession
+        require_capture()
+        selected = target_source or find_window(proc, title_substr, exe_path=exe_path, pid=target_pid)
+        session = MacOSCaptureSession(selected, interval=interval)
+        status.update(target_source=selected, target_pid=selected['pid'], target_exe_path=selected['exe_path'])
+    else:
+        session = WindowsCaptureSession(
+            lambda: find_window(proc, title_substr, exe_path=exe_path, pid=target_pid),
+            grab_image, window_text)
+    bound_source = None
+    last_sequence = -1
     prev_hash = prev_digest = prev_hwnd = None
 
     def stopped():
@@ -112,21 +134,44 @@ def _run_watch(out_dir, proc, state_dir, interval, threshold, region, downscale,
             stop_event.wait(min(remaining, 0.05))
 
     try:
+        write_json(state_dir / "watch_current.json", {"dir": str(out_dir), "started": status["started_at"]})
+        publish()
         if analysis_mode != "off":
             analyzer = FrameAnalyzer(out_dir, analysis_mode, update, emit)
         while not stopped():
             started = time.perf_counter()
             update(polls=1)
             try:
-                hwnd = find_window(proc, title_substr, exe_path=exe_path, pid=target_pid)
-                img = grab_image(hwnd)
-                native = window_text(hwnd)
+                frame = session.read(timeout=min(interval, 0.05), stop_event=stop_event)
+                if frame is None:
+                    update(empty_polls=1, capture_status="waiting")
+                    publish()
+                    wait(max(0, interval - (time.perf_counter() - started)))
+                    continue
+                if not isinstance(frame, CaptureFrame):
+                    raise CaptureEnded("采集后端返回了无效帧")
+                if bound_source is not None and frame.source != bound_source:
+                    raise CaptureEnded("采集来源变化，请重新选择并开启会话")
+                bound_source = frame.source
+                if frame.sequence <= last_sequence:
+                    update(duplicate_frames=1, capture_status="waiting")
+                    publish()
+                    wait(max(0, interval - (time.perf_counter() - started)))
+                    continue
+                last_sequence = frame.sequence
+                hwnd, img, native = frame.source.hwnd, frame.image, frame.native_text
+                capture_source = frame.source.metadata()
                 capture_region = [0, 0, *img.size]
                 if region:
                     x, y, rw, rh = clamp_region(region, *img.size)
                     img = img.crop((x, y, x + rw, y + rh))
                     capture_region = [x, y, rw, rh]
-                update(captured=1, capture_ms=round((time.perf_counter() - started) * 1000, 2))
+                update(captured=1, capture_status="active", capture_source=capture_source,
+                       last_frame_sequence=frame.sequence, last_frame_at=frame.captured_at,
+                       capture_ms=round((time.perf_counter() - started) * 1000, 2))
+            except CaptureEnded as exc:
+                update(capture_errors=1, ok=False, capture_status="ended", last_error=f"采集结束：{exc}")
+                break
             except Exception as exc:
                 update(capture_errors=1, last_error=f"采集失败：{exc}")
                 prev_digest = None
@@ -136,14 +181,15 @@ def _run_watch(out_dir, proc, state_dir, interval, threshold, region, downscale,
             if hwnd != prev_hwnd:
                 prev_hash = prev_digest = None
                 prev_hwnd = hwnd
-            captured_at = _dt.datetime.now().isoformat(timespec="microseconds")
+            captured_at = frame.captured_at
             digest = hashlib.blake2s(img.tobytes() + native.encode("utf-8", "replace") +
                                      str(img.size).encode("ascii")).digest()
             if analyzer and (digest != prev_digest or analyzer.retry.is_set()):
                 analyzer.retry.clear()
                 # Pillow 保存时会临时修改图像对象，分析线程必须持有独立副本。
                 analyzer.submit({"hwnd": hwnd, "image": img.copy(), "native_text": native[:16000],
-                                 "capture_region": capture_region, "captured_at": captured_at})
+                                 "capture_region": capture_region, "captured_at": captured_at,
+                                 "capture_source": capture_source, "frame_sequence": frame.sequence})
                 prev_digest = digest
             cur = dhash_from_image(img)
             if prev_hash is None or hamming(cur, prev_hash) > threshold:
@@ -154,7 +200,8 @@ def _run_watch(out_dir, proc, state_dir, interval, threshold, region, downscale,
                     save_img.save(str(out), "PNG")
                     with (out_dir / "index.jsonl").open("a", encoding="utf-8") as stream:
                         stream.write(json.dumps({"t": captured_at, "file": out.name, "hwnd": hwnd,
-                                                 "hash": f"{cur:016x}"}, ensure_ascii=False) + "\n")
+                                                 "hash": f"{cur:016x}", "capture_source": capture_source,
+                                                 "frame_sequence": frame.sequence}, ensure_ascii=False) + "\n")
                     prev_hash = cur
                     update(saved=1)
                     emit({"kind": "frame", "file": str(out)})
@@ -170,12 +217,19 @@ def _run_watch(out_dir, proc, state_dir, interval, threshold, region, downscale,
     finally:
         update(watch="stopping")
         try:
+            session.close()
+            update(capture_status="closed")
+        except Exception as exc:
+            update(ok=False, capture_status="close_failed", last_error=f"关闭采集失败：{exc}")
+        try:
             publish()
         finally:
-            if analyzer:
-                analyzer.close()
-            update(running=False, watch="stopped", stopped_at=_dt.datetime.now().isoformat())
-            publish()
+            try:
+                if analyzer:
+                    analyzer.close()
+            finally:
+                update(running=False, watch="stopped", stopped_at=_dt.datetime.now().isoformat())
+                publish()
     return dict(status)
 
 
@@ -193,14 +247,24 @@ def _active_watch_dir(state_dir: Path, watch_dir: Path) -> Path | None:
 
 
 def mark(note: str, proc: str, state_dir: Path, watch_dir: Path,
-         title_substr: str | None = None, exe_path=None, target_pid=None) -> dict:
+         title_substr: str | None = None, exe_path=None, target_pid=None, target_source=None) -> dict:
     directory = _active_watch_dir(state_dir, watch_dir) or (Path(watch_dir) / _ts())
     directory.mkdir(parents=True, exist_ok=True)
-    hwnd = find_window(proc, title_substr, exe_path=exe_path, pid=target_pid)
     out = directory / f"mark_{_ts()}.png"
-    width, height = capture(hwnd, out)
-    row = {"t": _dt.datetime.now().isoformat(timespec="microseconds"),
-           "file": out.name, "note": note, "hwnd": hwnd, "size": [width, height]}
+    if sys.platform == 'darwin':
+        from .platform_support import require_capture
+        from .macos_capture import _capture_once
+        require_capture()
+        frame = _capture_once(target_source or find_window(proc, title_substr, exe_path=exe_path, pid=target_pid))
+        frame.image.save(out, 'PNG')
+        row = {'t': frame.captured_at, 'file': out.name, 'note': note, 'hwnd': None,
+               'size': list(frame.image.size), 'capture_source': frame.source.metadata(),
+               'frame_sequence': frame.sequence}
+    else:
+        hwnd = find_window(proc, title_substr, exe_path=exe_path, pid=target_pid)
+        width, height = capture(hwnd, out)
+        row = {"t": _dt.datetime.now().isoformat(timespec="microseconds"),
+               "file": out.name, "note": note, "hwnd": hwnd, "size": [width, height]}
     with (directory / "marks.jsonl").open("a", encoding="utf-8") as stream:
         stream.write(json.dumps(row, ensure_ascii=False) + "\n")
     return {"ok": True, "marked": str(out), "note": note, "dir": str(directory)}
