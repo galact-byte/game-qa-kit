@@ -1,5 +1,13 @@
 # 修改记录 — game-qa-kit
 
+## macOS arm64 单窗口截图探针验收与接入设计
+
+- 独立实验分支保留 Windows 主线与 macOS arm64 优先级；AppKit／Metal 自写窗口的 ScreenCaptureKit 单窗口截图在云端运行 `44940206862`（源码 `b29b1c5`）通过正常更新、完整遮挡、冻结反例、遮挡中改尺寸和正常退出。36 张 PNG 独立解码，普通遮挡与放大后分别检查 57,600／96,000 像素，均零覆盖缺口；前后焦点一致，看门狗未回收残留进程或强杀。
+- 修正早期验收缺口：run-11 放大后露边、run-12 桌面图被 Dock 干扰，均保留为未通过完整验收；新增窗口几何、目标端状态和真实像素覆盖判据，云端直接拒绝覆盖不足。连续流在该环境中的遮挡冻结记录保留，截图路径通过不追认连续流成功。
+- 涉及 `.github/workflows/macos-arm-capture-probe.yml`、`tools/probe_macos_capture.swift`、`tools/verify_macos_capture_probe.py`、`tests/test_macos_capture_probe.py`；新增[探针结果](docs/MACOS-ARM-CAPTURE-PROBE.md)与[待审阅接入设计](docs/MACOS-ARM-CAPTURE-DESIGN.md)，同步路线图。系统框架来自现有 SDK，不安装依赖、不修改 TCC；产品采集入口、游戏和存档未改，无数据迁移。回退本实验文件及工作流即可，不影响既有产品采集。
+- 聚焦检查 13 项通过；`PYTHONPATH=tests python -X utf8 -B -W error::ResourceWarning -m unittest discover -s tests -p test_*.py` 共 933 项，619 项通过、314 项按环境条件跳过、零失败；`git diff --check` 与本地收口 19 项通过。证据与失败现场保存在 `<macOS采集验证目录>/`，不随源码入库。
+- 单窗口截图路线具备当前自写窗口实证；正式随包辅助进程、Python 会话、权限及冻结包接入尚未实施，需先批准设计。首次授权、拒绝／撤销、普通用户桌面、真实游戏、最小化、长期稳定性、macOS 14 与 Intel 尚未验。
+
 ## macOS arm64 独立采集探测准备
 
 - Windows 之外的平台优先级调整为 macOS Apple Silicon（arm64）；Linux 与 macOS Intel 后排，原 Linux X11 探针证据保留。
