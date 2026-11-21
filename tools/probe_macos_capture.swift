@@ -366,8 +366,8 @@ struct Probe {
             try await pause(0.6)
             result["frontmost_before"] = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
             result["window_list"] = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
-            try await captureDesktop("desktop-occluded.png", content: content, root: root)
             phases["occluded"] = try await collect("occluded", frames: frames, root: root)
+            try await captureDesktop("desktop-occluded.png", content: content, root: root)
             try Data().write(to: root.appendingPathComponent("freeze"))
             try await pause(0.5)
             phases["frozen"] = try await collect("frozen", frames: frames, root: root, frozen: true)
@@ -377,8 +377,8 @@ struct Probe {
             try await stream.updateConfiguration(config)
             try await pause(0.8)
             result["resized_window_list"] = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
-            try await captureDesktop("desktop-resized.png", content: content, root: root)
             phases["resized"] = try await collect("resized", frames: frames, root: root)
+            try await captureDesktop("desktop-resized.png", content: content, root: root)
             result["phases"] = phases
             result["frontmost_after"] = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
             guard result["frontmost_before"] as? Int32 == result["frontmost_after"] as? Int32 else { throw ProbeError("Frontmost application changed during capture") }
@@ -388,6 +388,12 @@ struct Probe {
         } catch {
             result["error"] = String(describing: error)
             if let stream = active { try? await stream.stopCapture() }
+        }
+        result["frontmost_at_stream_end"] = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
+        if !FileManager.default.fileExists(atPath: root.appendingPathComponent("desktop-occluded.png").path),
+           let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false) {
+            do { try await captureDesktop("desktop-occluded.png", content: content, root: root) }
+            catch { result["desktop_evidence_error"] = String(describing: error) }
         }
         result["frame_diagnostics"] = frames.diagnostics()
         try? Data().write(to: root.appendingPathComponent("stop"))
