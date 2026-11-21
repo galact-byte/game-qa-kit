@@ -50,25 +50,46 @@ jobs:
           python -X utf8 -B -m unittest tests.test_macos_capture tests.test_macos_entry
           tests.test_capture_session tests.test_platform_support tests.test_application
           tests.test_release_assembly tests.test_release_build -v
-      - name: Compare persistent Metal capture with per-frame component restarts
+      - name: Recheck the previously passing independent Metal probe
         env:
           GAMEQA_PROBE_RENDERER: metal
+          GAMEQA_CAPTURE_MODE: snapshot
         run: |
-          python -X utf8 -B tools/diagnose_macos_serial_capture.py --root product-output/metal-persistent --fixture product-output/native/fixture --helper plugins/macos_capture/GameQACapture --clients 1 --persistent || true
-          python -X utf8 -B tools/diagnose_macos_serial_capture.py --root product-output/metal-restarted --fixture product-output/native/fixture --helper plugins/macos_capture/GameQACapture --clients 1 || true
-      - name: Diagnose Metal presentation with explicit Core Animation flush
-        env:
-          GAMEQA_PROBE_RENDERER: metal
-          GAMEQA_PROBE_FLUSH_METAL: '1'
-        run: |
-          python -X utf8 -B tools/diagnose_macos_serial_capture.py --root product-output/metal-flushed --fixture product-output/native/fixture --helper plugins/macos_capture/GameQACapture --clients 1 || true
-          python -X utf8 -B tools/verify_macos_product.py --root product-output/source-metal-flushed --fixture product-output/native/fixture || true
-      - name: Diagnose Metal transaction presentation
-        env:
-          GAMEQA_PROBE_RENDERER: metal
-          GAMEQA_PROBE_METAL_TRANSACTION: '1'
-        run: |
-          python -X utf8 -B tools/verify_macos_product.py --root product-output/source-metal-transaction --fixture product-output/native/fixture || true
+          git fetch --no-tags --depth=1 origin b29b1c5a8df5608a5cfd784a34e443ef56d69872
+          git show b29b1c5a8df5608a5cfd784a34e443ef56d69872:tools/probe_macos_capture.swift > product-output/native/baseline.swift
+          xcrun swiftc -parse-as-library -swift-version 5 -O product-output/native/baseline.swift -o product-output/native/baseline -framework AppKit -framework ScreenCaptureKit -framework CoreMedia -framework CoreVideo -framework CoreImage -framework Metal -framework MetalKit
+          python -X utf8 -B - <<'PY'
+          import json
+          import os
+          import signal
+          import subprocess
+          from pathlib import Path
+          for executable, name in [('baseline', 'baseline-metal'), ('fixture', 'current-independent-metal')]:
+              root = Path('product-output', name).resolve()
+              root.mkdir(parents=True, exist_ok=True)
+              with (root / 'run.log').open('wb') as log:
+                  process = subprocess.Popen([str(Path('product-output/native', executable).resolve()), 'capture', str(root)],
+                                             stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                  cleanup = {'timed_out': False}
+                  try:
+                      process.wait(timeout=100)
+                  except subprocess.TimeoutExpired:
+                      cleanup['timed_out'] = True
+                  finally:
+                      try:
+                          os.killpg(process.pid, signal.SIGTERM)
+                          cleanup['remaining_group_terminated'] = True
+                      except ProcessLookupError:
+                          cleanup['remaining_group_terminated'] = False
+                      try:
+                          process.wait(timeout=5)
+                      except subprocess.TimeoutExpired:
+                          os.killpg(process.pid, signal.SIGKILL)
+                          process.wait(timeout=5)
+                          cleanup['forced_kill'] = True
+                      cleanup['parent_exit_code'] = process.returncode
+                      (root / 'watchdog.json').write_text(json.dumps(cleanup, indent=2))
+          PY
       - name: Verify source MCP observation against real windows
         run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source --fixture product-output/native/fixture
       - name: Verify source MCP observation of a Metal window
@@ -76,13 +97,16 @@ jobs:
           GAMEQA_PROBE_RENDERER: metal
         run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source-metal --fixture product-output/native/fixture
       - name: Build arm64 application with native capture component
+        if: ${{ !cancelled() }}
         run: python -X utf8 -B tools/build_unix.py --version v0.4.3-macos-capture-test --output "$RUNNER_TEMP/macos-product-build"
       - name: Verify frozen MCP and observation worker against real windows
+        if: ${{ !cancelled() }}
         run: >-
           python -X utf8 -B tools/verify_macos_product.py --root product-output/frozen
           --fixture product-output/native/fixture
           --executable "$RUNNER_TEMP/macos-product-build/dist/GameQA.app/Contents/MacOS/GameQA"
       - name: Verify frozen MCP and observation of a Metal window
+        if: ${{ !cancelled() }}
         env:
           GAMEQA_PROBE_RENDERER: metal
         run: >-
@@ -90,6 +114,7 @@ jobs:
           --fixture product-output/native/fixture
           --executable "$RUNNER_TEMP/macos-product-build/dist/GameQA.app/Contents/MacOS/GameQA"
       - name: Verify Cocoa UI
+        if: ${{ !cancelled() }}
         run: >-
           QT_QPA_PLATFORM=cocoa "$RUNNER_TEMP/macos-product-build/dist/GameQA.app/Contents/MacOS/GameQA"
           --smoke-test product-output/desktop-check.json
