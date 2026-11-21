@@ -25,6 +25,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  windows:
+    if: ${{ !inputs.release }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.12.7'
+          architecture: x64
+          cache: pip
+          cache-dependency-path: tools/requirements-windows.txt
+      - name: Install existing pinned requirements
+        run: >-
+          python -m pip install --disable-pip-version-check --only-binary=:all: -r tools/requirements-windows.txt
+      - name: Run portable Windows regression suite
+        shell: pwsh
+        run: |
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          python -X utf8 -B -W error::ResourceWarning -m unittest discover -s tests -p "test_*.py" -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build and self-test Windows portable application
+        run: python -X utf8 -B tools/build_windows.py --version "${{ inputs.version }}" --output "${{ runner.temp }}/gameqa-build"
+      - name: Upload Windows candidate without publishing
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: GameQA-windows-x64
+          path: |
+            ${{ runner.temp }}/gameqa-build/GameQA-*.zip
+            ${{ runner.temp }}/gameqa-build/SHA256SUMS.txt
+            ${{ runner.temp }}/gameqa-build/self-test.json
+          if-no-files-found: error
   build:
     strategy:
       fail-fast: false

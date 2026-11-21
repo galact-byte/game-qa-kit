@@ -1,6 +1,8 @@
 # macOS／Linux 通用测试版构建
 
-本阶段交付目标是软件可启动并能使用公共功能：配置读写、存档快照、已有证据复核、公共 MCP 工具。游戏窗口采集、持续盯屏、桌面输入和引擎后台控制在非 Windows 系统上禁用。Windows 的既有引擎验收不能外推到其他系统。
+已发布通用测试包的交付目标是软件可启动并能使用公共功能：配置读写、存档快照、已有证据复核、公共 MCP 工具。该批包在非 Windows 系统上禁用游戏窗口采集、持续盯屏、桌面输入和引擎后台控制。Windows 的既有引擎验收不能外推到其他系统。
+
+开发中的 macOS arm64 采集分支已另行原生构建 Swift 组件及冻结应用：cloud-22 的源码／冻结 AppKit 产品链分别通过遮挡新图、冻结反例、尺寸变化、并发观察／人工标记、归档与退出，各独立核对 33 张 PNG；真实组件故障与恢复各通过 11 项、各回收 12 个辅助进程且无残留。Metal 仍有重复计数，完整产品验收未通过，首次授权／撤权、普通用户桌面与真实游戏未验。这些结果不改变下文旧测试包的功能范围；实施及限制见[接入设计](MACOS-ARM-CAPTURE-DESIGN.md)。
 
 ## 构建目标
 
@@ -43,7 +45,7 @@ Linux 构建环境还须具备 `fonts-noto-cjk` 和 Qt X11 依赖（含 `libxcb-
 
 ## GitHub Actions
 
-手动工作流 `.github/workflows/universal-desktop.yml` 最多同时运行两个构建，不创建标签或 GitHub Release。它先跑公共入口测试，再构建四种产物，并另外在 Linux X11 虚拟显示／macOS Cocoa 下执行启动自检。包和 JSON／PNG 验证记录分别作为保留 14 天的 artifacts。
+手动工作流 `.github/workflows/universal-desktop.yml` 的四个 Unix 构建最多同时运行两个，Windows x64 候选单独构建；不创建标签或 GitHub Release。Unix 任务先跑公共入口测试，再构建四种产物，并在 Linux X11 虚拟显示／macOS Cocoa 下执行启动自检。Windows 任务使用既有固定依赖，运行可用回归、构建便携包并执行实际 EXE 自检，上传 ZIP、摘要和自检 JSON。五目标候选均来自同一提交；仅正式发布的复用调用跳过此 Windows 候选任务，继续使用发布入口自身的 Windows 构建。包和 JSON／PNG 验证记录分别作为保留 14 天的 artifacts。
 
 ```bash
 gh workflow run universal-desktop.yml --ref <构建分支> -f version=v0.4.1-universal-test

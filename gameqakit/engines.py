@@ -50,6 +50,47 @@ def _tyrano_asar_markers(archive):
     return [f'resources/app.asar:{marker}' for marker in _TYRANO_SCRIPTS]
 
 
+def _godot_embedded_pack(image):
+    """仅检查 PE 的 pck 节及完整包头，不扫描 EXE 字符串或加载代码。"""
+    with image.open('rb') as stream:
+        file_size = image.stat().st_size
+        dos = stream.read(64)
+        if len(dos) != 64 or dos[:2] != b'MZ':
+            return False
+        pe_offset = struct.unpack_from('<I', dos, 60)[0]
+        if not 64 <= pe_offset <= file_size - 24:
+            return False
+        stream.seek(pe_offset)
+        coff = stream.read(24)
+        if coff[:4] != b'PE\0\0':
+            return False
+        count = struct.unpack_from('<H', coff, 6)[0]
+        optional_size = struct.unpack_from('<H', coff, 20)[0]
+        table_offset = pe_offset + 24 + optional_size
+        table_end = table_offset + count * 40
+        if optional_size < 2 or table_end > file_size:
+            return False
+        magic = struct.unpack('<H', stream.read(2))[0]
+        if magic not in (0x10b, 0x20b) or optional_size < (96 if magic == 0x10b else 112):
+            return False
+        stream.seek(table_offset)
+        sections = stream.read(count * 40)
+        packs = []
+        for offset in range(0, len(sections), 40):
+            if sections[offset:offset + 8] == b'pck\0\0\0\0\0':
+                size, start = struct.unpack_from('<II', sections, offset + 16)
+                packs.append((size, start))
+        if len(packs) != 1:
+            return False
+        size, start = packs[0]
+        if size < 96 or start < table_end or start + size > file_size:
+            return False
+        stream.seek(start)
+        header = stream.read(96)
+        magic, pack_version, major, _minor, _patch = struct.unpack('<4s4I', header[:20])
+        return magic == b'GDPC' and pack_version in (2, 3, 4) and major == 4
+
+
 def inspect_game(path):
     root = Path(path)
     if root.is_file():
@@ -167,6 +208,9 @@ def inspect_game(path):
             magic, pack_version, major, _minor, _patch = struct.unpack('<4s4I', header[:20])
             if magic == b'GDPC' and pack_version in (2, 3, 4) and major == 4:
                 return found('godot4', [pack.name + ':GDPC'])
+    for image in root.iterdir():
+        if image.is_file() and image.suffix.casefold() == '.exe' and _godot_embedded_pack(image):
+            return found('godot4', [image.name + ':PE/pck:GDPC'])
     project = root / 'project.godot'
     if project.is_file() and project.stat().st_size <= 1048576:
         text = project.read_text(encoding='utf-8-sig', errors='replace')

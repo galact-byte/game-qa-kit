@@ -165,6 +165,51 @@ class EngineTests(unittest.TestCase):
         pack.write_bytes(b'not a resource pack' + bytes(128))
         self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
 
+    def embedded_godot_image(self, *, version=(4, 7, 2), pack_format=2):
+        image = bytearray(512)
+        image[:2] = b'MZ'
+        struct.pack_into('<I', image, 60, 64)
+        struct.pack_into('<4sHHIIIHH', image, 64, b'PE\0\0', 0x8664, 1, 0, 0, 0, 240, 2)
+        struct.pack_into('<H', image, 88, 0x20b)
+        struct.pack_into('<8sIIII', image, 328, b'pck\0\0\0\0\0', 96, 4096, 96, 512)
+        image.extend(struct.pack('<4s5IQ16I', b'GDPC', pack_format, *version, 2, 96, *([0] * 16)))
+        return image
+
+    def test_embedded_godot_pack_is_recognized_without_enabling_control_or_writes(self):
+        for pack_format, version in [(2, (4, 7, 2)), (3, (4, 6, 3))]:
+            with self.subTest(version=version):
+                image = self.embedded_godot_image(version=version, pack_format=pack_format)
+                path = self.touch('Game.EXE', image)
+                result = self.engines.inspect_game(path)
+                self.assertEqual(result['engine'], 'godot4')
+                self.assertEqual(result['evidence'], ['Game.EXE:PE/pck:GDPC'])
+                self.assertIsNone(result['adapter'])
+                self.assertFalse(result['control_verified'])
+                self.assertEqual(path.read_bytes(), image)
+
+    def test_embedded_godot_rejects_unbound_magic_and_malformed_pe_ranges(self):
+        valid = self.embedded_godot_image()
+        cases = {'truncated_pack': valid[:-1], 'raw_magic_only': b'MZ' + valid[512:],
+                 'old_engine': self.embedded_godot_image(version=(3, 5, 3)),
+                 'unknown_pack_format': self.embedded_godot_image(pack_format=99)}
+        for name, offset, fmt, value in [
+            ('bad_pe_offset', 60, '<I', 0xffffffff),
+            ('bad_pe_signature', 64, '<4s', b'NOPE'),
+            ('bad_optional_magic', 88, '<H', 0),
+            ('wrong_section', 328, '<8s', b'.rdata\0\0'),
+            ('outside_file', 348, '<I', 0xfffffff0),
+            ('pack_in_headers', 348, '<I', 64),
+            ('undersized_section', 344, '<I', 95),
+            ('truncated_section_table', 70, '<H', 65535),
+        ]:
+            body = bytearray(valid)
+            struct.pack_into(fmt, body, offset, value)
+            cases[name] = body
+        for name, body in cases.items():
+            with self.subTest(case=name):
+                self.touch('game.exe', body)
+                self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
+
     def test_godot_project_file_requires_version_evidence(self):
         project = self.touch('project.godot', b'not a project')
         self.assertEqual(self.engines.inspect_game(self.root)['engine'], 'unknown')
