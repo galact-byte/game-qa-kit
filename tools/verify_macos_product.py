@@ -68,7 +68,8 @@ class Client:
 
 def run(root, fixture, executable):
     root.mkdir(parents=True, exist_ok=False)
-    result = {'ok':False, 'mode':'frozen' if executable else 'source'}
+    renderer = os.environ.get('GAMEQA_PROBE_RENDERER', 'appkit')
+    result = {'ok':False, 'mode':'frozen' if executable else 'source', 'renderer':renderer}
     children = []
     client = None
     phases = {}
@@ -84,6 +85,8 @@ def run(root, fixture, executable):
     try:
         children.append(subprocess.Popen([str(fixture),'target',str(root)]))
         ready = wait_value(lambda: json.loads((root/'target-ready.json').read_text()), lambda x: 'window' in x)
+        assert ready.get('rendering', {}).get('renderer') == renderer, ready
+        result['rendering'] = ready['rendering']
         profile = {'name':'native-fixture','proc':fixture.stem,'title_substr':'GameQA target',
                    'exe_path':str(fixture),'data_dir':str(root/'qa')}
         (root/'profile.json').write_text(json.dumps(profile))

@@ -50,30 +50,24 @@ jobs:
           python -X utf8 -B -m unittest tests.test_macos_capture tests.test_macos_entry
           tests.test_capture_session tests.test_platform_support tests.test_application
           tests.test_release_assembly tests.test_release_build -v
-      - name: Compare independent and overlapping capture processes
-        continue-on-error: true
-        run: >-
-          python -X utf8 -B tools/diagnose_macos_helper.py --root product-output/helper-comparison
-          --fixture product-output/native/fixture
-          --helper plugins/macos_capture/GameQACapture
-      - name: Measure serialized native capture from two processes
-        run: >-
-          python -X utf8 -B tools/diagnose_macos_serial_capture.py --root product-output/serial-comparison
-          --fixture product-output/native/fixture --helper plugins/macos_capture/GameQACapture
-      - name: Compare persistent helpers with serialized requests
-        continue-on-error: true
-        run: >-
-          python -X utf8 -B tools/diagnose_macos_serial_capture.py --root product-output/persistent-serial-comparison
-          --fixture product-output/native/fixture --helper plugins/macos_capture/GameQACapture --persistent
       - name: Verify source MCP observation against real windows
-        env:
-          GAMEQAKIT_NATIVE_ASYNC_STDIN: '1'
         run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source --fixture product-output/native/fixture
+      - name: Verify source MCP observation of a Metal window
+        env:
+          GAMEQA_PROBE_RENDERER: metal
+        run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source-metal --fixture product-output/native/fixture
       - name: Build arm64 application with native capture component
         run: python -X utf8 -B tools/build_unix.py --version v0.4.3-macos-capture-test --output "$RUNNER_TEMP/macos-product-build"
       - name: Verify frozen MCP and observation worker against real windows
         run: >-
           python -X utf8 -B tools/verify_macos_product.py --root product-output/frozen
+          --fixture product-output/native/fixture
+          --executable "$RUNNER_TEMP/macos-product-build/dist/GameQA.app/Contents/MacOS/GameQA"
+      - name: Verify frozen MCP and observation of a Metal window
+        env:
+          GAMEQA_PROBE_RENDERER: metal
+        run: >-
+          python -X utf8 -B tools/verify_macos_product.py --root product-output/frozen-metal
           --fixture product-output/native/fixture
           --executable "$RUNNER_TEMP/macos-product-build/dist/GameQA.app/Contents/MacOS/GameQA"
       - name: Verify Cocoa UI
