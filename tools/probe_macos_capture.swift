@@ -57,6 +57,7 @@ final class Fixture: NSObject, NSApplicationDelegate {
     init(root: URL, cover: Bool) { self.root = root; self.cover = cover }
     func applicationDidFinishLaunching(_ notification: Notification) {
         let view = CounterView(cover: cover)
+        view.wantsLayer = true
         let rect = cover ? NSRect(x: 90, y: 90, width: 600, height: 400) : NSRect(x: 100, y: 100, width: 320, height: 180)
         window = NSWindow(contentRect: rect, styleMask: .borderless, backing: .buffered, defer: false)
         window.title = cover ? "GameQA cover" : "GameQA target"
