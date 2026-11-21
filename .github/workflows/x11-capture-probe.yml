@@ -6,6 +6,7 @@ on:
       - experiment/x11-occluded-capture
     paths:
       - tools/probe_x11_capture.py
+      - tools/probe_x11_lifecycle.py
       - .github/workflows/x11-capture-probe.yml
   workflow_dispatch:
 
@@ -43,6 +44,15 @@ jobs:
             python3 -B tools/probe_x11_capture.py \
             --output "$RUNNER_TEMP/x11-probe/frames" \
             > "$RUNNER_TEMP/x11-probe/probe.log" 2>&1
+      - name: Verify independent clients, window destruction and server disconnect
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          timeout --signal=TERM --kill-after=5s 60s \
+            xvfb-run -a -s "-screen 0 1024x768x24 -nolisten tcp +extension Composite" \
+            python3 -B tools/probe_x11_lifecycle.py \
+            --output "$RUNNER_TEMP/x11-probe/lifecycle" \
+            > "$RUNNER_TEMP/x11-probe/lifecycle.log" 2>&1
       - name: Upload probe evidence even on failure
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
