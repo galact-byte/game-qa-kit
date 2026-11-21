@@ -1,5 +1,32 @@
 # 修改记录 — game-qa-kit
 
+## 2026-11-22 — Linux X11 云端遮挡采集探针
+
+### 背景与目标
+
+验证现有云端 Linux 环境能否持续取得被其他窗口完全遮挡的单窗口画面，避免将本机只有 Windows 视为整体推进阻碍。
+
+### 影响与兼容性
+
+仅在独立实验分支添加探针、只读权限的单任务工作流及说明；不启用产品采集入口，不改正式发布流程，无配置、游戏或存档迁移。回退本条所列文件即可撤销探针。
+
+### 文件与实现
+
+| 操作 | 路径 | 说明 |
+| --- | --- | --- |
+| 新增 | `tools/probe_x11_capture.py` | 标准库 ctypes 调用 XComposite，自写目标与遮挡窗口使用独立进程 |
+| 新增 | `.github/workflows/x11-capture-probe.yml` | Ubuntu x64 独立 Xvfb 探测，复用现有系统依赖并上传成功／失败证据 |
+| 新增 | `docs/X11-CAPTURE-PROBE.md` | 复现命令、验收方法、实际结果及范围限制 |
+
+### 验证
+
+- [云端运行 44930804334](https://github.com/galact-byte/game-qa-kit/actions/runs/44930804334) 通过；Composite 0.4，22 次观察覆盖可见、完全遮挡、停止更新对照与遮挡中改变尺寸；两个 fixture 正常退出。下载后独立核对 8 张目标 PNG 的计数条和 3 张根窗口 PNG，全部一致。
+- 本地语法、5 组增长判据输入、PNG 编码回读、Windows 运行拒绝、YAML 与 action 固定版本检查通过；`python -X utf8 -B -m unittest tests.test_release_assembly tests.test_release_build -v`：4 项通过。
+
+### 已知限制与后续
+
+仅验证约 3.86 秒的 Ubuntu x64／Xvfb 自写 CPU 窗口。产品后端、实际游戏、GPU 画面、普通桌面窗口管理器、Linux arm64、Wayland、macOS 及长期运行尚未验收；不增加引擎或平台支持声明。证据留存本地 `<X11探针验证目录>/`。
+
 ## v0.4.3 — Bakin 与五平台发布准备集成
 
 - 在独立候选工作区合并已审查的 Bakin 阶段成果与 macOS／Linux 公共入口；三方对照保留两侧变化，仅 `CHANGES.md` 出现文本冲突，两侧记录均保留。主仓原有 25 份改动文件及 Bakin 来源工作区的 50 份改动文件摘要未变。
