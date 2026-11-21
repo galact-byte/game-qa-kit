@@ -99,14 +99,20 @@ final class Frames: NSObject, SCStreamOutput, SCStreamDelegate {
     var image: CGImage?
     var timestamp = 0.0
     var failure: String?
+    var statuses = [String: Int]()
+    func diagnostics() -> [String: Any] {
+        lock.lock(); defer { lock.unlock() }
+        return ["complete_frames": serial, "statuses": statuses, "failure": failure ?? ""]
+    }
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         lock.lock(); failure = String(describing: error); lock.unlock()
     }
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
         guard type == .screen, sampleBuffer.isValid,
               let array = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
-              let rawStatus = array.first?[.status] as? Int,
-              SCFrameStatus(rawValue: rawStatus) == .complete,
+              let rawStatus = array.first?[.status] as? Int else { return }
+        lock.lock(); statuses[String(rawStatus), default: 0] += 1; lock.unlock()
+        guard SCFrameStatus(rawValue: rawStatus) == .complete,
               let pixelBuffer = sampleBuffer.imageBuffer else { return }
         let ci = CIImage(cvPixelBuffer: pixelBuffer)
         guard let cg = context.createCGImage(ci, from: ci.extent) else { return }
@@ -234,6 +240,7 @@ struct Probe {
         #endif
         var children = [Process]()
         var active: SCStream?
+        let frames = Frames()
         do {
             guard result["architecture"] as? String == "arm64" else { throw ProbeError("Expected native arm64") }
             try saveJSON(result, root.appendingPathComponent("permission-preflight.json"))
@@ -254,11 +261,17 @@ struct Probe {
             config.minimumFrameInterval = CMTime(value: 1, timescale: 20)
             config.queueDepth = 3
             config.ignoreShadowsSingleWindow = true
-            let frames = Frames()
             let stream = SCStream(filter: filter, configuration: config, delegate: frames)
             active = stream
             try stream.addStreamOutput(frames, type: .screen, sampleHandlerQueue: DispatchQueue(label: "probe.frames"))
             try await stream.startCapture()
+            for attempt in 0..<30 {
+                do { _ = try frames.snapshot(); break }
+                catch {
+                    if attempt == 29 { throw error }
+                    try await pause(0.1)
+                }
+            }
             var phases = [String: [[String: Any]]]()
             phases["visible"] = try await collect("visible", frames: frames, root: root)
             let cover = try launch("cover", root: root); children.append(cover)
@@ -289,6 +302,7 @@ struct Probe {
             result["error"] = String(describing: error)
             if let stream = active { try? await stream.stopCapture() }
         }
+        result["frame_diagnostics"] = frames.diagnostics()
         try? Data().write(to: root.appendingPathComponent("stop"))
         for _ in 0..<30 {
             if children.allSatisfy({ !$0.isRunning }) { break }
