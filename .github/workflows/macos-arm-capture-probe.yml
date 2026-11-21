@@ -3,11 +3,11 @@ name: macOS arm64 ScreenCaptureKit probe
 on:
   workflow_dispatch:
     inputs:
-      renderer:
-        description: Target rendering path
+      capture_mode:
+        description: Native capture path
         type: choice
-        options: [metal, appkit]
-        default: metal
+        options: [snapshot, stream]
+        default: snapshot
   push:
     branches: [experiment/macos-arm-capture]
     paths:
@@ -19,13 +19,20 @@ permissions:
 
 jobs:
   capture:
+    name: capture-${{ matrix.renderer }}
     runs-on: macos-15
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        renderer: [appkit, metal]
     timeout-minutes: 8
     defaults:
       run:
         shell: bash
     env:
-      GAMEQA_PROBE_RENDERER: ${{ inputs.renderer || 'metal' }}
+      GAMEQA_PROBE_RENDERER: ${{ matrix.renderer }}
+      GAMEQA_CAPTURE_MODE: ${{ inputs.capture_mode || 'snapshot' }}
     steps:
       - uses: actions/checkout@v4
       - name: Record native environment
@@ -75,6 +82,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: macos-arm-capture-probe
+          name: macos-arm-capture-probe-${{ matrix.renderer }}
           path: probe-output/
           retention-days: 14

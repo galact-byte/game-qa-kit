@@ -201,9 +201,16 @@ final class Frames: NSObject, SCStreamOutput, SCStreamDelegate {
     var timestamp = 0.0
     var failure: String?
     var statuses = [String: Int]()
+    var snapshotLatencies = [Double]()
+    func acceptSnapshot(_ snapshot: CGImage, elapsed: Double) {
+        lock.lock(); defer { lock.unlock() }
+        serial += 1; image = snapshot; timestamp = ProcessInfo.processInfo.systemUptime
+        snapshotLatencies.append(elapsed * 1000)
+    }
     func diagnostics() -> [String: Any] {
         lock.lock(); defer { lock.unlock() }
-        return ["complete_frames": serial, "statuses": statuses, "failure": failure ?? ""]
+        return ["complete_frames": serial, "statuses": statuses, "failure": failure ?? "",
+                "snapshot_latencies_ms": snapshotLatencies]
     }
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         lock.lock(); failure = String(describing: error); lock.unlock()
@@ -277,10 +284,12 @@ func growth(_ rows: [[String: Any]]) -> Bool {
     return counts.count >= 4 && zip(counts, counts.dropFirst()).allSatisfy { $1 > $0 }
 }
 
-func collect(_ name: String, frames: Frames, root: URL, frozen: Bool = false) async throws -> [[String: Any]] {
+func collect(_ name: String, frames: Frames, root: URL, frozen: Bool = false,
+             sample: (() async throws -> Void)? = nil) async throws -> [[String: Any]] {
     var rows = [[String: Any]]()
     for index in 0..<4 {
         try await pause(0.6)
+        if let sample = sample { try await sample() }
         let (serial, image, timestamp) = try frames.snapshot()
         let counter = try decode(image)
         let file = "\(name)-\(index).png"
@@ -331,7 +340,8 @@ struct Probe {
         let application = NSApplication.shared
         application.setActivationPolicy(.accessory)
         _ = NSScreen.screens
-        var result: [String: Any] = ["passed": false, "architecture": "unknown", "permission_preflight": CGPreflightScreenCaptureAccess(),
+        let mode = ProcessInfo.processInfo.environment["GAMEQA_CAPTURE_MODE"] ?? "stream"
+        var result: [String: Any] = ["passed": false, "capture_mode": mode, "architecture": "unknown", "permission_preflight": CGPreflightScreenCaptureAccess(),
             "os": ProcessInfo.processInfo.operatingSystemVersionString, "pid": ProcessInfo.processInfo.processIdentifier,
             "parent_pid": getppid(), "runner_image": ProcessInfo.processInfo.environment["ImageVersion"] ?? "unknown"]
         #if arch(arm64)
@@ -345,6 +355,7 @@ struct Probe {
         let frames = Frames()
         do {
             guard result["architecture"] as? String == "arm64" else { throw ProbeError("Expected native arm64") }
+            guard mode == "stream" || mode == "snapshot" else { throw ProbeError("Unknown capture mode") }
             try saveJSON(result, root.appendingPathComponent("permission-preflight.json"))
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
             result["shareable_query"] = true
@@ -364,42 +375,55 @@ struct Probe {
             config.minimumFrameInterval = CMTime(value: 1, timescale: 20)
             config.queueDepth = 3
             config.ignoreShadowsSingleWindow = true
-            let stream = SCStream(filter: filter, configuration: config, delegate: frames)
-            active = stream
-            try stream.addStreamOutput(frames, type: .screen, sampleHandlerQueue: DispatchQueue(label: "probe.frames"))
-            try await stream.startCapture()
-            for attempt in 0..<30 {
-                do { _ = try frames.snapshot(); break }
-                catch {
-                    if attempt == 29 { throw error }
-                    try await pause(0.1)
+            let sample: (() async throws -> Void)?
+            if mode == "snapshot" {
+                sample = {
+                    let started = ProcessInfo.processInfo.systemUptime
+                    let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+                    frames.acceptSnapshot(image, elapsed: ProcessInfo.processInfo.systemUptime - started)
+                }
+                try await sample?()
+            } else {
+                sample = nil
+                let stream = SCStream(filter: filter, configuration: config, delegate: frames)
+                active = stream
+                try stream.addStreamOutput(frames, type: .screen, sampleHandlerQueue: DispatchQueue(label: "probe.frames"))
+                try await stream.startCapture()
+                for attempt in 0..<30 {
+                    do { _ = try frames.snapshot(); break }
+                    catch {
+                        if attempt == 29 { throw error }
+                        try await pause(0.1)
+                    }
                 }
             }
             var phases = [String: [[String: Any]]]()
-            phases["visible"] = try await collect("visible", frames: frames, root: root)
+            phases["visible"] = try await collect("visible", frames: frames, root: root, sample: sample)
             let cover = try launch("cover", root: root); children.append(cover)
             result["cover"] = try await waitReady(root.appendingPathComponent("cover-ready.json"), process: cover)
             try await pause(0.6)
             result["frontmost_before"] = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
             result["window_list"] = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
-            phases["occluded"] = try await collect("occluded", frames: frames, root: root)
+            phases["occluded"] = try await collect("occluded", frames: frames, root: root, sample: sample)
             try await captureDesktop("desktop-occluded.png", content: content, root: root)
             try Data().write(to: root.appendingPathComponent("freeze"))
             try await pause(0.5)
-            phases["frozen"] = try await collect("frozen", frames: frames, root: root, frozen: true)
+            phases["frozen"] = try await collect("frozen", frames: frames, root: root, frozen: true, sample: sample)
             try Data().write(to: root.appendingPathComponent("resize"))
             try FileManager.default.removeItem(at: root.appendingPathComponent("freeze"))
             config.width = 400; config.height = 240
-            try await stream.updateConfiguration(config)
+            if let stream = active { try await stream.updateConfiguration(config) }
             try await pause(0.8)
             result["resized_window_list"] = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
-            phases["resized"] = try await collect("resized", frames: frames, root: root)
+            phases["resized"] = try await collect("resized", frames: frames, root: root, sample: sample)
             try await captureDesktop("desktop-resized.png", content: content, root: root)
             result["phases"] = phases
             result["frontmost_after"] = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
             guard result["frontmost_before"] as? Int32 == result["frontmost_after"] as? Int32 else { throw ProbeError("Frontmost application changed during capture") }
-            try await stream.stopCapture(); active = nil
-            try stream.removeStreamOutput(frames, type: .screen)
+            if let stream = active {
+                try await stream.stopCapture(); active = nil
+                try stream.removeStreamOutput(frames, type: .screen)
+            }
             result["passed"] = true
         } catch {
             result["error"] = String(describing: error)
