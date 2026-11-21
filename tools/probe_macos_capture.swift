@@ -68,10 +68,12 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
     let gpuLock = NSLock()
     var completedCommands = 0
     var gpuFailure = ""
+    var presentations = [[String: Any]]()
     var rendererInfo: [String: Any] {
         gpuLock.lock(); defer { gpuLock.unlock() }
         return ["renderer": "metal", "gpu": device?.name ?? "unknown",
-                "completed_commands": completedCommands, "gpu_error": gpuFailure]
+                "completed_commands": completedCommands, "gpu_error": gpuFailure,
+                "presentations": presentations]
     }
 
     init(probeGPU gpu: MTLDevice) throws {
@@ -109,7 +111,12 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
         delegate = self
     }
     required init(coder: NSCoder) { fatalError("init(coder:) unsupported") }
-    func render() { draw() }
+    func render() {
+        draw()
+        if ProcessInfo.processInfo.environment["GAMEQA_PROBE_FLUSH_METAL"] == "1" {
+            CATransaction.flush()
+        }
+    }
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
     func draw(in view: MTKView) {
         guard let pass = currentRenderPassDescriptor, let drawable = currentDrawable,
@@ -122,6 +129,15 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
         encoder.setFragmentBytes(&size, length: MemoryLayout<SIMD2<Float>>.size, index: 1)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         encoder.endEncoding()
+        let renderedCounter = counter
+        drawable.addPresentedHandler { [weak self] presented in
+            guard let self = self else { return }
+            self.gpuLock.lock(); defer { self.gpuLock.unlock() }
+            self.presentations.append(["counter": renderedCounter,
+                                       "drawable_id": presented.drawableID,
+                                       "presented_time": presented.presentedTime])
+            self.presentations = Array(self.presentations.suffix(16))
+        }
         command.present(drawable)
         command.addCompletedHandler { [weak self] completed in
             guard let self = self else { return }
