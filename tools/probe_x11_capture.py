@@ -207,11 +207,11 @@ def require_progress(samples):
         raise RuntimeError(f'采集计数未持续增长：{counters}')
 
 
-def probe(output):
+def probe(output, renderer='cpu'):
     output.mkdir(parents=True, exist_ok=False)
     report = {'ok': False, 'platform': platform.platform(), 'display': os.environ.get('DISPLAY'),
               'runner_image': os.environ.get('ImageVersion'), 'commit': os.environ.get('GITHUB_SHA'),
-              'samples': [], 'scope': 'Xvfb 24-bit X11, authored CPU-rendered fixture only'}
+              'samples': [], 'scope': f'Xvfb 24-bit X11, authored {renderer}-rendered fixture only'}
     children, logs = [], []
     connection, pixmap, redirected, target = None, 0, False, None
     try:
@@ -229,7 +229,10 @@ def probe(output):
         def start(kind):
             log = (output / f'{kind}.log').open('wb')
             logs.append(log)
-            child = subprocess.Popen([sys.executable, '-B', str(Path(__file__).resolve()), '--fixture', kind],
+            fixture_command = [sys.executable, '-B', str(Path(__file__).resolve()), '--fixture', kind]
+            if kind == 'target' and renderer == 'opengl':
+                fixture_command = [sys.executable, '-B', str(Path(__file__).with_name('probe_x11_gl_fixture.py'))]
+            child = subprocess.Popen(fixture_command,
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log, text=True)
             children.append(child)
             return child, reply(child)
@@ -342,10 +345,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--fixture', choices=('target', 'cover'))
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--renderer', choices=('cpu', 'opengl'), default='cpu')
     args = parser.parse_args()
     if args.fixture:
         fixture(args.fixture)
     elif args.output:
-        raise SystemExit(probe(args.output))
+        raise SystemExit(probe(args.output, args.renderer))
     else:
         parser.error('需要 --output')

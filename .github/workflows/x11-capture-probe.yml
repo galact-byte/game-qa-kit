@@ -7,6 +7,7 @@ on:
     paths:
       - tools/probe_x11_capture.py
       - tools/probe_x11_lifecycle.py
+      - tools/probe_x11_gl_fixture.py
       - .github/workflows/x11-capture-probe.yml
   workflow_dispatch:
 
@@ -34,6 +35,9 @@ jobs:
             python3 --version
             command -v xvfb-run
             command -v timeout
+            for candidate in godot godot4 weston pipewire dbus-run-session; do
+              command -v "$candidate" || true
+            done
             ldconfig -p
           } > "$RUNNER_TEMP/x11-probe/environment.txt" 2>&1
       - name: Capture target pixmap while another process covers it
@@ -44,6 +48,15 @@ jobs:
             python3 -B tools/probe_x11_capture.py \
             --output "$RUNNER_TEMP/x11-probe/frames" \
             > "$RUNNER_TEMP/x11-probe/probe.log" 2>&1
+      - name: Capture an independent OpenGL fixture with existing system libraries
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          timeout --signal=TERM --kill-after=5s 60s \
+            xvfb-run -a -s "-screen 0 1024x768x24 -nolisten tcp +extension Composite +extension GLX" \
+            python3 -B tools/probe_x11_capture.py --renderer opengl \
+            --output "$RUNNER_TEMP/x11-probe/opengl" \
+            > "$RUNNER_TEMP/x11-probe/opengl.log" 2>&1
       - name: Verify independent clients, window destruction and server disconnect
         if: ${{ !cancelled() }}
         shell: bash
