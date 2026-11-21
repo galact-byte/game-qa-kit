@@ -64,7 +64,7 @@ class MacCaptureEvidenceTests(unittest.TestCase):
             root = Path(directory)
             (root / 'result.json').write_text(json.dumps(data), encoding='utf-8')
             return subprocess.run(
-                [sys.executable, '-S', '-B', str(Path(__file__).resolve().parents[1] /
+                [sys.executable, '-X', 'utf8', '-S', '-B', str(Path(__file__).resolve().parents[1] /
                  'tools' / 'verify_macos_capture_probe.py'), str(root), '--metadata-only'],
                 capture_output=True, text=True, encoding='utf-8', errors='replace')
 
