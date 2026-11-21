@@ -21,6 +21,9 @@ jobs:
   capture:
     runs-on: macos-15
     timeout-minutes: 8
+    defaults:
+      run:
+        shell: bash
     env:
       GAMEQA_PROBE_RENDERER: ${{ inputs.renderer || 'metal' }}
     steps:

@@ -67,9 +67,9 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
     let pipeline: MTLRenderPipelineState
     var rendererInfo: [String: Any] { ["renderer": "metal", "gpu": device?.name ?? "unknown"] }
 
-    init() throws {
-        guard let gpu = MTLCreateSystemDefaultDevice(), let queue = gpu.makeCommandQueue() else {
-            throw ProbeError("Metal device or command queue unavailable")
+    init(probeGPU gpu: MTLDevice) throws {
+        guard let queue = gpu.makeCommandQueue() else {
+            throw ProbeError("Metal command queue unavailable")
         }
         let source = """
         #include <metal_stdlib>
@@ -132,7 +132,8 @@ final class Fixture: NSObject, NSApplicationDelegate {
         let renderer: CounterRendering
         do {
             if !cover && ProcessInfo.processInfo.environment["GAMEQA_PROBE_RENDERER"] == "metal" {
-                let metal = try MetalCounterView()
+                guard let gpu = MTLCreateSystemDefaultDevice() else { throw ProbeError("Metal device unavailable") }
+                let metal = try MetalCounterView(probeGPU: gpu)
                 view = metal; renderer = metal
             } else {
                 let appkit = CounterView(cover: cover)
