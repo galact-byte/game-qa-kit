@@ -39,10 +39,12 @@ func readRequest() throws -> [String: Any]? {
 
 @available(macOS 14.0, *)
 func windowIdentity(_ window: SCWindow) throws -> [String: Any] {
-    guard let app = window.owningApplication,
-          let running = NSRunningApplication(processIdentifier: app.processID),
-          let launched = running.launchDate,
-          let executable = running.executableURL else { throw CaptureFailure(code: "source_unavailable") }
+    guard let app = window.owningApplication else { throw CaptureFailure(code: "missing_owner") }
+    guard let running = NSRunningApplication(processIdentifier: app.processID) else {
+        throw CaptureFailure(code: "missing_running_application")
+    }
+    guard let launched = running.launchDate else { throw CaptureFailure(code: "missing_launch_date") }
+    guard let executable = running.executableURL else { throw CaptureFailure(code: "missing_executable_url") }
     let filter = SCContentFilter(desktopIndependentWindow: window)
     let scale = Double(filter.pointPixelScale)
     return ["window_id": Int(window.windowID), "pid": Int(app.processID),
@@ -67,11 +69,17 @@ func execute(_ request: [String: Any], sequence: inout Int) async throws {
     }
     switch request["op"] as? String {
     case "list":
-        let windows = content.windows.filter {
-            $0.windowLayer == 0 && $0.frame.width > 1 && $0.frame.height > 1 &&
-            $0.owningApplication?.processID != ProcessInfo.processInfo.processIdentifier
-        }.compactMap { try? windowIdentity($0) }
-        try emit(["ok": true, "windows": windows])
+        var windows: [[String: Any]] = []
+        var unavailable: [[String: Any]] = []
+        for window in content.windows where window.windowLayer == 0 && window.frame.width > 1 && window.frame.height > 1 &&
+            window.owningApplication?.processID != ProcessInfo.processInfo.processIdentifier {
+            do { windows.append(try windowIdentity(window)) }
+            catch let error as CaptureFailure {
+                unavailable.append(["window_id": Int(window.windowID), "pid": Int(window.owningApplication?.processID ?? -1),
+                                    "reason": error.code])
+            }
+        }
+        try emit(["ok": true, "windows": windows, "unavailable": unavailable])
     case "capture":
         guard let wanted = request["source"] as? [String: Any],
               let id = wanted["window_id"] as? Int,

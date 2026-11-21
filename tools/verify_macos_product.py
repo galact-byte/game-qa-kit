@@ -93,7 +93,8 @@ def run(root, fixture, executable):
         tools = {t['name'] for t in client.rpc('tools/list',{})['tools']}
         assert {'capture','watch_start','watch_stop','mark','win'} <= tools
         assert not tools.intersection({'click','key','game_start','background_start'})
-        windows = client.call('processes')
+        windows = wait_value(lambda: client.call('processes'),
+                             lambda x: any(row.get('window_id') == ready['window'] for row in x.get('processes', [])))
         result['windows'] = windows
         result['window'] = client.call('win')
         assert result['window']['window_id'] == ready['window']

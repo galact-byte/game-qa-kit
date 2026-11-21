@@ -117,6 +117,9 @@ def list_windows():
     try:
         row, payload = pipe.request({'op': 'list'})
         windows = row.get('windows')
+        if not windows and row.get('unavailable'):
+            reasons = sorted({str(item.get('reason', 'unknown')) for item in row['unavailable'] if isinstance(item, dict)})
+            raise CaptureEnded('无法读取窗口进程身份：' + ', '.join(reasons))
         if payload or not isinstance(windows, list) or len(windows) > 10000:
             raise CaptureEnded('无效窗口列表')
         for source in windows:
