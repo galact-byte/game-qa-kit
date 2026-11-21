@@ -7,12 +7,12 @@
 - Windows 候选回归改为复用正式发布已有的 12 个便携入口／生命周期模块，并设置测试辅助模块导入路径；候选 ZIP 上传匹配改为构建器实际生成的 `game-qa-kit-*-windows-x64.zip`。本地 105 项便携回归通过；修正批次 `44961876735`（`dc006061`）五个任务均通过。五份候选的摘要、归档完整性、自检记录及四个 Unix 目标桌面截图已独立核对；证据为 `<macOS产品实施目录>/five-target-44961876735/verification-complete.json`。现有本地全量回归与环境跳过记录独立保留，不将 CI 范围变更当作全量通过。
 - 工作流 YAML、五目标结构及无发布操作检查通过；引擎识别 30 项、发布装配 4 项回归通过。回退此工作流任务及相应说明即可，无数据迁移。
 
-## Metal 帧时间诊断（待原生结果）
+## Metal 帧时间与改尺寸诊断
 
-- 自写夹具增加显式 `GAMEQA_PROBE_SAMPLE_BUFFER=1` 诊断：保留截图 sample buffer 的原始 PTS、displayTime、状态与请求／返回 mach 时间，同时记录目标状态及呈现回调 mach 时间。未启用时沿用原截图 API；产品采集实现未改。
-- 原有 macOS 工作流增加仅手动启用的 `frame_timing_only` 分支，顺序采集 Metal 原截图、Metal sample buffer、AppKit sample buffer 三组；每组独立证据目录和进程组看门狗，保留图片与退出记录。原 product 步骤逐项核对保持一致。
-- 本地受影响 42 项回归通过，YAML 与内嵌 Python 解析通过；Swift 编译与帧时间有效性仍待云端原生运行验证。默认 Metal 失败结论、连续增长与 3 秒截图期限保持。
-- 回退夹具新增字段、sample buffer 开关及工作流手动分支即可，无游戏数据迁移。取证结果另记入 `docs/METAL-GPU-READBACK.md` 与恢复入口。
+- 云端 `44963580724` 已完成 Swift 编译与三组自写窗口诊断。独立复核记录为 `<macOS产品实施目录>/cloud-25/independent-frame-timing-review.json`：Metal 改尺寸后像素重复而 sample buffer 时间戳仍增长，AppKit 对照通过。时间戳不能代替像素连续增长证据，Metal 产品验收仍失败。
+- 新增显式 `GAMEQA_PROBE_RESIZE_ONCE=1` 单变量对照：只将同一改尺寸标记从每次计时器执行改为一次执行，默认夹具行为不变；同时记录实际改尺寸次数、drawable 获取与提交 mach 时间及纹理尺寸，最多保留最近 16 条绘制记录。原工作流追加独立目录，不改变产品采集器。
+- 本地 27 项采集／入口／GPU 核验回归通过，YAML 及 3 段内嵌 Python 解析通过；单次改尺寸的原生结果待云端验证。连续增长、3 秒截图期限、黑帧及退出判据保持原值。
+- 回退新增诊断字段、单次改尺寸开关及工作流对照组即可，无游戏数据迁移。
 
 ## Metal GPU 读回与当前源码回归
 

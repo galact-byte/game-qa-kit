@@ -70,6 +70,7 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
     var completedCommands = 0
     var gpuFailure = ""
     var presentations = [[String: Any]]()
+    var drawTimings = [[String: Any]]()
     var readbackRecords = [[String: Any]]()
     var readbackFailure = ""
     let readbackRoot: URL?
@@ -78,7 +79,8 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
         gpuLock.lock(); defer { gpuLock.unlock() }
         return ["renderer": "metal", "gpu": device?.name ?? "unknown",
                 "completed_commands": completedCommands, "gpu_error": gpuFailure,
-                "presentations": presentations, "gpu_readbacks": readbackRecords,
+                "presentations": presentations, "draw_timings": drawTimings,
+                "gpu_readbacks": readbackRecords,
                 "readback_error": readbackFailure, "readback_enabled": readbackRoot != nil]
     }
 
@@ -130,9 +132,11 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
     }
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
     func draw(in view: MTKView) {
+        let acquireStarted = mach_absolute_time()
         guard let pass = currentRenderPassDescriptor, let drawable = currentDrawable,
               let command = commandQueue.makeCommandBuffer(),
               let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return }
+        let acquireEnded = mach_absolute_time()
         var value = UInt32(counter)
         var size = SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height))
         encoder.setRenderPipelineState(pipeline)
@@ -203,6 +207,14 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
             drawable.present()
         }
         draws += 1
+        gpuLock.lock()
+        drawTimings.append(["counter": renderedCounter,
+                            "acquire_started_mach": acquireStarted,
+                            "acquire_ended_mach": acquireEnded,
+                            "committed_mach": mach_absolute_time(),
+                            "width": drawable.texture.width, "height": drawable.texture.height])
+        drawTimings = Array(drawTimings.suffix(16))
+        gpuLock.unlock()
     }
 }
 
@@ -211,6 +223,8 @@ final class Fixture: NSObject, NSApplicationDelegate {
     let cover: Bool
     var window: NSWindow!
     var timer: Timer?
+    var resizeCount = 0
+    let resizeOnce = ProcessInfo.processInfo.environment["GAMEQA_PROBE_RESIZE_ONCE"] == "1"
     init(root: URL, cover: Bool) { self.root = root; self.cover = cover }
     func applicationDidFinishLaunching(_ notification: Notification) {
         let view: NSView
@@ -248,8 +262,10 @@ final class Fixture: NSObject, NSApplicationDelegate {
                 timer?.invalidate(); window.close(); NSApp.terminate(nil); return
             }
             if !cover {
-                if FileManager.default.fileExists(atPath: root.appendingPathComponent("resize").path) {
+                if FileManager.default.fileExists(atPath: root.appendingPathComponent("resize").path)
+                        && (!resizeOnce || resizeCount == 0) {
                     window.setContentSize(NSSize(width: 400, height: 240))
+                    resizeCount += 1
                 }
                 if !FileManager.default.fileExists(atPath: root.appendingPathComponent("freeze").path) {
                     renderer.counter += 1
@@ -258,6 +274,7 @@ final class Fixture: NSObject, NSApplicationDelegate {
                 try? saveJSON(["counter": renderer.counter, "draws": renderer.draws,
                                "rendering": renderer.rendererInfo,
                                "recorded_mach": mach_absolute_time(),
+                               "resize_count": resizeCount, "resize_once": resizeOnce,
                                "occlusion_visible": window.occlusionState.contains(.visible),
                                "width": window.frame.width, "height": window.frame.height],
                               root.appendingPathComponent("target-state.json"))

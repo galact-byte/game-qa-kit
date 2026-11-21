@@ -216,6 +216,7 @@ jobs:
           fixture = Path('frame-timing/native/fixture').resolve()
           for name, renderer, sample_buffer in [
               ('metal-image', 'metal', False),
+              ('metal-image-resize-once', 'metal', False),
               ('metal-sample-buffer', 'metal', True),
               ('appkit-sample-buffer', 'appkit', True),
           ]:
@@ -225,6 +226,8 @@ jobs:
                          GAMEQA_PROBE_PRODUCT_CADENCE='1', GAMEQA_PROBE_RENDERER=renderer)
               if sample_buffer:
                   env['GAMEQA_PROBE_SAMPLE_BUFFER'] = '1'
+              if name == 'metal-image-resize-once':
+                  env['GAMEQA_PROBE_RESIZE_ONCE'] = '1'
               cleanup = {'timed_out': False}
               with (root / 'run.log').open('wb') as log:
                   process = subprocess.Popen([str(fixture), 'capture', str(root)],
