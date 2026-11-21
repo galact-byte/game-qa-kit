@@ -2,6 +2,12 @@ name: macOS arm64 ScreenCaptureKit probe
 
 on:
   workflow_dispatch:
+    inputs:
+      renderer:
+        description: Target rendering path
+        type: choice
+        options: [metal, appkit]
+        default: metal
   push:
     branches: [experiment/macos-arm-capture]
     paths:
@@ -15,6 +21,8 @@ jobs:
   capture:
     runs-on: macos-15
     timeout-minutes: 8
+    env:
+      GAMEQA_PROBE_RENDERER: ${{ inputs.renderer || 'metal' }}
     steps:
       - uses: actions/checkout@v4
       - name: Record native environment
@@ -26,7 +34,7 @@ jobs:
           test "$(uname -m)" = arm64
       - name: Compile native probe with installed SDK
         run: |
-          xcrun swiftc -parse-as-library -swift-version 5 -O tools/probe_macos_capture.swift -o probe-output/capture-probe -framework AppKit -framework ScreenCaptureKit -framework CoreMedia -framework CoreVideo -framework CoreImage 2>&1 | tee probe-output/compile.log
+          xcrun swiftc -parse-as-library -swift-version 5 -O tools/probe_macos_capture.swift -o probe-output/capture-probe -framework AppKit -framework ScreenCaptureKit -framework CoreMedia -framework CoreVideo -framework CoreImage -framework Metal -framework MetalKit 2>&1 | tee probe-output/compile.log
       - name: Probe single-window stream without changing permissions
         run: |
           python3 - <<'PY'

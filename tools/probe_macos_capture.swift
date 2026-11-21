@@ -5,6 +5,7 @@ import CoreMedia
 import CoreVideo
 import CoreImage
 import QuartzCore
+import MetalKit
 
 struct ProbeError: Error, CustomStringConvertible {
     let description: String
@@ -22,9 +23,18 @@ func savePNG(_ image: CGImage, _ url: URL) throws {
     try png.write(to: url, options: .atomic)
 }
 
-final class CounterView: NSView {
+protocol CounterRendering: AnyObject {
+    var counter: Int { get set }
+    var draws: Int { get }
+    var rendererInfo: [String: Any] { get }
+    func render()
+}
+
+final class CounterView: NSView, CounterRendering {
     var counter = 1
     var draws = 0
+    var rendererInfo: [String: Any] { ["renderer": "appkit"] }
+    func render() { needsDisplay = true; display(); CATransaction.flush() }
     let cover: Bool
     init(cover: Bool) { self.cover = cover; super.init(frame: .zero) }
     required init?(coder: NSCoder) { fatalError("init(coder:) unsupported") }
@@ -50,6 +60,67 @@ final class CounterView: NSView {
     }
 }
 
+final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
+    var counter = 1
+    var draws = 0
+    let commandQueue: MTLCommandQueue
+    let pipeline: MTLRenderPipelineState
+    var rendererInfo: [String: Any] { ["renderer": "metal", "gpu": device?.name ?? "unknown"] }
+
+    init() throws {
+        guard let gpu = MTLCreateSystemDefaultDevice(), let queue = gpu.makeCommandQueue() else {
+            throw ProbeError("Metal device or command queue unavailable")
+        }
+        let source = """
+        #include <metal_stdlib>
+        using namespace metal;
+        vertex float4 vertex_main(uint id [[vertex_id]]) {
+            const float2 vertices[] = {float2(-1,-1),float2(3,-1),float2(-1,3)};
+            return float4(vertices[id],0,1);
+        }
+        fragment float4 fragment_main(float4 pixel [[position]],
+                constant uint &counter [[buffer(0)]], constant float2 &size [[buffer(1)]]) {
+            if (pixel.y > size.y/3 && pixel.y < size.y*2/3) {
+                uint bit = min(uint(pixel.x/size.x*16), 15u);
+                float level = (counter & (1u << bit)) ? 240.0/255.0 : 20.0/255.0;
+                return float4(level,level,level,1);
+            }
+            return float4(20.0/255.0,50.0/255.0,80.0/255.0,1);
+        }
+        """
+        let library = try gpu.makeLibrary(source: source, options: nil)
+        let descriptor = MTLRenderPipelineDescriptor()
+        descriptor.vertexFunction = library.makeFunction(name: "vertex_main")
+        descriptor.fragmentFunction = library.makeFunction(name: "fragment_main")
+        descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+        pipeline = try gpu.makeRenderPipelineState(descriptor: descriptor)
+        commandQueue = queue
+        super.init(frame: .zero, device: gpu)
+        colorPixelFormat = .bgra8Unorm
+        isPaused = true
+        enableSetNeedsDisplay = false
+        delegate = self
+    }
+    required init(coder: NSCoder) { fatalError("init(coder:) unsupported") }
+    func render() { draw() }
+    func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+    func draw(in view: MTKView) {
+        guard let pass = currentRenderPassDescriptor, let drawable = currentDrawable,
+              let command = commandQueue.makeCommandBuffer(),
+              let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return }
+        var value = UInt32(counter)
+        var size = SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height))
+        encoder.setRenderPipelineState(pipeline)
+        encoder.setFragmentBytes(&value, length: MemoryLayout<UInt32>.size, index: 0)
+        encoder.setFragmentBytes(&size, length: MemoryLayout<SIMD2<Float>>.size, index: 1)
+        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+        encoder.endEncoding()
+        command.present(drawable)
+        command.commit()
+        draws += 1
+    }
+}
+
 final class Fixture: NSObject, NSApplicationDelegate {
     let root: URL
     let cover: Bool
@@ -57,8 +128,21 @@ final class Fixture: NSObject, NSApplicationDelegate {
     var timer: Timer?
     init(root: URL, cover: Bool) { self.root = root; self.cover = cover }
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let view = CounterView(cover: cover)
-        view.wantsLayer = true
+        let view: NSView
+        let renderer: CounterRendering
+        do {
+            if !cover && ProcessInfo.processInfo.environment["GAMEQA_PROBE_RENDERER"] == "metal" {
+                let metal = try MetalCounterView()
+                view = metal; renderer = metal
+            } else {
+                let appkit = CounterView(cover: cover)
+                appkit.wantsLayer = true
+                view = appkit; renderer = appkit
+            }
+        } catch {
+            try? saveJSON(["error": String(describing: error)], root.appendingPathComponent("target-render-error.json"))
+            NSApp.terminate(nil); return
+        }
         let rect = cover ? NSRect(x: 90, y: 90, width: 600, height: 400) : NSRect(x: 100, y: 100, width: 320, height: 180)
         window = NSWindow(contentRect: rect, styleMask: .borderless, backing: .buffered, defer: false)
         window.title = cover ? "GameQA cover" : "GameQA target"
@@ -69,8 +153,9 @@ final class Fixture: NSObject, NSApplicationDelegate {
         window.contentView = view
         if cover { window.level = .floating }
         window.orderFrontRegardless()
-        view.display()
-        try? saveJSON(["pid": ProcessInfo.processInfo.processIdentifier, "window": window.windowNumber],
+        renderer.render()
+        try? saveJSON(["pid": ProcessInfo.processInfo.processIdentifier, "window": window.windowNumber,
+                       "rendering": renderer.rendererInfo],
                       root.appendingPathComponent(cover ? "cover-ready.json" : "target-ready.json"))
         timer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [self] _ in
             if FileManager.default.fileExists(atPath: root.appendingPathComponent("stop").path) {
@@ -81,12 +166,10 @@ final class Fixture: NSObject, NSApplicationDelegate {
                     window.setContentSize(NSSize(width: 400, height: 240))
                 }
                 if !FileManager.default.fileExists(atPath: root.appendingPathComponent("freeze").path) {
-                    view.counter += 1
-                    view.needsDisplay = true
-                    view.display()
-                    CATransaction.flush()
+                    renderer.counter += 1
+                    renderer.render()
                 }
-                try? saveJSON(["counter": view.counter, "draws": view.draws,
+                try? saveJSON(["counter": renderer.counter, "draws": renderer.draws,
                                "occlusion_visible": window.occlusionState.contains(.visible),
                                "width": window.frame.width, "height": window.frame.height],
                               root.appendingPathComponent("target-state.json"))
