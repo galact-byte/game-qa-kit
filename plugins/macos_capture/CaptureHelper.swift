@@ -40,17 +40,19 @@ func readRequest() throws -> [String: Any]? {
 @available(macOS 14.0, *)
 func windowIdentity(_ window: SCWindow) throws -> [String: Any] {
     guard let app = window.owningApplication else { throw CaptureFailure(code: "missing_owner") }
-    guard let running = NSRunningApplication(processIdentifier: app.processID) else {
-        throw CaptureFailure(code: "missing_running_application")
+    var seconds: UInt64 = 0
+    var microseconds: UInt64 = 0
+    let pathCapacity = UInt32(PROC_PIDPATHINFO_MAXSIZE)
+    var path = [CChar](repeating: 0, count: Int(pathCapacity))
+    guard gameqa_process_identity(app.processID, &seconds, &microseconds, &path, pathCapacity) == 1 else {
+        throw CaptureFailure(code: "process_identity_unavailable")
     }
-    guard let launched = running.launchDate else { throw CaptureFailure(code: "missing_launch_date") }
-    guard let executable = running.executableURL else { throw CaptureFailure(code: "missing_executable_url") }
     let filter = SCContentFilter(desktopIndependentWindow: window)
     let scale = Double(filter.pointPixelScale)
     return ["window_id": Int(window.windowID), "pid": Int(app.processID),
-            "started_at": String(format: "%.6f", launched.timeIntervalSince1970),
+            "started_at": "\(seconds).\(microseconds)",
             "title": window.title ?? "", "name": app.applicationName,
-            "exe_path": executable.path,
+            "exe_path": String(cString: path),
             "size": [Int((filter.contentRect.width * scale).rounded(.up)),
                      Int((filter.contentRect.height * scale).rounded(.up))]]
 }
@@ -90,8 +92,7 @@ func execute(_ request: [String: Any], sequence: inout Int) async throws {
         }
         var identity = try windowIdentity(window)
         guard identity["started_at"] as? String == stamp else { throw CaptureFailure(code: "source_changed") }
-        guard let running = NSRunningApplication(processIdentifier: pid_t(pid)), !running.isTerminated,
-              let rows = CGWindowListCopyWindowInfo(.optionIncludingWindow, window.windowID) as? [[String: Any]],
+        guard let rows = CGWindowListCopyWindowInfo(.optionIncludingWindow, window.windowID) as? [[String: Any]],
               let record = rows.first, (record[kCGWindowOwnerPID as String] as? Int) == pid else {
             throw CaptureFailure(code: "window_closed")
         }
@@ -109,7 +110,7 @@ func execute(_ request: [String: Any], sequence: inout Int) async throws {
         config.pixelFormat = kCVPixelFormatType_32BGRA
         let started = ProcessInfo.processInfo.systemUptime
         let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
-        guard CGPreflightScreenCaptureAccess(), !running.isTerminated else { throw CaptureFailure(code: "source_unavailable") }
+        guard CGPreflightScreenCaptureAccess() else { throw CaptureFailure(code: "permission_denied") }
         let refreshed = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
         guard let same = refreshed.windows.first(where: { $0.windowID == window.windowID && $0.owningApplication?.processID == pid_t(pid) }),
               try windowIdentity(same)["started_at"] as? String == stamp else { throw CaptureFailure(code: "source_changed") }

@@ -32,6 +32,7 @@ def build(version, output):
         helper.parent.mkdir(parents=True)
         subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-swift-version', '5', '-O',
                         '-target', 'arm64-apple-macosx14.0',
+                        '-import-objc-header', str(ROOT / 'plugins/macos_capture/ProcessIdentity.h'),
                         str(ROOT / 'plugins/macos_capture/CaptureHelper.swift'), '-o', str(helper),
                         '-framework', 'AppKit', '-framework', 'ScreenCaptureKit'], check=True)
         subprocess.run(['codesign', '--force', '--sign', '-', str(helper)], check=True)

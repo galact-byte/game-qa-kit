@@ -42,7 +42,7 @@ jobs:
           uname -a > product-output/environment.txt
           sw_vers >> product-output/environment.txt
           test "$(uname -m)" = arm64
-          xcrun swiftc -parse-as-library -swift-version 5 -O -target arm64-apple-macosx14.0 plugins/macos_capture/CaptureHelper.swift -o plugins/macos_capture/GameQACapture -framework AppKit -framework ScreenCaptureKit
+          xcrun swiftc -parse-as-library -swift-version 5 -O -target arm64-apple-macosx14.0 -import-objc-header plugins/macos_capture/ProcessIdentity.h plugins/macos_capture/CaptureHelper.swift -o plugins/macos_capture/GameQACapture -framework AppKit -framework ScreenCaptureKit
           xcrun swiftc -parse-as-library -swift-version 5 -O tools/probe_macos_capture.swift -o product-output/native/fixture -framework AppKit -framework ScreenCaptureKit -framework CoreMedia -framework CoreVideo -framework CoreImage -framework Metal -framework MetalKit
       - name: Check contracts and entry lifecycle
         run: >-
