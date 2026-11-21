@@ -211,6 +211,9 @@ struct Probe {
             app.run()
             return
         }
+        let application = NSApplication.shared
+        application.setActivationPolicy(.accessory)
+        _ = NSScreen.screens
         var result: [String: Any] = ["passed": false, "architecture": "unknown", "permission_preflight": CGPreflightScreenCaptureAccess(),
             "os": ProcessInfo.processInfo.operatingSystemVersionString, "pid": ProcessInfo.processInfo.processIdentifier,
             "parent_pid": getppid(), "runner_image": ProcessInfo.processInfo.environment["ImageVersion"] ?? "unknown"]
