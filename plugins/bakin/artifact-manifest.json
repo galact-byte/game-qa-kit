@@ -1,0 +1,6 @@
+{
+  "GameQaKit.Bakin.PreparedLaunch.dll": "e80b1a59d45f1f7dce95ec19b036f56c68bd1ff20582426c7359e1988ccd18a2",
+  "GameQaKit.Bakin.RuntimeBridge.dll": "18e6882607771b0e354ca413379c611da168454c0eac7e338b21669ded51297f",
+  "GameQaKit.Bakin.PatchTool.exe": "ce6715d1b0569d8812b86e05dc54f524ee67d0d95552a0d8eaf222e7bd1c2dd3",
+  "Mono.Cecil.dll": "7ae470288fff4a402899c254d0a76cefef55877f5c54f96e83c797cc5bb6e2f6"
+}

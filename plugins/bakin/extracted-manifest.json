@@ -1,0 +1,1574 @@
+{
+  "data/bakinengine.dll": {
+    "bytes": 4133264,
+    "sha256": "e79836201d17e5c40754011df9f96e99c92be61b95d674195581bc36e80e5a19"
+  },
+  "data/bakinplayer.exe": {
+    "bytes": 339856,
+    "sha256": "94e4b19e9187f81c44aad4e8a3ef70f294ccb9cb32fafd699de3f537ccfb903c"
+  },
+  "data/bakinplayer.exe.config": {
+    "bytes": 798,
+    "sha256": "6c4df659b675664a57d17f0dd0a3d064be1a6ba538daa9efb5c22e2abc8bd727"
+  },
+  "data/bakinplayer.pak": {
+    "bytes": 39362,
+    "sha256": "d1541ca7ec6090ecf40024e77f87d697a6c3a94bc22d1fa995b0c92037e6a019"
+  },
+  "data/BMPLoader.dlp": {
+    "bytes": 27024,
+    "sha256": "451a7c885f0ebf40f630e2c9eb0c59ad4b19311015cb79617aff1e551cc68577"
+  },
+  "data/BulletPhysics.dlp": {
+    "bytes": 881040,
+    "sha256": "4bdc5b2a7398e0911dfb54b8c490609e53f5449b0738455547470dfd2a073e1b"
+  },
+  "data/common.dll": {
+    "bytes": 1887632,
+    "sha256": "654c0d9b65c51db13d42cb8aaba4e236d2245593050bff635d9824eed109a021"
+  },
+  "data/concrt140.dll": {
+    "bytes": 317864,
+    "sha256": "573229a07f38ab9d2fc2e1a5b98e9243b9b39100323180c83ad7ddaf98eee46a"
+  },
+  "data/data.rbpack": {
+    "bytes": 6388465033,
+    "sha256": "489813f0dfa4b5eeef9430f64258954ef83750595a07864330b3cfb719d2fa9a"
+  },
+  "data/dxcompiler.dll": {
+    "bytes": 17972656,
+    "sha256": "1220478c87af97551d2342906c5a08d888ee9fa26f6f99b6072d674801f492d1"
+  },
+  "data/dxil.dll": {
+    "bytes": 1462704,
+    "sha256": "e038a9755387fc396a9a5f393d292b9318cf6ac7e520e9283bbc3088c5f8ac93"
+  },
+  "data/EdgeBrowserControl.dll": {
+    "bytes": 22928,
+    "sha256": "543530896c3ae5c13a699dd90d4b668b4b9f7f2c885766a4507252152106ed16"
+  },
+  "data/en/bakinengine.resources.dll": {
+    "bytes": 666512,
+    "sha256": "f3993a957ea14527d2f3d7cb47a606d8ff5321cf27f60a85f91d5ea0e2651804"
+  },
+  "data/en/bakinplayer.resources.dll": {
+    "bytes": 21392,
+    "sha256": "d8848a16e6b1fe49ad02536570fd42456a27b58e97fc922456cee7c12bdc0a66"
+  },
+  "data/FBXLoader.dlp": {
+    "bytes": 9894288,
+    "sha256": "558ad45f8dc270edd2176177334948ecd0ae0223f73378c4422e18a0298c4fc2"
+  },
+  "data/glew32.dll": {
+    "bytes": 435088,
+    "sha256": "199d55bbe7b885588dd8074c9b3c4611ec348584a80db57cbd5b77233fbe8ffd"
+  },
+  "data/HDRLoader.dlp": {
+    "bytes": 28560,
+    "sha256": "1d5eb93bbee7955013ca988624e5b0ada63fe3f0a2700808d9af612ff270b716"
+  },
+  "data/kmyCore.dll": {
+    "bytes": 4646288,
+    "sha256": "b65de15da7274baf47f3d1559cf17e50e4a4626cc7bb9c7f971f2806c1a17566"
+  },
+  "data/kmyDX12.dll": {
+    "bytes": 1492368,
+    "sha256": "b7ef15aaf7dc207428ecfefb8c88e37b7677b7269908609d91703c60d0d0c9a1"
+  },
+  "data/kmyOGL.dll": {
+    "bytes": 1949584,
+    "sha256": "725c323b2d8ae824994de1ba2beca790934b8e6af109374615d172ea7c7fef80"
+  },
+  "data/kmyWASAPI.dll": {
+    "bytes": 30096,
+    "sha256": "f3996e48d53eec9316b7c80f3afe7868ed08a87647b78d20e6603b3659524e0f"
+  },
+  "data/kmyWindowsCommon.dll": {
+    "bytes": 122768,
+    "sha256": "56f40464d0ba69134c4a3d25329a05c7d06f1ef38f5d3734db23832bc355c435"
+  },
+  "data/lib/sysresource/shader/include/transform.cgh": {
+    "bytes": 6,
+    "sha256": "aea52d27230b89ca1b732866afbe137a98e65100049a56b3293def8d5fe7dda0"
+  },
+  "data/lib/sysresource/shader/include/uniform.cgh": {
+    "bytes": 5159,
+    "sha256": "40afb0fa8013e1d1549b6ecf72f4cfbf7e12e928650a0e240598715fe345abe5"
+  },
+  "data/lib/sysresource/shader/include/v2_common.cgh": {
+    "bytes": 3829,
+    "sha256": "1a7de8f5352d90f58f452693a80ebc9d4dff80063154627136acfbcff704c89f"
+  },
+  "data/lib/sysresource/shader/include/v2_fpcommon.cgh": {
+    "bytes": 20622,
+    "sha256": "c020274649ce4bcc5808f9930dd008f3b1c13a4f32563e923238c149bf076ac0"
+  },
+  "data/lib/sysresource/shader/include/v2_gpcommon.cgh": {
+    "bytes": 1625,
+    "sha256": "ea8e0dd5df6ef43e95a356e6e70fb901f26c66c3f4c60273b150c7cba611b4e0"
+  },
+  "data/lib/sysresource/shader/include/v2_util.cgh": {
+    "bytes": 1777,
+    "sha256": "702c987fd8458ae4689c7e17ed3a7e7bc044119a7394177b7a8f3c17003707ae"
+  },
+  "data/lib/sysresource/shader/include/v2_vpcommon.cgh": {
+    "bytes": 5741,
+    "sha256": "a902328c6ac492163e7def656ed3c1622618d43404f16c3fc2bbe0c6b64c1320"
+  },
+  "data/Live2DCubismCore.dll": {
+    "bytes": 249800,
+    "sha256": "d883c00d114fdf6cef61f439feb23e02d000fdf683e092803010470b80dfaf09"
+  },
+  "data/Microsoft.CodeAnalysis.CSharp.dll": {
+    "bytes": 6582408,
+    "sha256": "6f43f82185bb19508dfa1436e442e8560a7127aa230b6b5e5206ec38f0a1a9f0"
+  },
+  "data/Microsoft.CodeAnalysis.dll": {
+    "bytes": 4641936,
+    "sha256": "3aab1101504f5cef57918ec3515874c88023d9014eaa740c2d2667dc6f763e0e"
+  },
+  "data/Microsoft.Web.WebView2.Core.dll": {
+    "bytes": 284064,
+    "sha256": "5a035ee9e6e84eea8f1c216cbf404d31eb4eb5a9b836860876e051b42a94c50d"
+  },
+  "data/Microsoft.Web.WebView2.WinForms.dll": {
+    "bytes": 34208,
+    "sha256": "8185c2d97723f850c17e8f38e2569066af8bd6cab10605bab781545324d6bc5c"
+  },
+  "data/msvcp140.dll": {
+    "bytes": 566704,
+    "sha256": "9fee6f36547d6f6ea7ca0338655555dba6bb0f798bc60334d29b94d1547da4da"
+  },
+  "data/msvcp140_1.dll": {
+    "bytes": 23944,
+    "sha256": "8731a93e519c2595c9fd489e6d9ac07e964448c0da1c8ee9ee500a7989482617"
+  },
+  "data/msvcp140_2.dll": {
+    "bytes": 186800,
+    "sha256": "366af8e071f004da5d95a832a46b2e8821a8e0294340a93f7c95cf48c441067e"
+  },
+  "data/msvcp140_atomic_wait.dll": {
+    "bytes": 57264,
+    "sha256": "c61a28711f8c6e9bfd4879cf5f53b013d653badad308abe3e887c694b223d6f0"
+  },
+  "data/msvcp140_codecvt_ids.dll": {
+    "bytes": 21424,
+    "sha256": "9b45fd069bd0076d8abfeb7c3c30a1f5c5fc8e7124017853a93d831a346c3d21"
+  },
+  "data/OGGLoader.dlp": {
+    "bytes": 270224,
+    "sha256": "a329113666ae2c552e9d2f548dd043277f10e248bc6f7172c94c01d367d862e3"
+  },
+  "data/PNGLoader.dlp": {
+    "bytes": 391568,
+    "sha256": "47e5818ef4ed2b17af494424a27128c0c95d562d65ccf9cbbfd402611d7a8e39"
+  },
+  "data/SBControl.dll": {
+    "bytes": 1205648,
+    "sha256": "d1637bbaccc8b22253f108da7c2531e66eaa5c1a8d82be68cee7ad849d5de3be"
+  },
+  "data/SharpDX.DirectInput.dll": {
+    "bytes": 163216,
+    "sha256": "0987c994b50605f3f3bab3e7e5e6cdadaa99802ca178c3093980919e63b8bd5b"
+  },
+  "data/SharpDX.dll": {
+    "bytes": 287120,
+    "sha256": "e2ca105ec6949228ea9974fa328db5dfd6be47ab5432f2ce5dd66c0721043e76"
+  },
+  "data/SharpKmyCore.dll": {
+    "bytes": 1144208,
+    "sha256": "86826f0f1f574f1f5ae5344635375fdf75f42a3d5f4a96ad3743fa3fe307c7c3"
+  },
+  "data/Sharplibsimplewebm.dll": {
+    "bytes": 2215824,
+    "sha256": "b2bc600fe938ec899c73499a1da4b6723ed29d07ec551cc48edf8431df4afd7b"
+  },
+  "data/System.Collections.Immutable.dll": {
+    "bytes": 193664,
+    "sha256": "69e57ac412200e47fe7b5f933a30c594e1fc1517498c88920aabc702f5ea00a7"
+  },
+  "data/System.Memory.dll": {
+    "bytes": 141184,
+    "sha256": "8e76318e8b06692abf7dab1169d27d15557f7f0a34d36af6463eff0fe21213c7"
+  },
+  "data/System.Net.Http.dll": {
+    "bytes": 198472,
+    "sha256": "b5d20736f84f335ef4c918a5ba41c3a0d7189397c71b166ccc6c342427a94ece"
+  },
+  "data/System.Numerics.Vectors.dll": {
+    "bytes": 115856,
+    "sha256": "1d3ef8698281e7cf7371d1554afef5872b39f96c26da772210a33da041ba1183"
+  },
+  "data/System.Reflection.Metadata.dll": {
+    "bytes": 462728,
+    "sha256": "46451e1168dd11d450aa9b6119f17cec9a70928a40ac3c752abf61ce809cba6f"
+  },
+  "data/System.Runtime.CompilerServices.Unsafe.dll": {
+    "bytes": 18024,
+    "sha256": "37768488e8ef45729bc7d9a2677633c6450042975bb96516e186da6cb9cd0dcf"
+  },
+  "data/vccorlib140.dll": {
+    "bytes": 335792,
+    "sha256": "79284659bf4302162302737d2513b17e09742cdefb9540e80f97d30c93077d7c"
+  },
+  "data/vcruntime140.dll": {
+    "bytes": 98224,
+    "sha256": "9d2b40f0395cc5d1b4d5ea17b84970c29971d448c37104676db577586d4ad1b1"
+  },
+  "data/vcruntime140_1.dll": {
+    "bytes": 37256,
+    "sha256": "34048abaa070ecc13b318cea31425f4ca3edd133d350318ac65259e6058c8b32"
+  },
+  "data/VRMLoader.dlp": {
+    "bytes": 1180560,
+    "sha256": "69a8690c0e4ed5d7b9b9f7b495f3ee7dc984e8c72487cf1d7676642cb1f87f86"
+  },
+  "data/WAVLoader.dlp": {
+    "bytes": 67984,
+    "sha256": "4f49b10a086577372a0b20c17ad87d2cb9b9a2696c30c2f676bac833f5b87545"
+  },
+  "data/WebView2Loader.dll": {
+    "bytes": 140184,
+    "sha256": "ad8bb426a8e438493db4d703242f373d9cb36d8c13e88b6647cd083716e09bef"
+  },
+  "data/YamlDotNet.dll": {
+    "bytes": 219536,
+    "sha256": "8dc3a5233f70a4061606f86f036df471e7cee5ed5a10b9d0f2202ecd6be8d95c"
+  },
+  "unpacked/Attribute.rbr": {
+    "bytes": 1109,
+    "sha256": "11fcd2c0302869ef84f40ff690923f25fddbc36d0bad7a1564543a7af5189cf2"
+  },
+  "unpacked/BattleCamera.rbr": {
+    "bytes": 11417,
+    "sha256": "541e3fc05f8645ef26c89e3389082a9aac82d35daa4765d07a0badfd16af1cf2"
+  },
+  "unpacked/battlescript/app.config": {
+    "bytes": 705,
+    "sha256": "8d89df5524c90c6c968ab5ff256b96ab080947b43800b87fa42b0d6075eefd5d"
+  },
+  "unpacked/battlescript/BattleActor.cs": {
+    "bytes": 37501,
+    "sha256": "1e73733ba58737cec10df58108f5e339fcc1c570aa2b4ef7100bb2eab59589f1"
+  },
+  "unpacked/battlescript/BattleContentGetter.cs": {
+    "bytes": 141794,
+    "sha256": "2fa98940c995f989f9d26972cfcfcc567abf39c769a31efbc759919d051cc7ae"
+  },
+  "unpacked/battlescript/BattleDamageTextInfo.cs": {
+    "bytes": 3055,
+    "sha256": "2ab7cd04d96d8178cd9610ce7ec65f34108bfbd2b48b654a4a612bf5f04d10a3"
+  },
+  "unpacked/battlescript/BattleEventController.cs": {
+    "bytes": 138358,
+    "sha256": "f98b403868e8e2df1d6b3debea4d0caf51962a448576c0efc0bfbf2cd42488df"
+  },
+  "unpacked/battlescript/BattlePluginDef.cs": {
+    "bytes": 1454,
+    "sha256": "b97f043e2c048bf94b5477428041f8799f78beb6bd7edf703ebbb0beac4054c8"
+  },
+  "unpacked/battlescript/BattleSequenceManager.cs": {
+    "bytes": 442437,
+    "sha256": "07d36ec4b7ce70d312547fb93713131724c4e5493b091623506a0438bc6dbb77"
+  },
+  "unpacked/battlescript/BattleStructs.cs": {
+    "bytes": 879,
+    "sha256": "aed9bf0c9b720aaa6616e55c8125c11e08da7acdd5735801da4df8a7ef47af55"
+  },
+  "unpacked/battlescript/BattleViewer.cs": {
+    "bytes": 78267,
+    "sha256": "9a597fa558a11f885ea6689596cc23af06e1437da792b7724fdc688d0e4b5cd9"
+  },
+  "unpacked/battlescript/BattleViewer3D.cs": {
+    "bytes": 171529,
+    "sha256": "98718d341f0eab9e64cbe8f8b80a362c139fa98166626c486d38ecf1ad76c6f3"
+  },
+  "unpacked/battlescript/BattleViewer3DPreview.cs": {
+    "bytes": 13921,
+    "sha256": "36139210c3f2d732bebc672ae35a845d8842c883c0338ccdc4547dd005d2c1c0"
+  },
+  "unpacked/battlescript/CommandTargetSelector.cs": {
+    "bytes": 21246,
+    "sha256": "17e3e4c592e2d723c7f759f670e857141c5cdc98aed3ca34b7975dce2c4de8ea"
+  },
+  "unpacked/battlescript/LayoutStateBattleMember.cs": {
+    "bytes": 46277,
+    "sha256": "3f9c97033aa5ba3094c0887d9e8731e4ce41fb6d478e8f4ca37981da0d3e076f"
+  },
+  "unpacked/battlescript/LICENSE.txt": {
+    "bytes": 1130,
+    "sha256": "66623603b07fc9aef7bc5cf86b2b7740275abf26f865aec34030838c3a2327c7"
+  },
+  "unpacked/battlescript/Properties/AssemblyInfo.cs": {
+    "bytes": 2480,
+    "sha256": "28b643053d8e513c6ebc36f2bb3ad02c5f20a1473f9ce6ded1c0b92bd3216880"
+  },
+  "unpacked/battlescript/RecoveryStatusInfo.cs": {
+    "bytes": 874,
+    "sha256": "cfe6e45b26b3f12d3983a4843dc6deb54c5d025ad13ff249edbf1678e7d0658a"
+  },
+  "unpacked/battlescript/ResultViewer.cs": {
+    "bytes": 55698,
+    "sha256": "c7e1ddf6b0a376ce5468b4385038fad374fb5a9502908dc5cd33002dda262a7a"
+  },
+  "unpacked/battlescript/Yukar Battle Engine.csproj": {
+    "bytes": 5197,
+    "sha256": "a616b9ef91a0fd4abebd70821a8cb9f11cb1d8ce342029f490ba1e2fb176244d"
+  },
+  "unpacked/Camera.rbr": {
+    "bytes": 214381,
+    "sha256": "79ba9996a2dec460fae3ea21c7e95b5c06ae4ec372217c6ac474051cab6f76f2"
+  },
+  "unpacked/Cast.rbr": {
+    "bytes": 220970,
+    "sha256": "1c2e116c6336ce320da289621c866f2f6bd1535df4fc5f1cf0713c417a46aead"
+  },
+  "unpacked/Condition.rbr": {
+    "bytes": 61927,
+    "sha256": "076f0408c6f970bf33472ba99f3be449f47273bb249db86a853c04081ce47353"
+  },
+  "unpacked/Effect.rbr": {
+    "bytes": 17,
+    "sha256": "8d86eee940f8bd239429c74013d723bc63b3b7d7a96aaeeb7ca9d45c96dc127d"
+  },
+  "unpacked/EnemyParty.rbr": {
+    "bytes": 22720,
+    "sha256": "75908ac41dbde321481339d5718730b9536458bb8910ecd607ea61982987e680"
+  },
+  "unpacked/ExtraChunk.rbr": {
+    "bytes": 709183,
+    "sha256": "7c22060c492300230799361b060f21d653635f829fee1fd01628d1263029f8b2"
+  },
+  "unpacked/GameSettings.rbr": {
+    "bytes": 29912544,
+    "sha256": "3ad1b6e6944a6e65ebfa1f9695ac784145ec1afaa6d9dc5f06c1e47bc9a71ca1"
+  },
+  "unpacked/Hero.rbr": {
+    "bytes": 17,
+    "sha256": "8d86eee940f8bd239429c74013d723bc63b3b7d7a96aaeeb7ca9d45c96dc127d"
+  },
+  "unpacked/icon.png": {
+    "bytes": 977,
+    "sha256": "637036b50735d9dac012ac38db8b4bb1bea5ab8ff8a0041402e73efc3c79f5d0"
+  },
+  "unpacked/Input.cfg": {
+    "bytes": 2384,
+    "sha256": "9d8f2d0f58640e3828d4b6607393f4566ab6de502ee2b224cc1e6825b4f3679a"
+  },
+  "unpacked/Item.rbr": {
+    "bytes": 17,
+    "sha256": "8d86eee940f8bd239429c74013d723bc63b3b7d7a96aaeeb7ca9d45c96dc127d"
+  },
+  "unpacked/Job.rbr": {
+    "bytes": 71,
+    "sha256": "65d17c81d0b4c7420ac6a38eb2b1a5bc406f5cd8c543dddcdaf03180a5c514ba"
+  },
+  "unpacked/Layout.rbr": {
+    "bytes": 11370508,
+    "sha256": "242abe2d60010781f3d1e315fd13fed93763c85c30673419e58dffd37348a984"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/2dmap_skybox.cg": {
+    "bytes": 1377,
+    "sha256": "4aad881d6e894de640998509858598766e5a7a4fb00566d6507a508ceed3b916"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/2dmap_skybox.txt": {
+    "bytes": 601,
+    "sha256": "a4fa64723f50244c145e84c019bba4cea603e0389d24a85c5f2cbb6c4422601b"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n.cg": {
+    "bytes": 1775,
+    "sha256": "4b889033bb6934bb31bdb08188cc56e42bd04c12524cff35660ee204f4d6409b"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n.txt": {
+    "bytes": 2326,
+    "sha256": "d9fc571957fae698988e58972583bcd4fdb6de5fee75b82a0f6dac2915f54219"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n_discard.cg": {
+    "bytes": 2718,
+    "sha256": "7bb0c9adf93d395bb0a197f7cba03454539e33a632051f43617b560c8f901c03"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n_discard.txt": {
+    "bytes": 2635,
+    "sha256": "bab78956f59462a8c1d253df10e48f6ad3b742227adf7750d1ba432039583984"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n_rm.cg": {
+    "bytes": 1955,
+    "sha256": "a1fcd604c20185f90bd434de6f48fa8a89db6e59a11aa511566e6432f59996cc"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n_rm.txt": {
+    "bytes": 3301,
+    "sha256": "2bb2bf3ffc78a9baf2f9195753b818a06b746d3a9a755de9278084eacd9197ab"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n_rm_discard.cg": {
+    "bytes": 2889,
+    "sha256": "f420c575f45f3af2065ec7e267110a01c4643fe2040dfe1d1a8af28f459ef432"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n_rm_discard.txt": {
+    "bytes": 3619,
+    "sha256": "62e3c95c0158f6f3f74d27351798b4e33a04222d3b0d4262742de4180afd160c"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n_rm_sss_discard.cg": {
+    "bytes": 3048,
+    "sha256": "db52fb2dfc7d7306c96c05bcfbbbabb4da577c2caf5ff6c24ca18a91e8ba60eb"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n_rm_sss_discard.txt": {
+    "bytes": 3455,
+    "sha256": "8b965904adca22021c44a5f0832d82bd28b65c873e1bc97b04c5879ead9deaf6"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n_rm_wind_discard.cg": {
+    "bytes": 4675,
+    "sha256": "0144e1a1156110a43c51b3763a9547fe5f236864a90a55a474ddbce40eb19fc2"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n_rm_wind_discard.txt": {
+    "bytes": 3871,
+    "sha256": "fd0e9d5f4cdfb961902a90893ae3138906e0ec9d05a7885763e6993572a594ba"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n_wind_discard.cg": {
+    "bytes": 4953,
+    "sha256": "c76022160a8612b4e636b77eb1b14ba4a96f02d0287a36e128a7f5f3996de846"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/a_n_wind_discard.txt": {
+    "bytes": 3268,
+    "sha256": "48570e9f4dc96d06776ef20a049aa4afad256624574de6b85d7172377a44ac8c"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/character_create_hair.cg": {
+    "bytes": 1873,
+    "sha256": "b667c54d0fe9507595931c79637707cfa71c68b72f772176ec05d5669f0bd4fd"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/character_create_hair.txt": {
+    "bytes": 1005,
+    "sha256": "08cf4537cf205e06d0fa80b3a0759594b00dae211dca102c6517d1acf618ed9e"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/character_create_skin.cg": {
+    "bytes": 5388,
+    "sha256": "d3e881c1b5b96c77d969f224d15e0ce3ec49e317dd7354f5ed0e274655d0d393"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/character_create_skin.txt": {
+    "bytes": 5452,
+    "sha256": "b1871e7dc43ef1ba2c3c06e16099a029768850d533d5944906d68acd25f7f40c"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/cubemap_skybox.cg": {
+    "bytes": 1021,
+    "sha256": "7e668ad281a312987981c88930767cf2e16e57f2e831010160dfee2c7fc44947"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/cubemap_skybox.txt": {
+    "bytes": 658,
+    "sha256": "6291b69e0b51db164f46cbe3eb774c1957dbce2cf75f5a6ce513d9bd5680faed"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/decal.cg": {
+    "bytes": 3690,
+    "sha256": "0b29fbbf4cb4a55503e3140a9e70f6f2c0ed85ceff41b0d7b183996460675e8c"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/decal.txt": {
+    "bytes": 4986,
+    "sha256": "f5855473e90bf1572980cc3da82a0dfde2a0daa31d3d0ea2538972ed7199077e"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/glass.cg": {
+    "bytes": 732,
+    "sha256": "24fd088b848428b92743588d10a5342e5d7beb29d4a8cbb4d362516dfd374b53"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/glass.txt": {
+    "bytes": 702,
+    "sha256": "e55a29c1951cf1faa48b055839955a57c52d211d2dd326c015bf50d75ce33fa8"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map.cg": {
+    "bytes": 988,
+    "sha256": "d200182771a451460ed33520632149aaad6f8b1b7f81ea7d37fc55571139915b"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map.txt": {
+    "bytes": 1086,
+    "sha256": "b62b65ceb88a9e222d92c1373d820a346f99f442078ac068b2a6b511c95f44f9"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_discard.cg": {
+    "bytes": 1627,
+    "sha256": "27e1782b9ed00c467c9b8a63fcf056fff5f7cfe756d790b2522dc8644dc32691"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_discard.txt": {
+    "bytes": 1448,
+    "sha256": "09c1360dcb13b8eb3d23a09fa98f6cb8fee83f7656b0a385585f3ca58039aa4a"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_nolit.cg": {
+    "bytes": 466,
+    "sha256": "1b9bb3122148428559b1af06e2da0ddfa44d3129e0dd2e2ff43c68a647957181"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_nolit.txt": {
+    "bytes": 767,
+    "sha256": "7ee1f5564120c6ddfa2d7fab0fcb83fcfe6dde3b70220bdd91c0a74f15695d11"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_nolit_add.cg": {
+    "bytes": 858,
+    "sha256": "1082c47cbc3ddf8cba8704cb5d095a22f107d4686bc30ca8a3868d29adff2575"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_nolit_add.txt": {
+    "bytes": 720,
+    "sha256": "790a0715fd908e9f21a873e0cf451db24d5d2c7ed19eef452eff276301ac28ae"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_nolit_alpha.cg": {
+    "bytes": 955,
+    "sha256": "ff5c540b942d2d214779349de58196de66d1354b9b1f5af621ec6deff5f6d596"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_nolit_alpha.txt": {
+    "bytes": 803,
+    "sha256": "e042b5001a01cac1a003b903b66c44d5bfebf73fe708c8068ed2a55586393880"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_nolit_discard.cg": {
+    "bytes": 1120,
+    "sha256": "5e39cd608985aaf8133664061327c44ab3d4a849304607d7e23bebe331652ce1"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_nolit_discard.txt": {
+    "bytes": 884,
+    "sha256": "b7135ad6a4ebbe49e8b64b55b123f955433dfa0912f4de161fc5cdb99b1898eb"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_nolit_modulate.cg": {
+    "bytes": 984,
+    "sha256": "4e0aa8813c4a353f8efe25eb37be65f7a923c678836cdb10020006b8616107d1"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_nolit_modulate.txt": {
+    "bytes": 719,
+    "sha256": "1c0bafc9b3d19131454f2350f6460e9e6cf5a74da9edcf697fdbc8109151da16"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_notex.cg": {
+    "bytes": 922,
+    "sha256": "e478087c3fd09f5c59666c816723cb6ee904f5a06619221ea5c3cb31feb89df7"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_notex.txt": {
+    "bytes": 1225,
+    "sha256": "ea0c0b93744ea0db17b0daba35275b288ba88cb7d903ed7bf3053c1ba9df8bc7"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_terrain.cg": {
+    "bytes": 1213,
+    "sha256": "1b5599f60a07ab2da4d46e9b07c5cbae8c661176d0d0db56249af9fc1ad5449c"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_terrain.txt": {
+    "bytes": 696,
+    "sha256": "b9b60abef8f0fe0f575846dc1a7f6ac04b51d9e2bd121617ab950b717a77ff8a"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_wind_discard.cg": {
+    "bytes": 3772,
+    "sha256": "b37dc530e3be9eda2ad4e1581364ca1c18d20b67dea0dd916139e71be7856a8e"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/map_wind_discard.txt": {
+    "bytes": 1975,
+    "sha256": "4183d295cea51db878a579b74d0dc1c6606457d7e2f72ac64e36d6f293912add"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/mosaic.cg": {
+    "bytes": 1514,
+    "sha256": "02df55dc6465baa8f130a8b78f40e0f3a032c5b780198661fd8fa610365fba14"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/mosaic.txt": {
+    "bytes": 925,
+    "sha256": "e974739af4843cf927caed16cd4b5c60bb67d8e7f41b23587975cdc108222fcc"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/toon.cg": {
+    "bytes": 10586,
+    "sha256": "24a454e0347fe801f9c4274bec09dec02debde2a643848fbd6538b09a7d59662"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/toon.txt": {
+    "bytes": 22018,
+    "sha256": "23ca758f766f88667acedf7e030cd62c0891234ea9299f225a2a89ff6d153ac0"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/toonVRM.cg": {
+    "bytes": 13570,
+    "sha256": "b6eae704290b71007c0dd0d8cbf1bcf734c098c06a8cf0f93c898aab325b359d"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/toonVRM.txt": {
+    "bytes": 25043,
+    "sha256": "b0da200b2b676091ed1c0ee3ae5648ba1e02a55aaa9f9cc2c110a62cfc8b91ec"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/toonVRM0X.cg": {
+    "bytes": 14219,
+    "sha256": "95b22e07018372591a861ac9ab3f66d368aa4ee7eed4d96a5ade0e77c022e766"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/toonVRM0X.txt": {
+    "bytes": 28170,
+    "sha256": "f9e608101ef1d864494206e5699720df1171a103aea77488a4e87582667ebca5"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/transparent_normal_water.cg": {
+    "bytes": 4720,
+    "sha256": "944b7a1b16d6f0426a583ac96beeff52c261592bbde9141f51d08caa3e83734e"
+  },
+  "unpacked/lib/sysresource/shader/Builtin/transparent_normal_water.txt": {
+    "bytes": 3290,
+    "sha256": "b448c0951ce4a6e1adde2800156bc3c67ba94682300f24fa867f4cf12502344c"
+  },
+  "unpacked/lib/sysresource/shader/Include/transform.cgh": {
+    "bytes": 6,
+    "sha256": "aea52d27230b89ca1b732866afbe137a98e65100049a56b3293def8d5fe7dda0"
+  },
+  "unpacked/lib/sysresource/shader/Include/uniform.cgh": {
+    "bytes": 5159,
+    "sha256": "40afb0fa8013e1d1549b6ecf72f4cfbf7e12e928650a0e240598715fe345abe5"
+  },
+  "unpacked/lib/sysresource/shader/Include/v2_common.cgh": {
+    "bytes": 3829,
+    "sha256": "1a7de8f5352d90f58f452693a80ebc9d4dff80063154627136acfbcff704c89f"
+  },
+  "unpacked/lib/sysresource/shader/Include/v2_fpcommon.cgh": {
+    "bytes": 20622,
+    "sha256": "c020274649ce4bcc5808f9930dd008f3b1c13a4f32563e923238c149bf076ac0"
+  },
+  "unpacked/lib/sysresource/shader/Include/v2_gpcommon.cgh": {
+    "bytes": 1625,
+    "sha256": "ea8e0dd5df6ef43e95a356e6e70fb901f26c66c3f4c60273b150c7cba611b4e0"
+  },
+  "unpacked/lib/sysresource/shader/Include/v2_util.cgh": {
+    "bytes": 1777,
+    "sha256": "702c987fd8458ae4689c7e17ed3a7e7bc044119a7394177b7a8f3c17003707ae"
+  },
+  "unpacked/lib/sysresource/shader/Include/v2_vpcommon.cgh": {
+    "bytes": 5741,
+    "sha256": "a902328c6ac492163e7def656ed3c1622618d43404f16c3fc2bbe0c6b64c1320"
+  },
+  "unpacked/lib/sysresource/shader/System/2dchar.cg": {
+    "bytes": 1271,
+    "sha256": "7881981d0e2b41cbae40c84c02a1e59548f704f19442a05e7c64a0edf8ca9331"
+  },
+  "unpacked/lib/sysresource/shader/System/2dchar_lit.cg": {
+    "bytes": 3656,
+    "sha256": "e38b71a32c0a1a26e3c38510044f74f989831eb2211afe8979ed590fa9b0f325"
+  },
+  "unpacked/lib/sysresource/shader/System/2dchar_lit_alpha.cg": {
+    "bytes": 1442,
+    "sha256": "e0e399d7f5fc69e5a1c996d39f7aa1fca6bf6cc57d6827b107de3536780819be"
+  },
+  "unpacked/lib/sysresource/shader/System/2dsprite.cg": {
+    "bytes": 1596,
+    "sha256": "36f3aba21734491b36f3f148ba5293c5f311e35c046cc6e4eafafba0d5f7760d"
+  },
+  "unpacked/lib/sysresource/shader/System/3dicon.cg": {
+    "bytes": 1638,
+    "sha256": "cdaaa2c773a8fbcf2d643ee0cb10aa76c64d42eea33f208cbecc51c48bbb4d32"
+  },
+  "unpacked/lib/sysresource/shader/System/bilateral.cg": {
+    "bytes": 1914,
+    "sha256": "517ff9815992c547d9a1d6a21716452caefb533be13be1e05dfe83ae52522f7a"
+  },
+  "unpacked/lib/sysresource/shader/System/bloom.cg": {
+    "bytes": 1772,
+    "sha256": "f045b88054f7b0dc93149832d75ab58e44a6112eddad58152470499df7c25d11"
+  },
+  "unpacked/lib/sysresource/shader/System/bloom_r0.cg": {
+    "bytes": 2001,
+    "sha256": "daea0868d47e50b455e6817057f22547d36bed8b5377d9e6c10c826ee64256ef"
+  },
+  "unpacked/lib/sysresource/shader/System/bloom_r0_cs.cg": {
+    "bytes": 1403,
+    "sha256": "ee6615569433d0b90dd1de53f02d365d5bc3589ba94879b6797a192219d27ceb"
+  },
+  "unpacked/lib/sysresource/shader/System/blurAdd.cg": {
+    "bytes": 1980,
+    "sha256": "3ddc97878c6e719f95a2abbb350aa3da17dc86fbfb569c73503de76ac22564d2"
+  },
+  "unpacked/lib/sysresource/shader/System/blurAdd_cs.cg": {
+    "bytes": 1558,
+    "sha256": "ab4a3e0d11d427dbe5e80f6bc2b361501bf020f2f085ce88e9d17ddc29d11839"
+  },
+  "unpacked/lib/sysresource/shader/System/bokeh.cg": {
+    "bytes": 2084,
+    "sha256": "3cf7ba7fa661704122b9bf6c61675c1e2b758931f0b4f37e55d385e8bb4f6a15"
+  },
+  "unpacked/lib/sysresource/shader/System/bokeh_cs.cg": {
+    "bytes": 1559,
+    "sha256": "bc8adb4f1353acde43b50b05234414ac325838011080c379176e31e144443344"
+  },
+  "unpacked/lib/sysresource/shader/System/boxsample.cg": {
+    "bytes": 1367,
+    "sha256": "cb8b92810fafdd729b9a4166a94e1245d69b35541a14b6b5f96326b54735b46b"
+  },
+  "unpacked/lib/sysresource/shader/System/boxsample_cs.cg": {
+    "bytes": 528,
+    "sha256": "17de83b08539c17c16abe229733481b420b13d7feeab10ab35cbe56e6f7d7d86"
+  },
+  "unpacked/lib/sysresource/shader/System/brightness.cg": {
+    "bytes": 798,
+    "sha256": "d2654ef8065336f5212419b5eaa0bdb7251a62a5cf30d4e27ec59b7794f11e33"
+  },
+  "unpacked/lib/sysresource/shader/System/calcexposure.cg": {
+    "bytes": 1525,
+    "sha256": "af0aac475607bf27568b5c0f755245bea627a87251430deca0e658e64c5ef14d"
+  },
+  "unpacked/lib/sysresource/shader/System/capturecopy.cg": {
+    "bytes": 963,
+    "sha256": "a5cf2a53538ee248bbcacfcd3c165f2c189fb121da973edd70c49fd195573105"
+  },
+  "unpacked/lib/sysresource/shader/System/capturecopy_cs.cg": {
+    "bytes": 632,
+    "sha256": "5916807b852976ba382b1835b792142d589271c74cc27bdface3a0b557efdf8e"
+  },
+  "unpacked/lib/sysresource/shader/System/cloudShadow.cg": {
+    "bytes": 2874,
+    "sha256": "874fae5a32be8c3b9fee12e134ef935bdf41f9aaed6e70599937a3cc5963873f"
+  },
+  "unpacked/lib/sysresource/shader/System/coc.cg": {
+    "bytes": 1406,
+    "sha256": "bd2329349357b13c3bc8c532cc3943a088f9680b15204776033c20f2f9c3ca5f"
+  },
+  "unpacked/lib/sysresource/shader/System/coc_cs.cg": {
+    "bytes": 1309,
+    "sha256": "451b001d7508e1a25f2676842c43c3891c7ca1b324934f9d48ced1e858449b47"
+  },
+  "unpacked/lib/sysresource/shader/System/copy.cg": {
+    "bytes": 1100,
+    "sha256": "f0dc6a9f04c46aac014127e3affb8055ab3df9136cf3d36ea2de7671efc2501d"
+  },
+  "unpacked/lib/sysresource/shader/System/copy_cs.cg": {
+    "bytes": 484,
+    "sha256": "18bcfed36f38dbd0b19c66ca0fd17fbea1b9c2245088702805f60e891eaf4408"
+  },
+  "unpacked/lib/sysresource/shader/System/cubemapBlend.cg": {
+    "bytes": 1482,
+    "sha256": "218faafc1b1b589da85db476332779b0c00d29ef09fbdd925760725a3e05c67a"
+  },
+  "unpacked/lib/sysresource/shader/System/cursor.cg": {
+    "bytes": 781,
+    "sha256": "80b5bf7f74e5623a27e242f92a8af91c4e937847d8f6b6867b104f81f74d83c3"
+  },
+  "unpacked/lib/sysresource/shader/System/cursor_add.cg": {
+    "bytes": 1006,
+    "sha256": "43e566a37b389d35716771497a31ff2a437f644990db1de42f4163640cf59490"
+  },
+  "unpacked/lib/sysresource/shader/System/cursor_modulate.cg": {
+    "bytes": 621,
+    "sha256": "362be7e60fd66ab982f02dd2654c4c920f9c2d887f5597a3dc0dc39799920bd0"
+  },
+  "unpacked/lib/sysresource/shader/System/debugline.cg": {
+    "bytes": 716,
+    "sha256": "14228f0cc019c0c0347124748b801b51b168bf436a8fb73430847476653c46a5"
+  },
+  "unpacked/lib/sysresource/shader/System/deferredFog.cg": {
+    "bytes": 1420,
+    "sha256": "a66fa7caea1902d8defcb9f36f23276de3c885c710edb54815d52b5f23f516c8"
+  },
+  "unpacked/lib/sysresource/shader/System/depthview.cg": {
+    "bytes": 747,
+    "sha256": "b5775807d245abb117e8505590066831c1b95a809361dcdbb5ef63d2aa5d3e1e"
+  },
+  "unpacked/lib/sysresource/shader/System/dof.cg": {
+    "bytes": 1373,
+    "sha256": "0bbf4e28fc1e26a69816f2daeb9f74f800953ad3a23423bb32a2f98bc06b7f1e"
+  },
+  "unpacked/lib/sysresource/shader/System/dof_cs.cg": {
+    "bytes": 795,
+    "sha256": "7426ebb3d55b72d8c3fd67e759491c0633d974686767b13b5f6bf41500d582a9"
+  },
+  "unpacked/lib/sysresource/shader/System/fxaa.cg": {
+    "bytes": 6191,
+    "sha256": "9fbf8fa2af8497bd0e7bcceb4805143999192594877d734d1b25a7b5418420c8"
+  },
+  "unpacked/lib/sysresource/shader/System/fxaa_cs.cg": {
+    "bytes": 5903,
+    "sha256": "fde40bd35bf2172afc91affc5dbe72d22c01987927c9b98973e94e916bd9d940"
+  },
+  "unpacked/lib/sysresource/shader/System/gridwithdepth.cg": {
+    "bytes": 878,
+    "sha256": "32f42489ce8d96424fb8d003b5fa2ce599f5f6e231cb17798dd3d1099cd05263"
+  },
+  "unpacked/lib/sysresource/shader/System/hilight.cg": {
+    "bytes": 1126,
+    "sha256": "a85cd4a3fc6c27655f3c98edcbf9c3fba81a24badca3ddd09e77b0bf78b78011"
+  },
+  "unpacked/lib/sysresource/shader/System/hilight_cs.cg": {
+    "bytes": 919,
+    "sha256": "7713146b20f33b28ed2a80e53a0b8f696da1f69a3b8c960f12d5a6f348c7562d"
+  },
+  "unpacked/lib/sysresource/shader/System/invisiblearea.cg": {
+    "bytes": 963,
+    "sha256": "103d38910c564ee04d297badb29c80f9e9c4e6b545d7a85493caf108a3393d98"
+  },
+  "unpacked/lib/sysresource/shader/System/legacy_notex.cg": {
+    "bytes": 504,
+    "sha256": "415da16f4f1afa19199726fe4fa8afc5afb2afbe051f611998496630fdaac5e8"
+  },
+  "unpacked/lib/sysresource/shader/System/legacy_tex.cg": {
+    "bytes": 721,
+    "sha256": "db7d6c621727881e0b52d6f065a1b7507b49620a93782660a872e440e0b1eb87"
+  },
+  "unpacked/lib/sysresource/shader/System/linegizmo.cg": {
+    "bytes": 797,
+    "sha256": "22022f56042c1a64a157d8efcb778ab79722ec5e48368512551d6a5dc5e655d0"
+  },
+  "unpacked/lib/sysresource/shader/System/live2d.cg": {
+    "bytes": 3943,
+    "sha256": "3c135474d31e944933f23fb1f7e85bc383995c6ccb8f95bb2d6dc92ddf459f91"
+  },
+  "unpacked/lib/sysresource/shader/System/lutBlend.cg": {
+    "bytes": 936,
+    "sha256": "c45626517071af397687af6e6802e679a15962b96f512ecd14e077e97f5dcf17"
+  },
+  "unpacked/lib/sysresource/shader/System/manipulator.cg": {
+    "bytes": 751,
+    "sha256": "063086e4220a987ae30d2d906271c91b410e5946694559172cd983d7db90f9ac"
+  },
+  "unpacked/lib/sysresource/shader/System/manipulatorExtraPickup.cg": {
+    "bytes": 564,
+    "sha256": "b688e1d03021fbb013f6d0c9ec231bc3901b475c6531036e37cbedc2f79d54ff"
+  },
+  "unpacked/lib/sysresource/shader/System/map_nolit_alpha_nosrgb.cg": {
+    "bytes": 1016,
+    "sha256": "6e306c3715958697a8f9512ae237095dde0de2beed59f32ed1ccb70d6e0cc33b"
+  },
+  "unpacked/lib/sysresource/shader/System/mapobjectcollision.cg": {
+    "bytes": 669,
+    "sha256": "057433d4b72863ccbf1ca02b863341b6443e29fc574c063485c45e9dceb821e9"
+  },
+  "unpacked/lib/sysresource/shader/System/particle.cg": {
+    "bytes": 595,
+    "sha256": "6e33f6a1cba99f6c2abc6df1b1f0c93c5a9af81bc6da8feb9732c8592451bce1"
+  },
+  "unpacked/lib/sysresource/shader/System/pickup_2dicon.cg": {
+    "bytes": 827,
+    "sha256": "f9a31ab7a8fa73c76ac9ccedff1de79cab34b983d16019f81267916600405249"
+  },
+  "unpacked/lib/sysresource/shader/System/rectareagizmo_cross.cg": {
+    "bytes": 1407,
+    "sha256": "4224449e30b6c00d884b99af6f0b01e26f0d8ccfeedccd87f2c903c306846474"
+  },
+  "unpacked/lib/sysresource/shader/System/rectareagizmo_frame.cg": {
+    "bytes": 1842,
+    "sha256": "ca800e49dbaf6eed77c3e6f084643db222870d7bd8ea7666ab2e14055e538eab"
+  },
+  "unpacked/lib/sysresource/shader/System/selectedge.cg": {
+    "bytes": 1583,
+    "sha256": "e1b97db489b9c755c1c34a43b5860728a84ee293f5a603aa1b70eea479bf1608"
+  },
+  "unpacked/lib/sysresource/shader/System/sharpenFilter.cg": {
+    "bytes": 1967,
+    "sha256": "cffff001fb70eea7cd8017f8aecd07e1565635474db25c3b7feed1bda3decbcf"
+  },
+  "unpacked/lib/sysresource/shader/System/srgbcopy.cg": {
+    "bytes": 919,
+    "sha256": "34b5a276d41d7f7c9b026996be50ec6c02fb0fc22251361db78357e63e4883c7"
+  },
+  "unpacked/lib/sysresource/shader/System/srgbcopy_cs.cg": {
+    "bytes": 458,
+    "sha256": "67aa57cf9b4eeaa77f3bd630313aad6d053bfc5f36819e5041691d071b8b5919"
+  },
+  "unpacked/lib/sysresource/shader/System/ssao.cg": {
+    "bytes": 4720,
+    "sha256": "6db507477c5bfd6f1f7c79638345ee5d3c900148bb0348e5f060db426ca2d746"
+  },
+  "unpacked/lib/sysresource/shader/System/ssao_cs.cg": {
+    "bytes": 5173,
+    "sha256": "ecb256521255303b3864e9a473c0e28cafe271a8aed9ed716b532c560ce207f4"
+  },
+  "unpacked/lib/sysresource/shader/System/ssaoapply.cg": {
+    "bytes": 878,
+    "sha256": "02c9f9854dcfa99b23edc244e38203f51faf63b5fe96536856caa190441370c9"
+  },
+  "unpacked/lib/sysresource/shader/System/ssaoapply_cs.cg": {
+    "bytes": 486,
+    "sha256": "852bab1d84700d8e90944c800858bab669c524cd6d397cc3339d1e2a7da9c7aa"
+  },
+  "unpacked/lib/sysresource/shader/System/sssssapply.cg": {
+    "bytes": 1108,
+    "sha256": "0e8396d5ff1e43ec91481ed0ebc2c275b61c94527f62aa61a9f6bb4453f7845c"
+  },
+  "unpacked/lib/sysresource/shader/System/sssssfilter.cg": {
+    "bytes": 2565,
+    "sha256": "00f6375e9fabcedc88c74733a880b68b4680355666c4af7139aa3561e6461ad7"
+  },
+  "unpacked/lib/sysresource/shader/System/stencilshadow.cg": {
+    "bytes": 892,
+    "sha256": "68125a638be2a230c9c9f0385e006da22111fd905d1f7b375d98c352518b2b43"
+  },
+  "unpacked/lib/sysresource/shader/System/terrain.cg": {
+    "bytes": 1696,
+    "sha256": "ec4e4f27b2a0ce2077c319fcc9be8722eefae1faf1c7e44bb3758f91e2a256e5"
+  },
+  "unpacked/lib/sysresource/shader/System/terrainholehilight.cg": {
+    "bytes": 1239,
+    "sha256": "577df59ec96faf5c99b77dab143fd631cb8253f47dcf3917ceb355bfceb973a6"
+  },
+  "unpacked/lib/sysresource/shader/System/terrainselection.cg": {
+    "bytes": 1093,
+    "sha256": "a055e2076e5d565bfc6aa12aacd96131da6dd53c716d7baa7f4341097a4d6a72"
+  },
+  "unpacked/lib/sysresource/shader/System/terrainselection2.cg": {
+    "bytes": 877,
+    "sha256": "7b514a1dc6e120f18bd79fe94acf2037bde0e3fb63291f9edd87f90335b62c42"
+  },
+  "unpacked/lib/sysresource/shader/System/uifont.cg": {
+    "bytes": 1489,
+    "sha256": "8e22b998d80dc6c075f5ec8bdaff1f4a65a0bcbba8828dda28d1028f41bf004a"
+  },
+  "unpacked/lib/sysresource/shader/System/uimask.cg": {
+    "bytes": 920,
+    "sha256": "f91a66a078b2150ee09a0628ff8cb336ba60a82159dac63a19ce694358b87be1"
+  },
+  "unpacked/lib/sysresource/shader/System/uinotex.cg": {
+    "bytes": 1063,
+    "sha256": "ac0afabd6ae2331b9d6a27ad340179eefe35851d6fda1af5771698e65d56d3b9"
+  },
+  "unpacked/lib/sysresource/shader/System/uitex.cg": {
+    "bytes": 1286,
+    "sha256": "a050b8683616ea5d286ad312412a3d52da32c570cb7fdf9f808039a1cadfd605"
+  },
+  "unpacked/lib/sysresource/shader/System/uitex_srgb.cg": {
+    "bytes": 1317,
+    "sha256": "af8cef08b7925dc81862c246311091b2bcdf1591a35cc980198f168c9980f132"
+  },
+  "unpacked/lib/sysresource/shader/System/uiwindow.cg": {
+    "bytes": 3095,
+    "sha256": "1e64695243672b91844a1e343bf08db212852d8dc5ebd9bfacd5f3611a6dd95a"
+  },
+  "unpacked/lib/sysresource/shader/System/yuv.cg": {
+    "bytes": 1631,
+    "sha256": "5440f0e831952497bc0039e94e4f1e4104ef05637305219f69ee3325d471e929"
+  },
+  "unpacked/lib/sysresource/shader/System/yuv_full.cg": {
+    "bytes": 1605,
+    "sha256": "c3db159e552731741caf49b6ce2d4a0260b841265094a0128b3d50484ecd3837"
+  },
+  "unpacked/lib/sysresource/texture/default_reflection.hdr": {
+    "bytes": 1143648,
+    "sha256": "60a04c6f612e91e978acf9ace571f7ecf426e55679f0ed0f1e9afe24eadeace8"
+  },
+  "unpacked/lib/sysresource/texture/ibl_brdf_lut.bmp": {
+    "bytes": 262294,
+    "sha256": "6369b4f8e625b045539028df60ba6fd7fd5ba6adfca7e2da629d86bdf5e8be4a"
+  },
+  "unpacked/map/ADVフェーズ_4aff1d0a-3c90-4940-b3a9-0ea8866991ab.rbr": {
+    "bytes": 151937,
+    "sha256": "d2430c0101d6c9b8739fabba5a20f1c88144620558af5f21e89ebba0363cb466"
+  },
+  "unpacked/map/battle_cave_c8c07e39-6baf-45c0-abb9-8e37c773bb5f.rbr": {
+    "bytes": 102295,
+    "sha256": "66e6e826158a7800a612de5fb73bdee85f0bd5ea2c1c5e10d91b731ac89e8044"
+  },
+  "unpacked/map/battle_classroom_d5caa8d4-66f8-49bb-97eb-36528acded75.rbr": {
+    "bytes": 110423,
+    "sha256": "cff50a1422d259f4534771a338a784cf1b6b936657001b7be90cf3a49e7d5972"
+  },
+  "unpacked/map/battle_dungeon1_16573983-be42-4a8f-9ff9-6e3faafda0c2.rbr": {
+    "bytes": 29455,
+    "sha256": "c074dff9dad10c620ba748137693bfb012474ca9ce42b2d958890fd045b7334f"
+  },
+  "unpacked/map/battle_dungeon2_1d2b4e62-dceb-4f8a-9f15-70e1025ba655.rbr": {
+    "bytes": 106747,
+    "sha256": "52df41e482be3ca4bb52ee39503916825602be45b9cc471330cd9e1a1060a7cb"
+  },
+  "unpacked/map/battle_island_14e2fae7-99ad-4fc5-a1d5-e7f12fbf2a46.rbr": {
+    "bytes": 101198,
+    "sha256": "24dc638773e43c850db74a728ebed81a794a79a48a46b64bd91cd3131398ace3"
+  },
+  "unpacked/map/battle_ruin_661f82e8-333a-4ce1-b6bf-547b1d51783b.rbr": {
+    "bytes": 103427,
+    "sha256": "e6a6da8effc609786580fbdcdb68ed975da89325e992aca7f78d1bda6bc9b8bb"
+  },
+  "unpacked/map/battle_school_a4ffed66-5658-4ec7-9c77-a22ebe037fb7.rbr": {
+    "bytes": 101350,
+    "sha256": "27035d23168aada524574adcc371231f7590164f83855d127bc2223968955853"
+  },
+  "unpacked/map/battle_sportspark_93287bc8-8e33-4026-8ee9-3ea495db5979.rbr": {
+    "bytes": 101206,
+    "sha256": "21758ca5933c487181090fc3d63687ea2ac06e0e07943c6177509fba8e698406"
+  },
+  "unpacked/map/battle_studio_3066d8d1-57ef-4640-ae4a-a3aa432a8163.rbr": {
+    "bytes": 103092,
+    "sha256": "b10f2fc5b13f108f01928b9bf4f1f6d9b76808740c41cdbf3142268a022550b6"
+  },
+  "unpacked/map/battle_town_24c5ec70-ceed-4e06-ad38-0c37044b85ea.rbr": {
+    "bytes": 16181,
+    "sha256": "4c9a81a560ba1abe7603ad248dc19c771b0ad22d4a646593ccc267c843825c80"
+  },
+  "unpacked/map/battle_train_d6c61f99-2cb3-4cf4-be7d-dc046ed765c6.rbr": {
+    "bytes": 15944,
+    "sha256": "819979d609831dd3d88f11375e5c92787c46c0d61318a7f325fb2b9d8852dc55"
+  },
+  "unpacked/map/EAクリアデータ_be5fb5ae-3968-48cf-80bc-9f3334c49508.rbr": {
+    "bytes": 17786,
+    "sha256": "d1b3bf08d21f7217357f2226da62ab7c6b7b1d822752ba7b92b87142f2be9cbc"
+  },
+  "unpacked/map/Map_1_90eff430-cae8-4ca2-b1fd-4d0ca5f0b8ae.rbr": {
+    "bytes": 117521,
+    "sha256": "014b88f8fbc798f2c40128141869454d78f1c3bad136ca210925ebd57db754b3"
+  },
+  "unpacked/map/Map_2_1180e842-3797-4e77-b684-48f7e0f9951b.rbr": {
+    "bytes": 47966,
+    "sha256": "320a44f5b31a84e68706f90b7a58bf13dd8bad29ce8a764ad88bbe932b73568c"
+  },
+  "unpacked/map/VIPエリア_0f6f3d9a-ce87-4c23-9a6d-3f8303d49d67.rbr": {
+    "bytes": 83839,
+    "sha256": "35c714b142a0d6122bbd06781bef7d7273a4a2d1e0c63218eaacc003e71f6684"
+  },
+  "unpacked/map/VIPルーム_ad2e2263-ab40-407a-9789-a553e1eb6559.rbr": {
+    "bytes": 25487,
+    "sha256": "a38b5ba9e157e81178323ce2ae4743aa382ffcdbe95bc3b255a1130dff8f74db"
+  },
+  "unpacked/map/あらすじ_701f7eb2-f644-4555-b103-28c56dee3c70.rbr": {
+    "bytes": 21058,
+    "sha256": "0b16a9df9a47e50ee6e07fe75bb5e29a149c13374f9584023b0b7ebfc0db0f46"
+  },
+  "unpacked/map/キャバクラ_BAD_e810be66-909a-40ce-a469-0742bd8269ba.rbr": {
+    "bytes": 165223,
+    "sha256": "79c067ddd1f450797202250c93d9d0f39ccf8953603709703b7918d19fcab1eb"
+  },
+  "unpacked/map/キャバクラ_fcf3a73b-502e-4d1d-bb8c-0bc4fcd15d0d.rbr": {
+    "bytes": 139169,
+    "sha256": "fc54f778aea3874055d4d3ec80e9689e014ee7a99a334f126891f3fc2f6fa499"
+  },
+  "unpacked/map/クリアデータ_1ce04aed-32ce-467a-bb7a-87971ccc26e1.rbr": {
+    "bytes": 23449,
+    "sha256": "41c6c98d09ced8fcd820edcf0005d3643cfb3bbb7ddd37bdd7674eea08fdcedf"
+  },
+  "unpacked/map/ゲーセン_9cc97e98-b70c-4ffc-b8ad-39d5aec14778.rbr": {
+    "bytes": 85226,
+    "sha256": "795e2f96c2556c41a0ffa7067b1dfdd4902c5ec0522a3ed382c92972e215caa7"
+  },
+  "unpacked/map/ゲームセンター_fa4422e0-d342-4b0d-b45b-15dc0cbbc8fd.rbr": {
+    "bytes": 40139,
+    "sha256": "2509db3221097a57a6a41b912a5690039835a9259f05bf2a4f54f8e649934abf"
+  },
+  "unpacked/map/コンカフェ_09859579-8292-4ee1-b740-d6abb806ca40.rbr": {
+    "bytes": 88225,
+    "sha256": "85d750d0118b84e79bd74087be411ab5fcb3bf651b449eab41de7e276c00dbca"
+  },
+  "unpacked/map/コンカフェ_BAD_6231cc35-3098-496c-aa12-d99b509a0854.rbr": {
+    "bytes": 95302,
+    "sha256": "759732b4c94ec926a34579ddad2bf6e460fbbd82f2764fb0b6119c033a290b03"
+  },
+  "unpacked/map/スキルメニュー_f7ea09eb-ec86-489e-96c3-bcf60ebbfafc.rbr": {
+    "bytes": 524728,
+    "sha256": "9c7c3ca2ad705acd400155a724b7cdb6b0a470f8f9aea51f4b2c1214ed40d28d"
+  },
+  "unpacked/map/デバッグルーム_0386f505-9372-4377-abde-725d8e821df0.rbr": {
+    "bytes": 24804,
+    "sha256": "b91d7b986bc42dda73c211dd12e11a772e38fcf4122dd68cb5b31613b6d76470"
+  },
+  "unpacked/map/バッティングセンター_1017950b-67e8-4e46-be92-2984b3c9a718.rbr": {
+    "bytes": 47383,
+    "sha256": "21867a6cbfe720fc95dad22f4365b28bc28ffa7e42bf897c25ce5a1ff1006acd"
+  },
+  "unpacked/map/プール_dcab7e67-d959-44db-b7ed-cbb94cc8e197.rbr": {
+    "bytes": 21377,
+    "sha256": "facb3aff586530da9438c05553a59000ee336fade48fbc324073ef4b700d58ea"
+  },
+  "unpacked/map/メンエス_c10a8441-c99f-459f-a003-eca3a5a91b6e.rbr": {
+    "bytes": 35167,
+    "sha256": "25a7c929a462edcc199b7cebbd479b3fb3317950523fad1441e6628a0e47fe22"
+  },
+  "unpacked/map/ライブ_fc660b28-a9ae-4210-a2e0-54b71702bc68.rbr": {
+    "bytes": 86414,
+    "sha256": "fade30a4c5f3d7e525b4937960f9b114c8b60d754d6d65f635c855397b57b98c"
+  },
+  "unpacked/map/ライブハウス_32ee2471-53db-457a-b790-e094af194c0a.rbr": {
+    "bytes": 64481,
+    "sha256": "3740d5923ab69504f82b5c126dbd59afc9077af9f4ed1bb4315c8daa5e543eac"
+  },
+  "unpacked/map/ラブホテル_c3aa3d60-9784-4b14-ad0a-2a9898fdb6c5.rbr": {
+    "bytes": 13944,
+    "sha256": "bceb18f3466799219a2b7f992e4f9800362dfee60cfc369d678b54136349a8d7"
+  },
+  "unpacked/map/九削道学院_baa0c228-5428-4597-bd29-e073403fd7b0.rbr": {
+    "bytes": 103408,
+    "sha256": "cae3ca96a22c0d1ea30422e30057232a441b1e56ef41b9ecc9ca2e2ac49f2140"
+  },
+  "unpacked/map/住宅街_45c08071-c99d-4aa2-8e0a-d324ecfb5673.rbr": {
+    "bytes": 487181,
+    "sha256": "8942435107ca778e897ca4e4f5770250a047a6de81501fbf60a0dc0b4649b56b"
+  },
+  "unpacked/map/住宅街_old_a99233ce-2f7f-48ac-ae62-6fb4267e1700.rbr": {
+    "bytes": 79059,
+    "sha256": "073e3529ba7af7b92884dada1afb151d390d7ac74c4de3c7f923311cbd7b37cd"
+  },
+  "unpacked/map/住宅街遠景_85040151-d1fc-4ee6-a2fc-6879ab9d9df1.rbr": {
+    "bytes": 522420,
+    "sha256": "4c59055434c92f36a295138a006d47a8e112f5dfea5bd7b3835f60bf5d4e71fb"
+  },
+  "unpacked/map/体育館_be7b51d0-fedf-4cda-ac21-7d18f4ac8dbf.rbr": {
+    "bytes": 20133,
+    "sha256": "566c96b9d5150aac0897a67fed5e35df56e1286c9dda95b9ad79fabffcd7bb9e"
+  },
+  "unpacked/map/体験版クリアデータ_77e44a95-2f8f-4885-9b98-bc230f273ccb.rbr": {
+    "bytes": 15531,
+    "sha256": "5c5727b7b090b4d1560a262307ef1575b61203e9539504e02714fa48a4192b67"
+  },
+  "unpacked/map/借金返済_a877673b-e270-4ac8-9da0-1da15c5b82ee.rbr": {
+    "bytes": 14808,
+    "sha256": "3ce061fbb40a2df4f9026bd3d941519d7ffce5dc4b52524e38e5813184742f9c"
+  },
+  "unpacked/map/全体マップ_5771d25b-7d76-4f62-aa3e-d8667f96ee60.rbr": {
+    "bytes": 31292,
+    "sha256": "dc33ae571d244d0a403762c02941fd6d0db83f4570afac1e8f15cbd38670a155"
+  },
+  "unpacked/map/公園管理事務所_ec5ab6e5-1533-4fcf-a3ff-933f8cdfe561.rbr": {
+    "bytes": 67070,
+    "sha256": "b509604600c60f31c4382c1489db7a12c93ad8ec6a145312d5bb9f5cbee3f9d9"
+  },
+  "unpacked/map/地下野球場_093d510e-5f71-4bb2-9033-af342e402c81.rbr": {
+    "bytes": 257918,
+    "sha256": "f4653f4ef3f54020325e70544c5e0ed0f2560b158c3f505bc753675529f358ac"
+  },
+  "unpacked/map/地下野球場_1_a6bceca4-3883-4563-b5ae-eace60c4320d.rbr": {
+    "bytes": 252427,
+    "sha256": "d47df5ee823b689a880820cebc9296cd3d9875d840f8bcec47f0d525d665a2dd"
+  },
+  "unpacked/map/変態の巣_b795024d-4aa0-436e-9a64-efba097e0989.rbr": {
+    "bytes": 326236,
+    "sha256": "99f900f170d0ebafbedfeec3fb253f8eb03e45dfd821d17fce989ad3364729c6"
+  },
+  "unpacked/map/変態の深淵_c0fccefc-5c1a-4266-b67e-bf8153c7ca0e.rbr": {
+    "bytes": 135187,
+    "sha256": "3766ec3b9df55bc8d25413e548cd54e44bb5ad784cbe37e2ea530dbbffbfc0b9"
+  },
+  "unpacked/map/変態の穴_9058b7a2-2635-433f-ba72-ee98b405d186.rbr": {
+    "bytes": 141954,
+    "sha256": "b444bf56382e7b9c9e33854714e26f4ee18073442d43332f214c531f57c5b7b6"
+  },
+  "unpacked/map/変態の穴_中層ボス部屋_393f273e-2207-4646-8c94-9dde76dd8c16.rbr": {
+    "bytes": 21587,
+    "sha256": "526ecfc7db76b23e50b91584e51f14fac8c0ab1deea272101f7ce432d263e04d"
+  },
+  "unpacked/map/変態の穴_最下層ボス部屋_69439b75-7448-4456-8f04-cd4ba325d07c.rbr": {
+    "bytes": 24870,
+    "sha256": "32c49ad84aa516d970f81bf040f5f404ac8166011d8213d72e791532cf4ef8c2"
+  },
+  "unpacked/map/変態紳士の間_78260c79-2605-4c57-86e0-c62890542bff.rbr": {
+    "bytes": 30587,
+    "sha256": "00fa291d355332cc2fc893d6efab701f64b899ba1346c5dc31546028c9b82e70"
+  },
+  "unpacked/map/女子トイレ_1F_43c7aa17-a5a8-4dfa-b0c5-47c6a6676fec.rbr": {
+    "bytes": 17592,
+    "sha256": "4a6e2c89ff23edec235c48e8f82e330f9e97d021c92d7f23ed9f29e975556ce3"
+  },
+  "unpacked/map/女子トイレ_2F_1f1aa0f3-ea73-4f3c-85e7-404136e8b18d.rbr": {
+    "bytes": 21053,
+    "sha256": "c49d9aea5227c40e5951d5328774a40a4430c0a2dbfcf446c525f3c1fb8c550e"
+  },
+  "unpacked/map/女子トイレ_3F_ddbcc2a0-17f2-4487-9381-50eb07b0f9bb.rbr": {
+    "bytes": 22977,
+    "sha256": "d820c02738e6ac9c0f12a31be39641f167dee5fcf6343b2123dc42b72c257b1c"
+  },
+  "unpacked/map/女子トイレ_db61fd9d-79cd-4d68-8e8f-e1b34732110e.rbr": {
+    "bytes": 10607,
+    "sha256": "5057b1eebefca493d563edec07118ee7fdd47ba1645a3cd54331b3c6769b59f1"
+  },
+  "unpacked/map/帝片掃溜1F_1_a06ee74d-4254-40ef-b7e7-db7342d4e7f9.rbr": {
+    "bytes": 106656,
+    "sha256": "822846e6160c36e593336f6eaee21eac84b475f0783b4eb945e9aaacce9c2551"
+  },
+  "unpacked/map/帝片掃溜1F_94a3603d-b350-4b29-8ccf-8451d9841816.rbr": {
+    "bytes": 115592,
+    "sha256": "8a45477a0a7fdf11a57f27953129fbe0c23206305c0d646545a0d23f0a82e390"
+  },
+  "unpacked/map/帝片掃溜2F_04432fb3-e2e3-468d-83e7-4be351b9de64.rbr": {
+    "bytes": 205177,
+    "sha256": "a788e46df7b258d038587d1d4011dbe8831a51de442ca9801fdcc4862bb3211f"
+  },
+  "unpacked/map/帝片掃溜2F／理科室_bf957270-92c8-40af-9028-acee8330e358.rbr": {
+    "bytes": 49423,
+    "sha256": "2a8d6c68f5ed8b1bf851f9d103d4e4ea8ecdbb14490a97403a9f0a599f30d216"
+  },
+  "unpacked/map/帝片掃溜3F_823f6dd9-238f-4f0c-bedb-844e8ecd6be7.rbr": {
+    "bytes": 151259,
+    "sha256": "a25f18a5ee085c67ef7cccff3e3e6d85fa5fd0e17e3d12c2bc7c3d822b73f5f4"
+  },
+  "unpacked/map/帝片掃溜工科学院_7b599ae8-9f64-40e5-a39d-a7a67abc90eb.rbr": {
+    "bytes": 43674,
+    "sha256": "66c91b4153f02256a4442cbb51dde3c87381298f197c595adf5ed44b65f1f585"
+  },
+  "unpacked/map/帝片掃溜／2-B_8c736d98-60b6-4748-b3cc-be1b4f32ff05.rbr": {
+    "bytes": 30770,
+    "sha256": "7d830571c5bcfe4f87c985b0c2094cefbba7611e7a7221fe86d185dc4d1eb421"
+  },
+  "unpacked/map/帝片掃溜／3-A_5f0f7ca6-0604-48a8-a4c1-ba1f56e72110.rbr": {
+    "bytes": 37573,
+    "sha256": "789b77b2a93fc8cabc03b0757879a65654ca147abd741fd3f7744d5a985e1a63"
+  },
+  "unpacked/map/帝片掃溜／3-C_b37a6c90-ef62-4b21-8507-724f580e0a20.rbr": {
+    "bytes": 31108,
+    "sha256": "bc28e38e207ba843160a290cde35e979e9b457a4c0f6faa628b2c4978169312f"
+  },
+  "unpacked/map/帝片掃溜／セーフゾーン2_55c2b25b-b76d-4ecb-920b-c293423c98dd.rbr": {
+    "bytes": 14309,
+    "sha256": "74be0dfe438353a82a057623308db964ec63992ef0ba54ba45f6d44387f48c2d"
+  },
+  "unpacked/map/帝片掃溜／セーフゾーン3_3cd39c4a-eba0-4650-8962-987110cccc47.rbr": {
+    "bytes": 14309,
+    "sha256": "93610ae060a19cb3e8ea5453c6fadf6b613a6505a436a82b8eca31166bc0b982"
+  },
+  "unpacked/map/帝片掃溜／体育館_a9ba3675-ba2c-47f9-8ef3-c5d5f664a06f.rbr": {
+    "bytes": 51192,
+    "sha256": "a0d3d0ea93568dbe209bb157872a51d97e38f6c1717dfd951198987c4876a60a"
+  },
+  "unpacked/map/帝片掃溜／保健室_bb515878-7754-4278-ab3b-81c1490bc678.rbr": {
+    "bytes": 57165,
+    "sha256": "24e64cf262c2f1e1f6aba358b3af2602ab876b2374b94247b9e22986d034cf83"
+  },
+  "unpacked/map/床路沢市_b30d8ecf-4175-44b8-a6ff-c3e35bf6f8bb.rbr": {
+    "bytes": 601117,
+    "sha256": "c5efabd867ec85705e457a88e387eeb6441aa30f115281a69aa55cda67c73ecf"
+  },
+  "unpacked/map/情報屋_a6e7892e-6eaa-486d-990d-ee1a245dbc1e.rbr": {
+    "bytes": 62748,
+    "sha256": "a42499c935274c0470b8d3d08675ec81857883713cdae8925b1f144745e5bdbc"
+  },
+  "unpacked/map/拠点_6ed48343-24bb-4b0f-8bfe-5ced410e6d7a.rbr": {
+    "bytes": 105695,
+    "sha256": "695ac74109350b046a07c8a43736655b661f1d0f4bd1650771fdd0b2a637b30e"
+  },
+  "unpacked/map/放送局_廊下_28d92c44-470b-403f-ba98-58b4ef51f323.rbr": {
+    "bytes": 50776,
+    "sha256": "5e6953fce2ec329c21dff287a1749b50827d2a3540bb9328179968aa76e77771"
+  },
+  "unpacked/map/放送局_控室_ab59be78-dff3-4937-93f3-97a886fe6a04.rbr": {
+    "bytes": 7779,
+    "sha256": "df7b62294e88529c01579437250becd695795adeaf3be0ba3efd8998aab38454"
+  },
+  "unpacked/map/教室_cee4981d-26f7-480e-bdd0-2ae7b93ae90d.rbr": {
+    "bytes": 13601,
+    "sha256": "36a563efd45a2fca9fd09baf97ec1375f8b10d5baab65bcdc67b35cda2c0c08d"
+  },
+  "unpacked/map/新興宗教団体_1Fボス部屋_8e84797a-bd45-4640-b076-92b16371d45b.rbr": {
+    "bytes": 32436,
+    "sha256": "162f50a8b6e0f28af4f3fa35f04bd537187b4ad54d4ba53fb0c50a46240a9021"
+  },
+  "unpacked/map/新興宗教団体_2Fボス部屋_f7af1e4a-4f9d-452d-b092-572eb57a703c.rbr": {
+    "bytes": 32557,
+    "sha256": "4ff90f9ff975172d8d3336513060b807c85dd54e6e52cea33e23044fce6559a0"
+  },
+  "unpacked/map/新興宗教団体施設_4a972b1b-3265-449c-9e6e-8f10cc9f8c08.rbr": {
+    "bytes": 331569,
+    "sha256": "151b4f5f8b0d31dded669441509a1514fd19f3f69c65ba017154d1fac07a5e07"
+  },
+  "unpacked/map/新興宗教団体施設F2_04d072f1-cdb2-4cc7-84a7-4256233bd098.rbr": {
+    "bytes": 246698,
+    "sha256": "5cd5b9380200ec2c66db400c2a8e0751d75b3a6ba426b7e1b0ec30647e639d07"
+  },
+  "unpacked/map/校舎_3a061084-f8ca-4749-9a06-08720968656d.rbr": {
+    "bytes": 114791,
+    "sha256": "69148a09de31fcac9c05f7534dd20eda41f55ecbd9431414d52212658685579d"
+  },
+  "unpacked/map/森_315a5516-0ab5-4908-9eee-429f9d37c6c8.rbr": {
+    "bytes": 197361,
+    "sha256": "44303cfa9343914f7a298d54edf178eb57fd2e3260d78eaff8111423cd59c466"
+  },
+  "unpacked/map/森の奥_7f6ef3f7-ba6f-43f7-9367-b1e6fa98346f.rbr": {
+    "bytes": 30558,
+    "sha256": "f63200b78e72d1c379d467bac731f2fd8e256f6ea0c715b4296bd21977093c9d"
+  },
+  "unpacked/map/橋の下の空地_cfee0361-1198-425b-a980-904addd32e0b.rbr": {
+    "bytes": 116235,
+    "sha256": "e03a78384c99ed04edcc97795c815c35a30b58f1e34d233ea111632644124460"
+  },
+  "unpacked/map/洞窟_010068f7-38e7-4a65-899c-caed55938da9.rbr": {
+    "bytes": 249363,
+    "sha256": "2b47d5654030f26f6650a8ab0de636b752b97ca8900105fc186130e1b3fb3724"
+  },
+  "unpacked/map/洞窟最深部_76c2e4e1-1a86-4b32-8eb5-f816c6c748cb.rbr": {
+    "bytes": 35010,
+    "sha256": "a982e4584320bdb1e37a75ffe4bafeb8dde3b32834ecc92193b0568c5d5c6047"
+  },
+  "unpacked/map/浜辺_8d9e51a0-4c0a-4ba2-98e3-1da7ec643d97.rbr": {
+    "bytes": 47337,
+    "sha256": "144715e72a5140ed5b7116658d11be3e523a9242c74f613900d6e52027dc23fa"
+  },
+  "unpacked/map/港_67c511aa-f642-44d0-aa7d-246389ade692.rbr": {
+    "bytes": 32252,
+    "sha256": "b38f552a3e9d00df797254d46291c0e898b89e8fb970c3f42f2cc267376303d5"
+  },
+  "unpacked/map/無人島_29406e24-0e19-4744-8d37-7bdaca8b8ac8.rbr": {
+    "bytes": 47928,
+    "sha256": "c6fe442bb9df7dfa086279a9556e4d14b568934de8e2bf8f0c1d25df56e2568d"
+  },
+  "unpacked/map/無人島マップ_8915b24c-bb27-4d2d-a219-a7efc7ac9d2a.rbr": {
+    "bytes": 20318,
+    "sha256": "7e5e0473fc7c49d8478807dc283e4acce35b46539dbfe101920402e78e6afdaa"
+  },
+  "unpacked/map/無人島練習場_67c1a43e-d814-4a18-b521-09a7770c264f.rbr": {
+    "bytes": 116918,
+    "sha256": "c8db1291d09c2f044588e208d3ebfac3d2faeff55b3513cb7d8f4a9fbd1d533e"
+  },
+  "unpacked/map/男子トイレ_1F_542246cb-8d03-4fa0-bd6f-95b4a95ac317.rbr": {
+    "bytes": 18963,
+    "sha256": "5fd0018570b19fe23884fd0d70e8b6401a2a89ab40e7a576de739d28fd59bd44"
+  },
+  "unpacked/map/男子トイレ_2F_cb3a7256-f108-46d9-832b-0467fdb55208.rbr": {
+    "bytes": 18963,
+    "sha256": "1d0fef0226bbbb4f0134adcff94026152519a37c302d4824044e129769c158ee"
+  },
+  "unpacked/map/男子トイレ_3F_11da2afe-c5fc-4f92-bec7-b8b0e83fb4c9.rbr": {
+    "bytes": 19030,
+    "sha256": "73da705f05a0efdd842cf569f85807378837542cc35bcdff6f68b04b71b31b48"
+  },
+  "unpacked/map/男子トイレ_60042a8f-0195-425d-9af6-21407a307c5c.rbr": {
+    "bytes": 14906,
+    "sha256": "1164ff25010de484f6f91ce2de23d0b28b70f048a8c8e5fcdfa1ea11ff5ebd8e"
+  },
+  "unpacked/map/白球学園／1-A_2d4b263e-9b10-4c71-ace8-ef02b3732f71.rbr": {
+    "bytes": 29380,
+    "sha256": "b992dadcab5253ce34cb79f6da8096eabfd228d1637b5e16fce6ecab1071a508"
+  },
+  "unpacked/map/白球学園／1F_5b78be8f-faf7-4533-9ae2-6ec53ad4702a.rbr": {
+    "bytes": 137365,
+    "sha256": "6b8cc9276dca4926277a5bb17f351e90de609113b179250980d0f51767f4bb2e"
+  },
+  "unpacked/map/白球学園／2-C_99cec2f1-aa75-4a3a-b8f9-21cdcdd3f2d4.rbr": {
+    "bytes": 46956,
+    "sha256": "bf2578209b3b4356da89d5953f72a755100d06ac8b8d67f7a61f4c9f6b0b0daa"
+  },
+  "unpacked/map/白球学園／2F_14a18d08-82aa-4295-9bd9-b6ea9d1663d9.rbr": {
+    "bytes": 104965,
+    "sha256": "3bb817139f834ddf847d9f332fdf28b91416001c3d2f333601db4851eaee8076"
+  },
+  "unpacked/map/白球学園／3-C_817ccd13-6c15-468b-aa3d-224cb0d6834f.rbr": {
+    "bytes": 22732,
+    "sha256": "e7c457f20268512e8ad7d6ba83b28643c7ebdebe84edeb63f9f02c0f3daa736f"
+  },
+  "unpacked/map/白球学園／3F_abe547f6-52ab-4321-8f61-001535ba4720.rbr": {
+    "bytes": 127321,
+    "sha256": "965e34edb1ef6f0e497f012d17e800e6e6f6a26387f54e46986f0cc687a98691"
+  },
+  "unpacked/map/白球学園／PCルーム_6677f220-4afa-4098-9162-ab24a45bf710.rbr": {
+    "bytes": 26278,
+    "sha256": "4ec25e6ee889e234d8807fc93ec3a18ccac255e936ab1e1f4a8a73b65c5de1f2"
+  },
+  "unpacked/map/白球学園／体育館_2a4d47e9-1660-4dc4-935d-76e2af877911.rbr": {
+    "bytes": 71109,
+    "sha256": "c8bd3c890397f23595ebf87cdb9c342014ef408cb05c2c1b18aa4c153631446f"
+  },
+  "unpacked/map/白球学園／保健室_fc856389-1a76-4b31-9b6d-26b2d3d54fd7.rbr": {
+    "bytes": 21987,
+    "sha256": "881b47c0338b01f9a5f38531389f849e8a4d9775a54ab9d40fdb2449c07d524d"
+  },
+  "unpacked/map/白球学園／図書室_5522a739-08a5-4109-969d-8e54b707709e.rbr": {
+    "bytes": 24579,
+    "sha256": "4fea1f938f34c29dd160aed0724f18f53f7b6dca0e0775c9ae0d0a17d666e63a"
+  },
+  "unpacked/map/白球学園／家庭科室_a35f5b59-667c-4c3c-a21b-d90227a1e78a.rbr": {
+    "bytes": 42526,
+    "sha256": "3c96096c9e72340ebaf791464a32c0858ba1366e3c65a92fdd15edc4c94b61b0"
+  },
+  "unpacked/map/白球学園／放送室・生徒会室_1_78b54996-1113-43b3-a753-7ab0c0229e05.rbr": {
+    "bytes": 37470,
+    "sha256": "6316b744100e1877d9e9079eb2e8e401b2427dc779c151a4e8b5e588f16969f1"
+  },
+  "unpacked/map/白球学園／放送室・生徒会室_5d360cea-52c4-4b1a-9f1a-15180fa25f3e.rbr": {
+    "bytes": 38920,
+    "sha256": "065fe95971724cb9ad548c2c10423422624b7503e5b256bcbe5308052c05a942"
+  },
+  "unpacked/map/白球学園／更衣室_85383634-54eb-4170-805d-1cee00192281.rbr": {
+    "bytes": 108599,
+    "sha256": "c753c1d5487f74b77416d2b02be5fad53336dee8e3837c14d15e652577ff9c50"
+  },
+  "unpacked/map/白球学園／校庭_c3b75f2a-7d53-43f3-861f-7725926fbb5c.rbr": {
+    "bytes": 523792,
+    "sha256": "78f41af520b6ef40d3d233a5622bb1f2c1b4691ce0eefd41c3187986393dce65"
+  },
+  "unpacked/map/白球学園／校長室・応接室_11c18273-98c4-4e18-a062-114b657eee08.rbr": {
+    "bytes": 30491,
+    "sha256": "7774789cc7526bf7968c23debcbd64076f33e351886aaefa9146008695e13c96"
+  },
+  "unpacked/map/白球学園／理科室_1_50e23ffb-24c0-4c7b-a2c3-81078f8ba18a.rbr": {
+    "bytes": 36688,
+    "sha256": "f79ab7053481b16bdb01f511cbd3cd024b3b5ad7acbabe283c6dc80dad77fbe7"
+  },
+  "unpacked/map/白球学園／理科室_ff9abfa0-f812-4d24-8694-104dd387f40c.rbr": {
+    "bytes": 37105,
+    "sha256": "b6b70111fe1cf4e1fd89212d726c2fd0fa853cdd2ec8b2e87b75a0d8c6bb1d2a"
+  },
+  "unpacked/map/白球学園／生徒指導室_84b9e742-1381-4beb-87cf-4804d04884dd.rbr": {
+    "bytes": 29968,
+    "sha256": "b02a0acee8ba646917dfbe4f17ceaf901b22d3b2008928d2416ed11b5216f19d"
+  },
+  "unpacked/map/白球学園／美術室_1e72d315-2ea8-41e5-818a-22cb9d56d6d6.rbr": {
+    "bytes": 45485,
+    "sha256": "97af7d593fd8f2bbb0c75dfb01015b0f48a972533445703ef4ae5d740a124179"
+  },
+  "unpacked/map/白球学園／職員室_34fe4eb1-a9fa-484b-84a3-179f6e34ce23.rbr": {
+    "bytes": 34175,
+    "sha256": "3189242a377b3bbea93c9bcf41e14ecc6f8200695b8645b06d241b5d72e70558"
+  },
+  "unpacked/map/白球学園／視聴覚室_1_f2f98755-347c-4508-bc2f-54d04e85bc9e.rbr": {
+    "bytes": 25389,
+    "sha256": "63abcd5cde2a0ce1798cf321c44d83e0d691c087ad7a38fad0977cc30c452687"
+  },
+  "unpacked/map/白球学園／視聴覚室_e24c7741-ea04-43ed-8ea0-5ffb7b6cab41.rbr": {
+    "bytes": 26568,
+    "sha256": "2ea64cdfd0e80ebcbe9159bf06180e818e88e235a7fdfc8d2f6e5da1060db39a"
+  },
+  "unpacked/map/白球学園／音楽室_fa534fb2-d78c-497c-95c2-ee997cf47d89.rbr": {
+    "bytes": 28421,
+    "sha256": "e79ac025a2811c7b1d0c6d8ac4d79487cfdc106f21e03423d012bf40b70bfca4"
+  },
+  "unpacked/map/白球学園／食堂・武道場_c634db24-0fa4-4a9f-8ce9-6a59bb7444f0.rbr": {
+    "bytes": 122935,
+    "sha256": "7ddeca007c8b7d2fd56b53d14f54925b0e750485a469354a02d227f536a4b6f3"
+  },
+  "unpacked/map/白球駅前_30779063-6909-4b39-a6ea-eb31e88d0327.rbr": {
+    "bytes": 458711,
+    "sha256": "c858427c04dda7fcff6e3e235b85976cadac89f3157e7c10ec55dd3c1e0d6498"
+  },
+  "unpacked/map/白球駅前_old_b6e6f57b-caf0-432e-9977-0ad9f047ef4f.rbr": {
+    "bytes": 87695,
+    "sha256": "7e818bb6d9e96277d83baa05dbad39154ee97f7d5b074fc514d4a2d8829a4a76"
+  },
+  "unpacked/map/美術室_be2ea621-ef6a-4e00-8910-e85295011b98.rbr": {
+    "bytes": 17934,
+    "sha256": "d98833d7bfb839ae16220da7420ace34b4f5dc4cf66bbf513d3dae708fe6f49e"
+  },
+  "unpacked/map/職員室_81f0c7fa-81bd-43f4-961f-1f2fde7098d3.rbr": {
+    "bytes": 16505,
+    "sha256": "df2bb6dd1fc412ba953684b1565727505f2ba333837d00b8e4e619a5c541e2ca"
+  },
+  "unpacked/map/自室_3f632c11-4093-408a-8a4e-2307213eceb5.rbr": {
+    "bytes": 163258,
+    "sha256": "32338b09f1328a0df8983820d32cd69118732a1d4b5871f9fe2b3e199f1248bc"
+  },
+  "unpacked/map/自室_END4_be5b3b6b-919e-4792-a274-4d89b8ac0777.rbr": {
+    "bytes": 40332,
+    "sha256": "78e731eaf9fe1f957d6f81bb1acee906a04e1c77594804048dc08a3f2921503f"
+  },
+  "unpacked/map/草城之湯_c0841a15-9832-4b3c-8b53-50ddb54b89a5.rbr": {
+    "bytes": 219861,
+    "sha256": "344448efeaed16f265e610c07cbf3e5ac8296eead9a1f8dad3018bab705f1fcc"
+  },
+  "unpacked/map/裏カジノ_96582039-435f-4710-a98b-dd79f031de04.rbr": {
+    "bytes": 147709,
+    "sha256": "c8efa739287c77dc7f6580cafee886718db1b9c8f70431df1c9f075107810ba5"
+  },
+  "unpacked/map/試合_8aa293c4-b437-4a6e-a486-a96e45a9f3ec.rbr": {
+    "bytes": 410085,
+    "sha256": "d975f0f22cbe4514cab42e301ccae913565cedeb247b6d40ea33fd41c005193c"
+  },
+  "unpacked/map/試合フェーズ_1_dbaf286a-1002-4682-8f5a-9a1133c1fc85.rbr": {
+    "bytes": 190939,
+    "sha256": "8d246cce1523c76993d5b5daafe94734a0dc6dc7f7f14e67d3037d587583cebf"
+  },
+  "unpacked/map/試合フェーズ_3_d8c01a87-fa32-431b-9ff7-d46667eb88c0.rbr": {
+    "bytes": 192507,
+    "sha256": "5421d8d35d7ac18013d8005cf032b14e84db1d8e102fb8683addd1a3aa132db9"
+  },
+  "unpacked/map/試合フェーズ_9e2129e6-0b99-46a5-a817-1c768cd13275.rbr": {
+    "bytes": 194476,
+    "sha256": "357ef49bc76721a273e1035718ad23928f14e8f2fcc0b278c9952cb64a8a5394"
+  },
+  "unpacked/map/速水スカウト_32ce9d03-4197-4df8-8115-a0a0ef2d295d.rbr": {
+    "bytes": 85816,
+    "sha256": "af09b9f5ac6fe3e436e30607b4b73b45d9cf1048a9a5394473212697ade20c46"
+  },
+  "unpacked/map/運動公園グラウンド_52101988-52bb-48e4-86bb-45a3e061a99c.rbr": {
+    "bytes": 317579,
+    "sha256": "2bea28cd65284190367a882536a376876a6b2cf909f3e8b2d2bc8697e0c800ba"
+  },
+  "unpacked/map/運動公園グラウンド_71826925-8de8-40c6-94d9-06f99e7cba73.rbr": {
+    "bytes": 315441,
+    "sha256": "582a3a383d8eafa3be7fd9c40ea61f5cad055c063f5d327786507ed656fcdadd"
+  },
+  "unpacked/map/遺跡_e7f7e334-9f56-44a7-b50a-33e5b7bae2cc.rbr": {
+    "bytes": 221838,
+    "sha256": "965ae5a1e5f9f5824831fa3cb064026e55375d0ead34a5fa31e6c7f33623135e"
+  },
+  "unpacked/map/遺跡最上部_eb05bbe5-954f-4559-976a-f9779ef02d78.rbr": {
+    "bytes": 42131,
+    "sha256": "11af5c66120c29631c1eaf97f2eff6bacc552fd875af8fb1e84ae2c3243190c6"
+  },
+  "unpacked/map/野球部部室_81ba986f-6821-4f57-b52d-14a540d5038f.rbr": {
+    "bytes": 28171,
+    "sha256": "fbe52ba859d16c2b104d9d8578294132748755bcfd272f0755e513a197f96dff"
+  },
+  "unpacked/map/電車内_c590f5b8-4c0a-4177-87db-250b53fcd60b.rbr": {
+    "bytes": 53718,
+    "sha256": "50e11ed0e3254944b0d71c550b236e9873f451a94d948fc3dcaa4fbcecd2883f"
+  },
+  "unpacked/map/音楽室_f5bad85c-2f1a-4222-9420-38bb8b665107.rbr": {
+    "bytes": 12265,
+    "sha256": "9d93b8ce96869af7e3838ead7f5d27474ebeacb5fc20e120a088b00d3d333c04"
+  },
+  "unpacked/map/駅前トイレ_53fd190d-7588-43d0-b7c3-2086de2c9274.rbr": {
+    "bytes": 18716,
+    "sha256": "bf426663513ef633104804266d9c8eb9c59bf94c17e83dd1133902d88e948f92"
+  },
+  "unpacked/Monster.rbr": {
+    "bytes": 17,
+    "sha256": "8d86eee940f8bd239429c74013d723bc63b3b7d7a96aaeeb7ca9d45c96dc127d"
+  },
+  "unpacked/NItem.rbr": {
+    "bytes": 2672980,
+    "sha256": "9ba16c4758569270bfb186c08d8c45be16e5e0bee9bbb1978988178b3beb8667"
+  },
+  "unpacked/NSkill.rbr": {
+    "bytes": 1721485,
+    "sha256": "910205b6d5fc9875b3f8fe04a1f0a42ba8ba62d160758cdaf4fea651af746ac4"
+  },
+  "unpacked/RenderSettings.rbr": {
+    "bytes": 17452,
+    "sha256": "15f1d329a3a38ee0279cfa52bac24ea6ba354f65c3170eaa59088ec512f1a62a"
+  },
+  "unpacked/ResourceItem.rbr": {
+    "bytes": 11299910,
+    "sha256": "a21fafa117e09595bfbf7838911c9555f3dd9ccffaee980f8f2087fb9f82a5c9"
+  },
+  "unpacked/script/clearcaches.cs": {
+    "bytes": 2426,
+    "sha256": "e6955dbd4f4ceee82a4be38139f7dac402ec8fcea7340531b3a10233ff293285"
+  },
+  "unpacked/script/CraftingSystem.cs": {
+    "bytes": 191390,
+    "sha256": "f64b624cd5815cca509fef39402607235462c8f16fdcbb41da5c1ecc2372c0d3"
+  },
+  "unpacked/script/ExtensionA_Arctangent.cs": {
+    "bytes": 8228,
+    "sha256": "e897db1532c1b640c638da2c6710bbf72fbfdf7aaaca1a7990e883974c3f4e95"
+  },
+  "unpacked/script/ExtensionA_Behavior.cs": {
+    "bytes": 2513,
+    "sha256": "1f86bd762247869044726a84e29aa86b3be41be42a07f27cba32b017f43feb44"
+  },
+  "unpacked/script/ExtensionA_Distance.cs": {
+    "bytes": 5556,
+    "sha256": "58b6c113217fed3488562110ee3227f9a287d2e0b109877fb3fd166f6c4ef12c"
+  },
+  "unpacked/script/ExtensionA_IsVisible.cs": {
+    "bytes": 2334,
+    "sha256": "13c7bda892327069ac373d77be9a81dec1d40266ce5a792cb5280d83f848cbaf"
+  },
+  "unpacked/script/ExtensionA_NormalizedVector.cs": {
+    "bytes": 10629,
+    "sha256": "5f52807f3eb65359cb9289a56fcd781468c35282126effe225c42660833fd980"
+  },
+  "unpacked/script/ExtensionA_Stencil.cs": {
+    "bytes": 2426,
+    "sha256": "e6955dbd4f4ceee82a4be38139f7dac402ec8fcea7340531b3a10233ff293285"
+  },
+  "unpacked/script/ExtensionC_FrameCount.cs": {
+    "bytes": 2674,
+    "sha256": "fa34d7f077abab45b4ac5226db20072b29e586d3aede3cca25c67c9bfc918a24"
+  },
+  "unpacked/script/ExtensionC_Raycast.cs": {
+    "bytes": 20664,
+    "sha256": "b4d94255bda7aedb60a22359e3e1735a886ec30048b7bed21e04d53abb335047"
+  },
+  "unpacked/script/MainScriptForCast.cs": {
+    "bytes": 85887,
+    "sha256": "3ca3d1156e37e185640d2ec59529b105df186aaceb1a597cba0659d04cd54b4e"
+  },
+  "unpacked/script/NewScript.cs": {
+    "bytes": 1630,
+    "sha256": "23764fa27ca5e75952b30017d59c0dbdc92d611011b2951832a1369543b57226"
+  },
+  "unpacked/Skill.rbr": {
+    "bytes": 17,
+    "sha256": "8d86eee940f8bd239429c74013d723bc63b3b7d7a96aaeeb7ca9d45c96dc127d"
+  },
+  "unpacked/terrainmap/flat.png": {
+    "bytes": 350,
+    "sha256": "529fc9163015bc131ae2270335e0b2b787a881c5fb2001cb32bcdc31c159fd21"
+  },
+  "unpacked/terrainmap/marble.png": {
+    "bytes": 15502,
+    "sha256": "23580f4e6b54e59bf550a883db7fe4578621694f17b26034d4846e2c31d7b65c"
+  },
+  "unpacked/terrainmap/metal.png": {
+    "bytes": 15060,
+    "sha256": "56eda1037c736183eddfe9eeb09fd66884fd57958da2fd0d6506c5de60bddf94"
+  },
+  "unpacked/terrainmap/metal_noise.png": {
+    "bytes": 17234,
+    "sha256": "060faa9a0df085458056451a80fd7411553ead38c44a1222cf9a8126352ab836"
+  },
+  "unpacked/terrainmap/noise.png": {
+    "bytes": 4588,
+    "sha256": "b78c45d62537a539c72dc096148e1cb98e3676b6571af0c9609f1cf9a852ff85"
+  }
+}

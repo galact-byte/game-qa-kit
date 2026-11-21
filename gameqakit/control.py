@@ -79,10 +79,23 @@ class BridgeClient:
         self._requests = {}
         self._inflight = None
 
+    def close(self):
+        if self._ipc is not None:
+            self._ipc.close()
+            self._ipc = None
+        self._ipc_meta = None
+
+    def __del__(self):
+        self.close()
+
     def _mailbox(self, meta):
         if self._ipc is None:
-            from .wolf_ipc import WolfMailbox
-            self._ipc = WolfMailbox(meta['pid'], meta['session_id'])
+            if meta.get('control_transport') == 'bakin-shm-v1':
+                from plugins.bakin.target import BakinMailbox
+                self._ipc = BakinMailbox.open_existing(meta['pid'], meta['session_id'])
+            else:
+                from .wolf_ipc import WolfMailbox
+                self._ipc = WolfMailbox(meta['pid'], meta['session_id'])
         return self._ipc
 
     def _live_text(self, name, meta):
@@ -107,23 +120,32 @@ class BridgeClient:
         if meta.get('command_format', 'json') not in ('json', 'ini'):
             raise RuntimeError('不支持的控制传输格式')
         transport = meta.get('control_transport', 'files-v1')
-        if transport not in ('files-v1', 'wolf-shm-v1'):
+        if transport not in ('files-v1', 'wolf-shm-v1', 'bakin-shm-v1'):
             raise RuntimeError('不支持的控制通道；不会静默回退')
-        if meta['protocol'] == 2 and (transport != 'files-v1' or meta.get('command_format', 'json') != 'json'):
-            raise RuntimeError('时间协议首版仅使用 JSON 文件通道')
+        if meta['protocol'] == 2:
+            if meta.get('command_format', 'json') != 'json' or not (
+                    transport == 'files-v1' or (transport == 'bakin-shm-v1' and meta.get('engine') == 'bakin')):
+                raise RuntimeError('时间协议仅支持 JSON 文件通道或 Bakin 共享内存状态通道')
+        elif transport == 'bakin-shm-v1':
+            raise RuntimeError('Bakin 共享内存通道仅支持时间协议')
         if transport == 'wolf-shm-v1' and meta.get('command_format') != 'ini':
             raise RuntimeError('Wolf 共享内存要求 INI 命令格式')
         actual = _pid_path(meta['pid'])
         if not actual or not _same_path(actual, meta['exe_path']):
             raise RuntimeError('目标进程已退出或路径不匹配')
-        if transport == 'wolf-shm-v1':
+        if transport in ('wolf-shm-v1', 'bakin-shm-v1'):
             self._mailbox(meta)
             self._ipc_meta = meta
         return meta
 
     def _state(self, meta):
-        state = (json.loads(self._live_text('status', meta) or '{}') if self._ipc_meta
-                 else _read(self.directory / 'status.json'))
+        transport = meta.get('control_transport', 'files-v1')
+        if transport == 'bakin-shm-v1':
+            state = self._mailbox(meta).read_json('supervisor') or {}
+        elif transport == 'wolf-shm-v1':
+            state = json.loads(self._live_text('status', meta) or '{}')
+        else:
+            state = _read(self.directory / 'status.json')
         if not isinstance(state, dict):
             raise RuntimeError('插件状态必须是对象')
         if (type(state.get('protocol')) is not int or state['protocol'] != meta['protocol'] or state.get('session_id') != meta['session_id']
@@ -197,11 +219,13 @@ class BridgeClient:
         return self._request_pause(self._connection())
 
     def action(self, action, *, command_id=None, timeout=5.0, **options):
-        if action not in _ACTION_FIELDS or set(options) - (_ACTION_FIELDS[action] | {'duration_ms'}):
+        if action not in _ACTION_FIELDS or set(options) - (_ACTION_FIELDS[action] | {'duration_ms', 'loading_mode'}):
             raise ValueError('未知动作或不适用于此动作的参数')
         meta = self._connection()
         if meta['protocol'] == 2:
             return self._submit({'action': action, **options}, command_id, timeout)
+        if 'loading_mode' in options:
+            raise ValueError('帧协议不接受 Bakin 加载意图')
         if 'duration_ms' in options:
             raise ValueError('帧协议不接受 duration_ms，不自动换算')
         frames = options.pop('frames', 1)
@@ -293,7 +317,7 @@ class BridgeClient:
                        'payload': payload, **observation,
                        'pause_id': self._pause_id(meta), 'created_at': time.time()}
             write_json(stored, request)
-            if self._ipc_meta:
+            if self._ipc_meta and self._ipc_meta.get('control_transport') == 'wolf-shm-v1':
                 self._requests[command_id] = request
             deadline = time.monotonic() + timeout
             self._inflight = command_id
@@ -305,6 +329,8 @@ class BridgeClient:
                         if failures:
                             raise RuntimeError('控制续租失败') from failures[0]
                         result = self.result(command_id)
+                        if result.get('in_progress') is True:
+                            return result
                         if result.get('status') != 'pending':
                             if not result.get('ok'):
                                 raise RuntimeError(result.get('error', '插件拒绝或未完成动作'))
@@ -320,16 +346,17 @@ class BridgeClient:
                 self._inflight = None
                 self._requests.pop(command_id, None)
 
-    def result(self, command_id):
+    def result(self, command_id, *, loading_review=None):
         command_id = _command_id(command_id)
-        request = self._requests.get(command_id) if self._ipc_meta else None
+        wolf_ipc = bool(self._ipc_meta and self._ipc_meta.get('control_transport') == 'wolf-shm-v1')
+        request = self._requests.get(command_id) if wolf_ipc else None
         if request is None:
             request_path = self.directory / 'requests' / (command_id + '.json')
             if not request_path.exists():
                 return {'id': command_id, 'status': 'unknown', 'ok': False}
             request = _read(request_path)
         result = None
-        if self._ipc_meta:
+        if wolf_ipc:
             live = json.loads(self._mailbox(self._ipc_meta).read('result') or '{}')
             if not isinstance(live, dict):
                 raise RuntimeError('回执必须是对象')
@@ -340,7 +367,10 @@ class BridgeClient:
         if result is None:
             result_path = self.directory / 'results' / (command_id + '.json')
             if not result_path.exists():
-                return {'id': command_id, 'status': 'pending', 'ok': False}
+                from .control_loading import pending
+                return pending(self, request, loading_review)
+            if loading_review is not None:
+                raise ValueError('命令已有最终回执，不再接受加载审核')
             result = _read(result_path)
         if (type(result.get('protocol')) is not int or result['protocol'] != request.get('protocol') or result.get('session_id') != request.get('session_id')
                 or result.get('id') != command_id):
@@ -386,8 +416,10 @@ class BridgeClient:
         except (OSError, ValueError) as exc:
             raise RuntimeError(f'操作后截图不可读：{exc}') from exc
         current = self.status()
+        expected_pause = (result.get('loading_pause_id') if result.get('result_kind') == 'bakin_title_new_game_v1'
+                          else request.get('pause_id', ''))
         historical = (not current.get('connected') or current.get('session_id') != request['session_id']
-                      or self._pause_id() != request.get('pause_id', ''))
+                      or self._pause_id() != expected_pause)
         digest = hashlib.sha256(shot.read_bytes()).hexdigest()
         if request['protocol'] == 2 and result.get('screenshot_sha256') != digest:
             raise RuntimeError('时间动作截图摘要不匹配')

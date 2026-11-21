@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "component": "Mono.Cecil",
+  "upstream": "https://github.com/jbevain/cecil",
+  "version": "0.10.4",
+  "tag_object": "0d02a1cbf4df463ac2e1e5d2a21b5a5ebf0aeb52",
+  "commit": "98ec890d44643ad88d573e97be0e120435eda732",
+  "license": "MIT",
+  "license_file": "third-party/Mono.Cecil.LICENSE.txt",
+  "license_source": "https://raw.githubusercontent.com/jbevain/cecil/0.10.4/LICENSE.txt",
+  "local_binary": {
+    "name": "Mono.Cecil.dll",
+    "assembly_identity": "Mono.Cecil, Version=0.10.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e",
+    "sha256": "7ae470288fff4a402899c254d0a76cefef55877f5c54f96e83c797cc5bb6e2f6",
+    "origin": "existing_local_preflight_tool",
+    "reproducible_build_verified": false,
+    "included_in_source_change": false
+  }
+}

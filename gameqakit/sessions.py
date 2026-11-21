@@ -75,11 +75,36 @@ class SessionLease:
             self.stream = None
 
 
+def open_shared(path):
+    if os.name != 'nt':
+        return Path(path).open('rb')
+    import ctypes
+    from ctypes import wintypes as W
+    import msvcrt
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.CreateFileW.argtypes = [W.LPCWSTR, W.DWORD, W.DWORD, W.LPVOID, W.DWORD, W.DWORD, W.HANDLE]
+    kernel.CreateFileW.restype = W.HANDLE
+    kernel.CloseHandle.argtypes = [W.HANDLE]
+    # 读者保留旧版本，同时允许发布者原子替换文件。
+    handle = kernel.CreateFileW(str(path), 0x80000000, 7, None, 3, 0x80, None)
+    if handle == W.HANDLE(-1).value:
+        error = ctypes.WinError(ctypes.get_last_error())
+        error.filename = str(path)
+        error.strerror = 'open_shared: ' + error.strerror
+        raise error
+    try:
+        fd = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
+    except Exception:
+        kernel.CloseHandle(handle)
+        raise
+    return os.fdopen(fd, 'rb')
+
+
 def read_text(path):
     deadline = time.monotonic() + 0.25
     while True:
         try:
-            with Path(path).open('rb') as stream:
+            with open_shared(path) as stream:
                 body = stream.read(131073)
             if len(body) > 131072:
                 raise ValueError('会话控制文件超过 128 KiB')

@@ -34,6 +34,15 @@ class McpBindingTests(unittest.TestCase):
             server.t_control_resume({'command_id': 'resume-1'})
         self.assertEqual([call.args[0] for call in self.binding.execute.call_args_list], ['action', 'resume'])
 
+    def test_loading_intent_and_review_reach_the_exclusive_binding(self):
+        self.binding.execute = mock.Mock(return_value={'status': 'pending'})
+        server.t_control_action(dict(action='confirm', duration_ms=100, loading_mode='bakin_title_new_game_v1'))
+        self.assertEqual('bakin_title_new_game_v1', self.binding.execute.call_args.kwargs['loading_mode'])
+        review = dict(accepted=True, loading_pause_id='pause', observation_seq=3, screenshot_sha256='a'*64)
+        server.t_control_result(dict(command_id='load', loading_review=review))
+        self.assertEqual('result', self.binding.execute.call_args.args[0])
+        self.assertEqual(review, self.binding.execute.call_args.kwargs['loading_review'])
+
     def test_managed_tools_share_manager_and_require_confirmation(self):
         manager = mock.Mock()
         manager.prepare.return_value = {'state': 'preparing'}

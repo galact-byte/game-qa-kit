@@ -37,6 +37,9 @@ def session_for(plan):
     if plan.get('backend') == 'kirikiri_authored':
         from plugins.kirikiri.session import KiriKiriSession
         return KiriKiriSession(plan)
+    if plan.get('backend') == 'bakin_fixed':
+        from plugins.bakin.session import BakinSession
+        return BakinSession(plan)
     if plan.get('backend') == 'gamemaker_authored':
         from plugins.gamemaker.session import GameMakerSession
         return GameMakerSession(plan)
@@ -83,7 +86,10 @@ def _run(record):
 
     try:
         publish()
-        native.prepare()
+        if plan['backend'] == 'bakin_fixed':
+            native.prepare(cancelled=cancelled)
+        else:
+            native.prepare()
         publish(state='prepared')
         phase = 'prepared'
         while not cancelled():

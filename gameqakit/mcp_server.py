@@ -263,7 +263,7 @@ def t_control_status(a):
 
 
 def t_control_action(a):
-    options = {key: a[key] for key in ("frames", "duration_ms", "direction", "button", "x", "y") if key in a}
+    options = {key: a[key] for key in ("frames", "duration_ms", "direction", "button", "x", "y", "loading_mode") if key in a}
     if _BINDING.engaged:
         return _BINDING.execute('action', a, action=a['action'], command_id=a.get('command_id'),
                                 timeout=a.get('timeout', 5), **options)
@@ -271,7 +271,10 @@ def t_control_action(a):
 
 
 def t_control_result(a):
-    return _bridge(a).result(a["command_id"])
+    options = {'loading_review': a['loading_review']} if 'loading_review' in a else {}
+    if options and _BINDING.engaged:
+        return _BINDING.execute('result', a, command_id=a['command_id'], **options)
+    return _bridge(a).result(a['command_id'], **options)
 
 
 def t_control_pause(a):
@@ -323,10 +326,17 @@ TOOLS = {
                              "frames": {"type": "integer", "minimum": 1, "maximum": 120},
                              "duration_ms": {"type": "integer", "minimum": 1, "maximum": 1000,
                                              "description": "仅时间后端；与 frames 互斥，以 control_status 的能力上限为准"},
+                             "loading_mode": {"type": "string", "enum": ["bakin_title_new_game_v1"],
+                                              "description": "仅登记的 Bakin 标题新游戏确认；暂停无持键后异步观察，需审核地图新图并显式恢复"},
                              "direction": {"type": "string", "enum": ["up", "down", "left", "right"]},
                              "button": {"type": "string"}, "x": {"type": "integer"}, "y": {"type": "integer"}}, ["action"]), t_control_action),
     "control_result": ("按命令编号查询回执，不重发动作；historical=true 的旧会话证据不能指导当前操作。",
-                       _obj({**BRIDGE_FIELDS, "command_id": {"type": "string"}, "include_image": {"type": "boolean"}}, ["command_id"]), t_control_result),
+                       _obj({**BRIDGE_FIELDS, "command_id": {"type": "string"}, "include_image": {"type": "boolean"},
+                             "loading_review": _obj({"accepted": {"type": "boolean"}, "loading_pause_id": {"type": "string"},
+                                                     "observation_seq": {"type": "integer", "minimum": 0},
+                                                     "screenshot_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+                                                    ["accepted", "loading_pause_id", "observation_seq", "screenshot_sha256"])},
+                            ["command_id"]), t_control_result),
     "control_pause": ("优先请求取消 AI 动作并松键，不等待普通动作锁；status 确认 paused 且 held 为空才算输入暂停。pause_scope=input 时游戏继续运行；同进程手玩接管仍不可用。", _obj(BRIDGE_FIELDS), t_control_pause),
     "control_resume": ("明确恢复已确认的插件控制；不会恢复暂停前的旧队列。需 confirm=true。", _obj({**CONFIRM, **COMMAND_FIELDS}), t_control_resume),
     "win": ("游戏窗口信息（hwnd/客户区/是否被遮挡）。" + PROFILE_NOTE, _obj({}), t_win),
@@ -398,7 +408,9 @@ def handle(method, params):
         result = TOOLS[name][2](args)
         content = []
         if (name in {"control_action", "control_resume", "control_result"}
-                and args.get("include_image") is True and result.get("status") == "done"):
+                and args.get("include_image") is True
+                and (result.get("status") == "done" or result.get("in_progress") is True)
+                and result.get("screenshot")):
             import base64
             shot = Path(result["screenshot"])
             if shot.stat().st_size <= 1024 * 1024:

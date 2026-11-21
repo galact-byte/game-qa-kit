@@ -48,6 +48,48 @@ class AtomicStateTests(unittest.TestCase):
         self.path = Path(self.temp.name) / "status.json"
         sessions.write_json(self.path, {"sequence": 1})
 
+    def test_state_reader_allows_publication_while_previous_version_is_open(self):
+        from gameqakit.duration_host import publish
+        reading = threading.Event()
+        release = threading.Event()
+        observed = []
+        failures = []
+
+        def hold_read(frame, event, function):
+            if (frame.f_code is sessions.read_text.__code__ and event == 'c_call'
+                    and getattr(function, '__name__', '') == 'read'):
+                reading.set()
+                if not release.wait(2):
+                    raise TimeoutError('publication did not finish')
+
+        def observe():
+            sys.setprofile(hold_read)
+            try:
+                observed.append(sessions.read_json(self.path))
+            except Exception as exc:
+                failures.append(exc)
+            finally:
+                sys.setprofile(None)
+
+        reader = threading.Thread(target=observe)
+        reader.start()
+        publication_error = None
+        try:
+            self.assertTrue(reading.wait(1), 'reader never acquired the old version')
+            try:
+                publish(self.path, {'sequence': 2})
+            except OSError as exc:
+                publication_error = exc
+        finally:
+            release.set()
+            reader.join(timeout=2)
+        self.assertFalse(reader.is_alive())
+        self.assertIsNone(publication_error, str(publication_error))
+        self.assertEqual(failures, [])
+        self.assertEqual(observed, [{'sequence': 1}])
+        self.assertEqual(sessions.read_json(self.path), {'sequence': 2})
+        self.assertFalse(list(self.path.parent.glob('*.part')))
+
     def test_short_lived_reader_does_not_break_atomic_status_update(self):
         reader = self.path.open("r", encoding="utf-8")
         release = threading.Timer(0.05, reader.close)
@@ -75,6 +117,23 @@ class AtomicStateTests(unittest.TestCase):
         finally:
             release.join()
 
+    def test_exclusive_writer_still_blocks_state_read_until_deadline(self):
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                                      ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+        kernel.CreateFileW.restype = wintypes.HANDLE
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        handle = kernel.CreateFileW(str(self.path), 0x40000000, 0, None, 3, 0, None)
+        self.assertNotEqual(handle, ctypes.c_void_p(-1).value)
+        try:
+            with self.assertRaises(PermissionError) as caught:
+                sessions.read_json(self.path)
+            self.assertEqual(str(self.path), caught.exception.filename)
+            self.assertIn('open_shared', str(caught.exception))
+        finally:
+            kernel.CloseHandle(handle)
+        self.assertEqual(sessions.read_json(self.path), {'sequence': 1})
+
     def test_short_replacement_gap_does_not_report_disconnected(self):
         previous = self.path.with_suffix('.old')
         self.path.rename(previous)
@@ -96,6 +155,28 @@ class AtomicStateTests(unittest.TestCase):
                 sessions.write_json(self.path, {"sequence": 2})
         self.assertEqual(json.loads(self.path.read_text(encoding="utf-8")), {"sequence": 1})
         self.assertFalse(list(self.path.parent.glob("*.part")))
+
+
+class StateReadValidationTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.path = Path(self.temp.name) / 'status.json'
+
+    def test_size_limit_still_accepts_128_kib_and_rejects_larger_files(self):
+        self.path.write_bytes(b' ' * 131072)
+        self.assertEqual(sessions.read_text(self.path), ' ' * 131072)
+        self.path.write_bytes(b' ' * 131073)
+        with self.assertRaisesRegex(ValueError, '128 KiB'):
+            sessions.read_text(self.path)
+
+    def test_invalid_utf8_and_incomplete_json_still_fail(self):
+        self.path.write_bytes(b'\xff')
+        with self.assertRaises(UnicodeDecodeError):
+            sessions.read_text(self.path)
+        self.path.write_text('{', encoding='utf-8')
+        with self.assertRaises(json.JSONDecodeError):
+            sessions.read_json(self.path)
 
 
 class SessionTests(unittest.TestCase):

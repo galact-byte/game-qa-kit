@@ -32,6 +32,9 @@ class _Watchdog(Thread):
 
 
 class DurationSession:
+    startup_seconds = 15
+    allowed_root_names = ()
+
     def __init__(self, plan, recipe, executable):
         self.plan = plan
         self.recipe = recipe
@@ -78,13 +81,13 @@ class DurationSession:
             raise ValueError('runtime_changed: runtime or scene changed')
         no_links(self.directory)
         if any(self.directory.iterdir()) or {p.name for p in self.root.iterdir()} - {
-                'runtime', 'bridge', 'session.json', 'start.request.json', 'stop.request'}:
+                'runtime', 'bridge', 'session.json', 'start.request.json', 'stop.request', *self.allowed_root_names}:
             raise ValueError('会话包含未登记的文件')
         if cancelled():
             raise InterruptedError('接入已取消')
         self.host = _Watchdog(target=self._watch, daemon=True)
         self.host.start()
-        deadline = time.monotonic() + 15
+        deadline = time.monotonic() + self.startup_seconds
         while time.monotonic() < deadline:
             if cancelled():
                 raise InterruptedError('接入已取消')
@@ -135,6 +138,8 @@ class DurationSession:
             finally:
                 write_json(self.directory / 'stop.json', {'session_id': self.session})
                 self.host.join(3)
+                if self.bridge:
+                    self.bridge.close()
         termination = self.directory / 'termination.json'
         ended = read_json(termination) if termination.is_file() else {}
         exited = not (self.host and self.host.alive()) and not _pid_path(ended.get('pid') or self.pid or 0)

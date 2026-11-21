@@ -1,6 +1,14 @@
 name: Universal desktop test builds
 
 on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      release:
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       version:
@@ -81,7 +89,7 @@ jobs:
       - name: Upload test package
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: universal-${{ matrix.platform }}-${{ matrix.arch }}
+          name: ${{ inputs.release && format('release-assets-{0}-{1}', matrix.platform, matrix.arch) || format('universal-{0}-{1}', matrix.platform, matrix.arch) }}
           if-no-files-found: error
           retention-days: 14
           path: |

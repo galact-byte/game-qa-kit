@@ -35,7 +35,7 @@
 
 ## macOS／Linux 通用测试版
 
-macOS／Linux 通用测试包已完成四个平台的原生构建与启动检查，x64 与 arm64 分别提供包，无需另装 Python。此阶段提供配置、存档快照、已有证据复核与公共 MCP 工具；游戏窗口采集和后台控制暂仅在 Windows 开放。构建记录、下载入口和已知限制见 [通用版说明](docs/UNIVERSAL-BUILD.md)。测试包由手动 Actions 工作流生成，未并入现有 Windows Release。
+macOS／Linux 通用测试包已完成四个平台的原生构建与启动检查，x64 与 arm64 分别提供包，无需另装 Python。此阶段提供配置、存档快照、已有证据复核与公共 MCP 工具；游戏窗口采集和后台控制暂仅在 Windows 开放。构建记录、下载入口和已知限制见 [通用版说明](docs/UNIVERSAL-BUILD.md)。下一版 Release 的候选工作流已接入四个平台构建与汇总；正式发布仍须五个目标全部通过，当前尚未发布。
 
 ## 让 AI 调用
 

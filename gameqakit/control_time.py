@@ -2,6 +2,7 @@
 import re
 
 BUTTONS = {'up', 'down', 'left', 'right', 'ok', 'cancel'}
+LOADING_MODE = 'bakin_title_new_game_v1'
 FIELDS = {'move': {'direction', 'duration_ms'}, 'confirm': {'duration_ms'},
           'cancel': {'duration_ms'}, 'wait': {'duration_ms'}, 'resume': set()}
 
@@ -18,11 +19,21 @@ def validate_state(state):
             or not _buttons(state.get('buttons')) or not _buttons(state.get('held'))
             or any(action not in FIELDS or action == 'resume' for action in state['capabilities'])):
         raise RuntimeError('时间协议的观察序号、能力或暂停语义无效')
+    modes = state.get('loading_modes', [])
+    if modes not in ([], [LOADING_MODE]) or modes and state.get('engine') != 'bakin':
+        raise RuntimeError('未登记的加载能力声明')
 
 
 def validate_payload(payload, state):
     action = payload['action']
-    if action not in FIELDS or set(payload) != FIELDS[action] | {'action'}:
+    extra = set()
+    if 'loading_mode' in payload:
+        if (payload['loading_mode'] != LOADING_MODE or action != 'confirm'
+                or state.get('engine') != 'bakin' or state.get('loading_modes') != [LOADING_MODE]
+                or state.get('target_scene') != 'TITLE' or state.get('target_title_state') != 'TITLE'):
+            raise ValueError('加载意图仅用于已声明能力的 Bakin 标题新游戏确认')
+        extra.add('loading_mode')
+    if action not in FIELDS or set(payload) != FIELDS[action] | {'action'} | extra:
         raise ValueError('时间后端仅接受显式毫秒动作，不接受 frames、press/release、click 或额外字段')
     if action == 'resume':
         return
@@ -39,6 +50,20 @@ def validate_payload(payload, state):
 
 def validate_result(result, request):
     keyed = request['payload']['action'] not in ('resume', 'wait')
+    loading = request['payload'].get('loading_mode') == LOADING_MODE
+    if loading:
+        elapsed = result.get('loading_elapsed_ms')
+        reviewed = result.get('reviewed_observation_seq')
+        if (result.get('result_kind') != LOADING_MODE or result.get('paused') is not True
+                or result.get('visual_reviewed') is not True or result.get('map_loading') is not False
+                or result.get('map_fade') != 'None' or result.get('target_scene') != 'MAP'
+                or not isinstance(result.get('loading_pause_id'), str)
+                or not re.fullmatch('[A-Za-z0-9_-]{1,64}', result['loading_pause_id'])
+                or type(elapsed) is not int or not 0 <= elapsed <= 300000
+                or type(reviewed) is not int or not request['after_observation_seq'] < reviewed <= result.get('observation_seq', -1)):
+            raise RuntimeError('加载缺少暂停、真实释放、地图完成或本次画面审核证据')
+    elif result.get('result_kind') is not None:
+        raise RuntimeError('普通动作不能接收加载回执')
     start, end = result.get('started_monotonic_ms'), result.get('completed_monotonic_ms')
     if (result.get('consumed') is not keyed or result.get('press_consumed') is not keyed
             or result.get('release_consumed') is not keyed
@@ -47,7 +72,7 @@ def validate_result(result, request):
             or result.get('pause_id') != request.get('pause_id', '')
             or result.get('timing_mode') != 'duration_ms' or result.get('pause_scope') != 'input'
             or result.get('simulation_pause') is not False or result.get('held') != []
-            or type(start) is not int or type(end) is not int or not 0 <= end - start <= 5000
+            or type(start) is not int or type(end) is not int or not 0 <= end - start <= (305000 if loading else 5000)
             or not isinstance(result.get('screenshot_sha256'), str)
             or not re.fullmatch('[0-9a-f]{64}', result['screenshot_sha256'])
             or 'frame' in result or 'capture_frame' in result):

@@ -54,6 +54,12 @@ def inspect(path, *, artifacts=None):
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
         if not result['blockers']:
             result.update(adapter='easyrpg_authored', profile_id='easyrpg-0.8-rm2k-authored-fixed')
+    elif result['engine'] == 'bakin_candidate':
+        from plugins.bakin import prepare as bakin
+        result['blockers'] = bakin.inspect(result['root'], artifacts)
+        result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+        if not result['blockers']:
+            result.update(adapter='bakin_fixed', profile_id=bakin.BUILD['build_id'])
     elif result['engine'] == 'gamemaker_authored_candidate':
         from plugins.gamemaker import prepare as gamemaker
         result['blockers'] = gamemaker.inspect(result['root'], artifacts)
@@ -179,6 +185,18 @@ def make_plan(source, destination, *, artifacts):
                        changes=['仅复制登记的自写 RM2K 场景与独立源码运行时，不带商业工程或原存档',
                                 '独立桌面、软件渲染、零输入等首图；配置、存档与临时文件留在会话内',
                                 '按正常游戏逻辑消费输入后回执；结束进程树并复核原样本与运行时'])
+        return {**payload, 'fingerprint': fingerprint(payload)}
+    if result['engine'] == 'bakin_candidate':
+        from plugins.bakin import prepare as bakin
+        validate_destination(artifacts, destination)
+        payload = dict(schema_version=1, backend='bakin_fixed', engine='bakin', source=str(source),
+                       destination=str(destination), artifacts=str(artifacts),
+                       source_digests=bakin.source_digests(source), artifact_digests=bakin.artifact_digests(artifacts),
+                       data_policy='blank-bakin-fixed-private-config-save', desktop='private',
+                       changes=['仅复制登记的固定商业构建，不带原存档和附带诊断工具',
+                                '300 秒内完成复制、原生启动器解包与组件核对，再安装副本引擎桥；播放器保持原始字节',
+                                '独立桌面受管启动上限 60 秒；有效首图前零输入，取图上限 3 秒，黑白门槛 0.999',
+                                '正常输入查询分别确认按下、持键与释放；结束进程树并核对原件，保留副本证据'])
         return {**payload, 'fingerprint': fingerprint(payload)}
     if result['engine'] == 'gamemaker_authored_candidate':
         from plugins.gamemaker import prepare as gamemaker
@@ -352,7 +370,7 @@ def make_plan(source, destination, *, artifacts):
 
 
 def revalidate_plan(plan):
-    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored', 'emuera_authored', 'kirikiri_authored', 'hsp_authored', 'flash_authored', 'easyrpg_authored', 'artemis_authored', 'gamemaker_authored'):
+    if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored', 'emuera_authored', 'kirikiri_authored', 'hsp_authored', 'flash_authored', 'easyrpg_authored', 'artemis_authored', 'gamemaker_authored', 'bakin_fixed'):
         raise ValueError('unsupported_plan')
     actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
     if actual != plan:

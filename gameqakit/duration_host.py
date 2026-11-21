@@ -16,25 +16,9 @@ import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from gameqakit.control_time import validate_payload
 from gameqakit.desktop import DesktopProcess
+from gameqakit.sessions import open_shared
 
 IDENT = re.compile(r'[A-Za-z0-9_-]{1,64}')
-
-
-def open_shared(path):
-    import msvcrt
-    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
-    kernel.CreateFileW.argtypes = [W.LPCWSTR, W.DWORD, W.DWORD, W.LPVOID, W.DWORD, W.DWORD, W.HANDLE]
-    kernel.CreateFileW.restype = W.HANDLE
-    kernel.CloseHandle.argtypes = [W.HANDLE]
-    handle = kernel.CreateFileW(str(path), 0x80000000, 7, None, 3, 0x80, None)
-    if handle == W.HANDLE(-1).value:
-        raise ctypes.WinError(ctypes.get_last_error())
-    try:
-        fd = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
-    except Exception:
-        kernel.CloseHandle(handle)
-        raise
-    return os.fdopen(fd, 'rb')
 
 
 def read(path):
@@ -67,10 +51,22 @@ def publish(path, value):
         deadline = time.monotonic() + .1
         while True:
             try:
-                temporary.replace(path)
+                if os.name == 'nt' and path.exists():
+                    # 保持旧读者可读；MoveFileEx 可能因其未关闭的句柄拒绝替换。
+                    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+                    kernel.ReplaceFileW.argtypes = [W.LPCWSTR, W.LPCWSTR, W.LPCWSTR, W.DWORD, W.LPVOID, W.LPVOID]
+                    kernel.ReplaceFileW.restype = W.BOOL
+                    if not kernel.ReplaceFileW(str(path), str(temporary), None, 0, None, None):
+                        error = ctypes.WinError(ctypes.get_last_error())
+                        error.filename = str(path)
+                        raise error
+                else:
+                    temporary.replace(path)
                 return
-            except PermissionError:
-                if time.monotonic() >= deadline:
+            except OSError as error:
+                # 1175 保留新旧文件原名，可在既有窗口内重试；1176/1177 不保证这一点。
+                retryable = isinstance(error, PermissionError) or getattr(error, 'winerror', None) == 1175
+                if not retryable or time.monotonic() >= deadline:
                     raise
                 time.sleep(.005)
     finally:
@@ -83,6 +79,7 @@ class Supervisor:
     capture_worker = Path(__file__).with_name('capture_worker.py')
     capture_module = 'gameqakit.capture_worker'
     startup_capture = None
+    startup_seconds = 15
     actions = ('confirm', 'wait')
     button = 'ok'
 
@@ -242,6 +239,12 @@ class Supervisor:
             self.finish(dict(screenshot=self.observation,
                 screenshot_sha256=hashlib.sha256(destination.read_bytes()).hexdigest()))
 
+    def connection_meta(self):
+        return dict(self.identity)
+
+    def publish_status(self):
+        publish(self.directory / 'status.json', self.state())
+
     def finish(self, screenshot=None):
         active = self.active
         request = active['request']
@@ -250,7 +253,7 @@ class Supervisor:
             pause_id=request['pause_id'], consumed=active['press'], press_consumed=active['press'],
             release_consumed=active['release'], held=self.state()['held'], observation_seq=self.observation_seq,
             started_monotonic_ms=int(active['started'] * 1000), completed_monotonic_ms=int(time.monotonic() * 1000))
-        publish(self.directory / 'status.json', self.state())
+        self.publish_status()
         self.last_publish = time.monotonic()
         publish(self.directory / 'results' / (request['id'] + '.json'), result)
         self.active = None
@@ -264,7 +267,7 @@ class Supervisor:
             return 'release_timeout'
         if self.ui_seq and now - self.changed > 1:
             return 'activity_timeout'
-        if not self.observation_seq and now - self.started > 15:
+        if not self.observation_seq and now - self.started > self.startup_seconds:
             return 'startup_timeout'
         if self.capture and now - self.capture['started'] > 3:
             return 'capture_timeout'
@@ -314,8 +317,13 @@ class Supervisor:
             self.send(uuid.uuid4().hex, 'close')
             self.closing = True
 
+    def cancel_capture(self):
+        if self.capture:
+            self.capture['worker'].close()
+            self.capture = None
+
     def run(self, *, launch_target=True):
-        publish(self.directory / 'connection.json', self.identity)
+        publish(self.directory / 'connection.json', self.connection_meta())
         publish(self.directory / 'supervisor.json', dict(self.identity, host_pid=os.getpid(),
             desktop_name=self.target.desktop_name, runtime_sha256=self.runtime_sha256))
         if launch_target:
@@ -340,7 +348,7 @@ class Supervisor:
                         pass
                 if time.monotonic() - self.last_publish >= .04:
                     try:
-                        publish(self.directory / 'status.json', self.state())
+                        self.publish_status()
                         self.last_publish = time.monotonic()
                     except (OSError, ValueError) as error:
                         try:
@@ -349,14 +357,12 @@ class Supervisor:
                             pass
                 time.sleep(.01)
         finally:
-            if self.capture:
-                self.capture['worker'].close()
-                self.capture = None
+            self.cancel_capture()
             if self.reason == 'target_exited' and self.stopping is not None:
                 self.reason = 'stop_requested'
             self.target.close()
             active = self.active
-            publish(self.directory / 'termination.json', dict(self.identity, reason=self.reason,
+            publish(self.directory / 'termination.json', dict(self.identity, reason=self.reason, error=self.error,
                 elapsed_ms=int((time.monotonic() - self.started) * 1000), target_alive=self.target.alive(),
                 capture_worker_pids=self.workers, pending_command=active['request']['id'] if active else None,
                 press_consumed=active['press'] if active else False,

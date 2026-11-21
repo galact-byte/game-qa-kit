@@ -1,0 +1,251 @@
+{
+  "schema_version": 1,
+  "build_id": "bakin-2.5.1.0-commercial-01",
+  "launcher": "みゆつれ.exe",
+  "extracted": {
+    "files": 393,
+    "sha256": "5b03bc489115094c8a93c6a25bb49636ae78c19f0898ed8876b81287258fd7bb"
+  },
+  "player": {
+    "bytes": 339856,
+    "sha256": "94e4b19e9187f81c44aad4e8a3ef70f294ccb9cb32fafd699de3f537ccfb903c"
+  },
+  "files": {
+    "data/bakinengine.dll": {
+      "bytes": 4133264,
+      "sha256": "e79836201d17e5c40754011df9f96e99c92be61b95d674195581bc36e80e5a19"
+    },
+    "data/bakinplayer.exe.config": {
+      "bytes": 798,
+      "sha256": "6c4df659b675664a57d17f0dd0a3d064be1a6ba538daa9efb5c22e2abc8bd727"
+    },
+    "data/bakinplayer.pak": {
+      "bytes": 39362,
+      "sha256": "d1541ca7ec6090ecf40024e77f87d697a6c3a94bc22d1fa995b0c92037e6a019"
+    },
+    "data/BMPLoader.dlp": {
+      "bytes": 27024,
+      "sha256": "451a7c885f0ebf40f630e2c9eb0c59ad4b19311015cb79617aff1e551cc68577"
+    },
+    "data/BulletPhysics.dlp": {
+      "bytes": 881040,
+      "sha256": "4bdc5b2a7398e0911dfb54b8c490609e53f5449b0738455547470dfd2a073e1b"
+    },
+    "data/common.dll": {
+      "bytes": 1887632,
+      "sha256": "654c0d9b65c51db13d42cb8aaba4e236d2245593050bff635d9824eed109a021"
+    },
+    "data/concrt140.dll": {
+      "bytes": 317864,
+      "sha256": "573229a07f38ab9d2fc2e1a5b98e9243b9b39100323180c83ad7ddaf98eee46a"
+    },
+    "data/data.rbpack": {
+      "bytes": 6388465033,
+      "sha256": "489813f0dfa4b5eeef9430f64258954ef83750595a07864330b3cfb719d2fa9a"
+    },
+    "data/dxcompiler.dll": {
+      "bytes": 17972656,
+      "sha256": "1220478c87af97551d2342906c5a08d888ee9fa26f6f99b6072d674801f492d1"
+    },
+    "data/dxil.dll": {
+      "bytes": 1462704,
+      "sha256": "e038a9755387fc396a9a5f393d292b9318cf6ac7e520e9283bbc3088c5f8ac93"
+    },
+    "data/EdgeBrowserControl.dll": {
+      "bytes": 22928,
+      "sha256": "543530896c3ae5c13a699dd90d4b668b4b9f7f2c885766a4507252152106ed16"
+    },
+    "data/en/bakinengine.resources.dll": {
+      "bytes": 666512,
+      "sha256": "f3993a957ea14527d2f3d7cb47a606d8ff5321cf27f60a85f91d5ea0e2651804"
+    },
+    "data/en/bakinplayer.resources.dll": {
+      "bytes": 21392,
+      "sha256": "d8848a16e6b1fe49ad02536570fd42456a27b58e97fc922456cee7c12bdc0a66"
+    },
+    "data/FBXLoader.dlp": {
+      "bytes": 9894288,
+      "sha256": "558ad45f8dc270edd2176177334948ecd0ae0223f73378c4422e18a0298c4fc2"
+    },
+    "data/glew32.dll": {
+      "bytes": 435088,
+      "sha256": "199d55bbe7b885588dd8074c9b3c4611ec348584a80db57cbd5b77233fbe8ffd"
+    },
+    "data/HDRLoader.dlp": {
+      "bytes": 28560,
+      "sha256": "1d5eb93bbee7955013ca988624e5b0ada63fe3f0a2700808d9af612ff270b716"
+    },
+    "data/kmyCore.dll": {
+      "bytes": 4646288,
+      "sha256": "b65de15da7274baf47f3d1559cf17e50e4a4626cc7bb9c7f971f2806c1a17566"
+    },
+    "data/kmyDX12.dll": {
+      "bytes": 1492368,
+      "sha256": "b7ef15aaf7dc207428ecfefb8c88e37b7677b7269908609d91703c60d0d0c9a1"
+    },
+    "data/kmyOGL.dll": {
+      "bytes": 1949584,
+      "sha256": "725c323b2d8ae824994de1ba2beca790934b8e6af109374615d172ea7c7fef80"
+    },
+    "data/kmyWASAPI.dll": {
+      "bytes": 30096,
+      "sha256": "f3996e48d53eec9316b7c80f3afe7868ed08a87647b78d20e6603b3659524e0f"
+    },
+    "data/kmyWindowsCommon.dll": {
+      "bytes": 122768,
+      "sha256": "56f40464d0ba69134c4a3d25329a05c7d06f1ef38f5d3734db23832bc355c435"
+    },
+    "data/lib/sysresource/shader/include/transform.cgh": {
+      "bytes": 6,
+      "sha256": "aea52d27230b89ca1b732866afbe137a98e65100049a56b3293def8d5fe7dda0"
+    },
+    "data/lib/sysresource/shader/include/uniform.cgh": {
+      "bytes": 5159,
+      "sha256": "40afb0fa8013e1d1549b6ecf72f4cfbf7e12e928650a0e240598715fe345abe5"
+    },
+    "data/lib/sysresource/shader/include/v2_common.cgh": {
+      "bytes": 3829,
+      "sha256": "1a7de8f5352d90f58f452693a80ebc9d4dff80063154627136acfbcff704c89f"
+    },
+    "data/lib/sysresource/shader/include/v2_fpcommon.cgh": {
+      "bytes": 20622,
+      "sha256": "c020274649ce4bcc5808f9930dd008f3b1c13a4f32563e923238c149bf076ac0"
+    },
+    "data/lib/sysresource/shader/include/v2_gpcommon.cgh": {
+      "bytes": 1625,
+      "sha256": "ea8e0dd5df6ef43e95a356e6e70fb901f26c66c3f4c60273b150c7cba611b4e0"
+    },
+    "data/lib/sysresource/shader/include/v2_util.cgh": {
+      "bytes": 1777,
+      "sha256": "702c987fd8458ae4689c7e17ed3a7e7bc044119a7394177b7a8f3c17003707ae"
+    },
+    "data/lib/sysresource/shader/include/v2_vpcommon.cgh": {
+      "bytes": 5741,
+      "sha256": "a902328c6ac492163e7def656ed3c1622618d43404f16c3fc2bbe0c6b64c1320"
+    },
+    "data/Live2DCubismCore.dll": {
+      "bytes": 249800,
+      "sha256": "d883c00d114fdf6cef61f439feb23e02d000fdf683e092803010470b80dfaf09"
+    },
+    "data/Microsoft.CodeAnalysis.CSharp.dll": {
+      "bytes": 6582408,
+      "sha256": "6f43f82185bb19508dfa1436e442e8560a7127aa230b6b5e5206ec38f0a1a9f0"
+    },
+    "data/Microsoft.CodeAnalysis.dll": {
+      "bytes": 4641936,
+      "sha256": "3aab1101504f5cef57918ec3515874c88023d9014eaa740c2d2667dc6f763e0e"
+    },
+    "data/Microsoft.Web.WebView2.Core.dll": {
+      "bytes": 284064,
+      "sha256": "5a035ee9e6e84eea8f1c216cbf404d31eb4eb5a9b836860876e051b42a94c50d"
+    },
+    "data/Microsoft.Web.WebView2.WinForms.dll": {
+      "bytes": 34208,
+      "sha256": "8185c2d97723f850c17e8f38e2569066af8bd6cab10605bab781545324d6bc5c"
+    },
+    "data/msvcp140.dll": {
+      "bytes": 566704,
+      "sha256": "9fee6f36547d6f6ea7ca0338655555dba6bb0f798bc60334d29b94d1547da4da"
+    },
+    "data/msvcp140_1.dll": {
+      "bytes": 23944,
+      "sha256": "8731a93e519c2595c9fd489e6d9ac07e964448c0da1c8ee9ee500a7989482617"
+    },
+    "data/msvcp140_2.dll": {
+      "bytes": 186800,
+      "sha256": "366af8e071f004da5d95a832a46b2e8821a8e0294340a93f7c95cf48c441067e"
+    },
+    "data/msvcp140_atomic_wait.dll": {
+      "bytes": 57264,
+      "sha256": "c61a28711f8c6e9bfd4879cf5f53b013d653badad308abe3e887c694b223d6f0"
+    },
+    "data/msvcp140_codecvt_ids.dll": {
+      "bytes": 21424,
+      "sha256": "9b45fd069bd0076d8abfeb7c3c30a1f5c5fc8e7124017853a93d831a346c3d21"
+    },
+    "data/OGGLoader.dlp": {
+      "bytes": 270224,
+      "sha256": "a329113666ae2c552e9d2f548dd043277f10e248bc6f7172c94c01d367d862e3"
+    },
+    "data/PNGLoader.dlp": {
+      "bytes": 391568,
+      "sha256": "47e5818ef4ed2b17af494424a27128c0c95d562d65ccf9cbbfd402611d7a8e39"
+    },
+    "data/SBControl.dll": {
+      "bytes": 1205648,
+      "sha256": "d1637bbaccc8b22253f108da7c2531e66eaa5c1a8d82be68cee7ad849d5de3be"
+    },
+    "data/SharpDX.DirectInput.dll": {
+      "bytes": 163216,
+      "sha256": "0987c994b50605f3f3bab3e7e5e6cdadaa99802ca178c3093980919e63b8bd5b"
+    },
+    "data/SharpDX.dll": {
+      "bytes": 287120,
+      "sha256": "e2ca105ec6949228ea9974fa328db5dfd6be47ab5432f2ce5dd66c0721043e76"
+    },
+    "data/SharpKmyCore.dll": {
+      "bytes": 1144208,
+      "sha256": "86826f0f1f574f1f5ae5344635375fdf75f42a3d5f4a96ad3743fa3fe307c7c3"
+    },
+    "data/Sharplibsimplewebm.dll": {
+      "bytes": 2215824,
+      "sha256": "b2bc600fe938ec899c73499a1da4b6723ed29d07ec551cc48edf8431df4afd7b"
+    },
+    "data/System.Collections.Immutable.dll": {
+      "bytes": 193664,
+      "sha256": "69e57ac412200e47fe7b5f933a30c594e1fc1517498c88920aabc702f5ea00a7"
+    },
+    "data/System.Memory.dll": {
+      "bytes": 141184,
+      "sha256": "8e76318e8b06692abf7dab1169d27d15557f7f0a34d36af6463eff0fe21213c7"
+    },
+    "data/System.Net.Http.dll": {
+      "bytes": 198472,
+      "sha256": "b5d20736f84f335ef4c918a5ba41c3a0d7189397c71b166ccc6c342427a94ece"
+    },
+    "data/System.Numerics.Vectors.dll": {
+      "bytes": 115856,
+      "sha256": "1d3ef8698281e7cf7371d1554afef5872b39f96c26da772210a33da041ba1183"
+    },
+    "data/System.Reflection.Metadata.dll": {
+      "bytes": 462728,
+      "sha256": "46451e1168dd11d450aa9b6119f17cec9a70928a40ac3c752abf61ce809cba6f"
+    },
+    "data/System.Runtime.CompilerServices.Unsafe.dll": {
+      "bytes": 18024,
+      "sha256": "37768488e8ef45729bc7d9a2677633c6450042975bb96516e186da6cb9cd0dcf"
+    },
+    "data/vccorlib140.dll": {
+      "bytes": 335792,
+      "sha256": "79284659bf4302162302737d2513b17e09742cdefb9540e80f97d30c93077d7c"
+    },
+    "data/vcruntime140.dll": {
+      "bytes": 98224,
+      "sha256": "9d2b40f0395cc5d1b4d5ea17b84970c29971d448c37104676db577586d4ad1b1"
+    },
+    "data/vcruntime140_1.dll": {
+      "bytes": 37256,
+      "sha256": "34048abaa070ecc13b318cea31425f4ca3edd133d350318ac65259e6058c8b32"
+    },
+    "data/VRMLoader.dlp": {
+      "bytes": 1180560,
+      "sha256": "69a8690c0e4ed5d7b9b9f7b495f3ee7dc984e8c72487cf1d7676642cb1f87f86"
+    },
+    "data/WAVLoader.dlp": {
+      "bytes": 67984,
+      "sha256": "4f49b10a086577372a0b20c17ad87d2cb9b9a2696c30c2f676bac833f5b87545"
+    },
+    "data/WebView2Loader.dll": {
+      "bytes": 140184,
+      "sha256": "ad8bb426a8e438493db4d703242f373d9cb36d8c13e88b6647cd083716e09bef"
+    },
+    "data/YamlDotNet.dll": {
+      "bytes": 219536,
+      "sha256": "8dc3a5233f70a4061606f86f036df471e7cee5ed5a10b9d0f2202ecd6be8d95c"
+    },
+    "みゆつれ.exe": {
+      "bytes": 575488,
+      "sha256": "e1386451c4ce03fb529a62676b76f366b4677ee3a95b7993fd0ab4cd99d3b216"
+    }
+  }
+}

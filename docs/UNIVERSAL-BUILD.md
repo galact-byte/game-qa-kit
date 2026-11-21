@@ -51,6 +51,12 @@ gh workflow run universal-desktop.yml --ref <构建分支> -f version=v0.4.1-uni
 
 工作流和目标提交必须已在远端，手动工作流文件需先进入默认分支。若某一架构失败，其他架构仍继续构建；只有相应检查全部通过才上传该平台测试包。
 
+## 正式 Release
+
+`.github/workflows/windows-release.yml` 保留原调用入口，发布时复用本文件的四平台原生构建任务，再汇总 Windows x64 ZIP、macOS x64／arm64 与 Linux x64／arm64 四份 `.tar.gz`。只有五个目标全部通过构建及启动自检，并且每份原始 SHA-256 验证通过，才创建标签与 Release。`tools/assemble_release.py` 拒绝缺少平台、摘要不符、重名或越界资产，输出一份统一的 `SHA256SUMS.txt`。
+
+工作流接入与本地汇总测试不等于已经发布。下次正式版本仍须有对应 `docs/releases/<版本>.md`，并在远端完成构建后回读标签、说明和五份资产；macOS 签名与 Linux 兼容范围沿用上面的限制。
+
 ## 验证口径
 
 - 本机 Windows 的平台分支检查：禁止导入 Win32 模块后，分别模拟 `darwin`／`linux`，确认 GUI、CLI、MCP 公共入口可导入，平台专用功能禁用，公共功能可用。
