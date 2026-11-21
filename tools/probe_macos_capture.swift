@@ -65,7 +65,14 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
     var draws = 0
     let commandQueue: MTLCommandQueue
     let pipeline: MTLRenderPipelineState
-    var rendererInfo: [String: Any] { ["renderer": "metal", "gpu": device?.name ?? "unknown"] }
+    let gpuLock = NSLock()
+    var completedCommands = 0
+    var gpuFailure = ""
+    var rendererInfo: [String: Any] {
+        gpuLock.lock(); defer { gpuLock.unlock() }
+        return ["renderer": "metal", "gpu": device?.name ?? "unknown",
+                "completed_commands": completedCommands, "gpu_error": gpuFailure]
+    }
 
     init(probeGPU gpu: MTLDevice) throws {
         guard let queue = gpu.makeCommandQueue() else {
@@ -116,6 +123,12 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         encoder.endEncoding()
         command.present(drawable)
+        command.addCompletedHandler { [weak self] completed in
+            guard let self = self else { return }
+            self.gpuLock.lock(); defer { self.gpuLock.unlock() }
+            if completed.status == .completed { self.completedCommands += 1 }
+            if let error = completed.error { self.gpuFailure = error.localizedDescription }
+        }
         command.commit()
         draws += 1
     }
@@ -171,6 +184,7 @@ final class Fixture: NSObject, NSApplicationDelegate {
                     renderer.render()
                 }
                 try? saveJSON(["counter": renderer.counter, "draws": renderer.draws,
+                               "rendering": renderer.rendererInfo,
                                "occlusion_visible": window.occlusionState.contains(.visible),
                                "width": window.frame.width, "height": window.frame.height],
                               root.appendingPathComponent("target-state.json"))
@@ -327,6 +341,7 @@ struct Probe {
         #endif
         var children = [Process]()
         var active: SCStream?
+        var diagnosticFilter: SCContentFilter?
         let frames = Frames()
         do {
             guard result["architecture"] as? String == "arm64" else { throw ProbeError("Expected native arm64") }
@@ -342,6 +357,7 @@ struct Probe {
             }
             result["target"] = ready
             let filter = SCContentFilter(desktopIndependentWindow: window)
+            diagnosticFilter = filter
             let config = SCStreamConfiguration()
             config.width = 320; config.height = 180; config.showsCursor = false
             config.pixelFormat = kCVPixelFormatType_32BGRA
@@ -388,6 +404,24 @@ struct Probe {
         } catch {
             result["error"] = String(describing: error)
             if let stream = active { try? await stream.stopCapture() }
+            if let filter = diagnosticFilter {
+                do {
+                    let config = SCStreamConfiguration()
+                    config.width = 320; config.height = 180; config.showsCursor = false
+                    config.ignoreShadowsSingleWindow = true
+                    var pulled = [[String: Any]]()
+                    for index in 0..<4 {
+                        try await pause(0.6)
+                        let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+                        let file = "pull-after-stop-\(index).png"
+                        try savePNG(image, root.appendingPathComponent(file))
+                        let state = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("target-state.json")))
+                        pulled.append(["file": file, "counter": try decode(image), "target_state": state])
+                    }
+                    result["pull_after_stop_growth"] = growth(pulled)
+                    try saveJSON(["rows": pulled], root.appendingPathComponent("pull-after-stop.json"))
+                } catch { result["pull_after_stop_error"] = String(describing: error) }
+            }
         }
         result["frontmost_at_stream_end"] = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
         if !FileManager.default.fileExists(atPath: root.appendingPathComponent("desktop-occluded.png").path),
