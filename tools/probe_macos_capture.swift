@@ -157,7 +157,7 @@ final class Fixture: NSObject, NSApplicationDelegate {
             try? saveJSON(["error": String(describing: error)], root.appendingPathComponent("target-render-error.json"))
             NSApp.terminate(nil); return
         }
-        let rect = cover ? NSRect(x: 90, y: 90, width: 600, height: 400) : NSRect(x: 100, y: 100, width: 320, height: 180)
+        let rect = cover ? NSRect(x: 90, y: 20, width: 600, height: 400) : NSRect(x: 100, y: 100, width: 320, height: 180)
         window = NSWindow(contentRect: rect, styleMask: .borderless, backing: .buffered, defer: false)
         window.title = cover ? "GameQA cover" : "GameQA target"
         window.isReleasedWhenClosed = false

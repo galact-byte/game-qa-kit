@@ -12,6 +12,7 @@ on:
     branches: [experiment/macos-arm-capture]
     paths:
       - tools/probe_macos_capture.swift
+      - tools/verify_macos_capture_probe.py
       - .github/workflows/macos-arm-capture-probe.yml
 
 permissions:
@@ -45,7 +46,7 @@ jobs:
       - name: Compile native probe with installed SDK
         run: |
           xcrun swiftc -parse-as-library -swift-version 5 -O tools/probe_macos_capture.swift -o probe-output/capture-probe -framework AppKit -framework ScreenCaptureKit -framework CoreMedia -framework CoreVideo -framework CoreImage -framework Metal -framework MetalKit 2>&1 | tee probe-output/compile.log
-      - name: Probe single-window stream without changing permissions
+      - name: Probe single-window capture without changing permissions
         run: |
           python3 - <<'PY'
           import json
@@ -78,6 +79,8 @@ jobs:
                   (root/'watchdog.json').write_text(json.dumps(cleanup, indent=2))
           raise SystemExit(code)
           PY
+      - name: Reject invalid coverage and phase metadata
+        run: python3 -S -B tools/verify_macos_capture_probe.py probe-output --metadata-only
       - name: Upload native evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -1,11 +1,13 @@
 """独立回读 ScreenCaptureKit 探针证据；不依赖采集器的解码结果。"""
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
-import sys
+from typing import TYPE_CHECKING
 
-from PIL import Image
+if TYPE_CHECKING:
+    from PIL import Image
 
 
 def decode_counter(image: Image.Image) -> int:
@@ -38,7 +40,9 @@ def require_occlusion(windows: list[dict], target_id: int, cover_id: int) -> dic
     return t
 
 
-def verify(root: Path) -> dict:
+def verify(root: Path, *, metadata_only: bool = False) -> dict:
+    if not metadata_only:
+        from PIL import Image
     data = json.loads((root / 'result.json').read_text(encoding='utf-8'))
     if data.get('architecture') != 'arm64' or not data.get('passed'):
         raise ValueError('原生探测没有成功或不是 arm64')
@@ -52,13 +56,16 @@ def verify(root: Path) -> dict:
         rows = data['phases'][phase]
         values = []
         for row in rows:
-            with Image.open(root / row['file']) as image:
-                value = decode_counter(image)
-                if value != row['counter']:
-                    raise ValueError('PNG 像素计数与原生记录不符')
-                if phase == 'resized' and image.size != (400, 240):
-                    raise ValueError(f'改尺寸后的图像错误：{image.size}')
-                values.append(value)
+            if metadata_only:
+                value = row['counter']
+            else:
+                with Image.open(root / row['file']) as image:
+                    value = decode_counter(image)
+                    if value != row['counter']:
+                        raise ValueError('PNG 像素计数与原生记录不符')
+                    if phase == 'resized' and image.size != (400, 240):
+                        raise ValueError(f'改尺寸后的图像错误：{image.size}')
+            values.append(value)
         if phase == 'frozen':
             if len(values) < 4 or len(set(values)) != 1:
                 raise ValueError('冻结反例没有稳定停住')
@@ -81,6 +88,8 @@ def verify(root: Path) -> dict:
         decoded[phase] = values
     if not data.get('cleanup') or data['frontmost_before'] != data['frontmost_after']:
         raise ValueError('清理或焦点记录不符')
+    if metadata_only:
+        return {'passed': True, 'decoded': decoded, 'png_count': 0, 'metadata_only': True}
     for filename in ['desktop-occluded.png', 'desktop-resized.png']:
         with Image.open(root / filename) as image:
             rgb = image.convert('RGB')
@@ -95,5 +104,9 @@ def verify(root: Path) -> dict:
 
 
 if __name__ == '__main__':
-    result = verify(Path(sys.argv[1]))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('root', type=Path)
+    parser.add_argument('--metadata-only', action='store_true')
+    args = parser.parse_args()
+    result = verify(args.root, metadata_only=args.metadata_only)
     print(json.dumps(result, ensure_ascii=False, indent=2))
