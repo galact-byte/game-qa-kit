@@ -23,10 +23,12 @@ func savePNG(_ image: CGImage, _ url: URL) throws {
 
 final class CounterView: NSView {
     var counter = 1
+    var draws = 0
     let cover: Bool
     init(cover: Bool) { self.cover = cover; super.init(frame: .zero) }
     required init?(coder: NSCoder) { fatalError("init(coder:) unsupported") }
     override func draw(_ dirtyRect: NSRect) {
+        draws += 1
         if cover {
             NSColor(srgbRed: 200/255, green: 30/255, blue: 180/255, alpha: 1).setFill()
             bounds.fill()
@@ -79,7 +81,12 @@ final class Fixture: NSObject, NSApplicationDelegate {
                 if !FileManager.default.fileExists(atPath: root.appendingPathComponent("freeze").path) {
                     view.counter += 1
                     view.needsDisplay = true
+                    view.display()
                 }
+                try? saveJSON(["counter": view.counter, "draws": view.draws,
+                               "occlusion_visible": window.occlusionState.contains(.visible),
+                               "width": window.frame.width, "height": window.frame.height],
+                              root.appendingPathComponent("target-state.json"))
             }
         }
     }
@@ -171,8 +178,11 @@ func collect(_ name: String, frames: Frames, root: URL, frozen: Bool = false) as
         let counter = try decode(image)
         let file = "\(name)-\(index).png"
         try savePNG(image, root.appendingPathComponent(file))
+        let stateData = try Data(contentsOf: root.appendingPathComponent("target-state.json"))
+        let state = try JSONSerialization.jsonObject(with: stateData)
         rows.append(["file": file, "counter": counter, "serial": serial, "pts": timestamp,
-                     "width": image.width, "height": image.height])
+                     "width": image.width, "height": image.height, "target_state": state])
+        try saveJSON(["rows": rows], root.appendingPathComponent("\(name)-samples.json"))
     }
     if frozen {
         guard Set(rows.compactMap { $0["counter"] as? Int }).count == 1, !growth(rows) else {
@@ -266,6 +276,7 @@ struct Probe {
             config.width = 400; config.height = 240
             try await stream.updateConfiguration(config)
             try await pause(0.8)
+            result["resized_window_list"] = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
             try await captureDesktop("desktop-resized.png", content: content, root: root)
             phases["resized"] = try await collect("resized", frames: frames, root: root)
             result["phases"] = phases

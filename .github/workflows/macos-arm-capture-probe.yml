@@ -30,16 +30,35 @@ jobs:
       - name: Probe single-window stream without changing permissions
         run: |
           python3 - <<'PY'
+          import json
+          import os
+          import signal
           import subprocess
           from pathlib import Path
           root = Path('probe-output').resolve()
+          code = 1
+          cleanup = {}
           with (root / 'run.log').open('wb') as log:
+              process = subprocess.Popen([str(root/'capture-probe'), 'capture', str(root)], stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
               try:
-                  result = subprocess.run([str(root/'capture-probe'), 'capture', str(root)], stdout=log, stderr=subprocess.STDOUT, timeout=100)
+                  code = process.wait(timeout=100)
               except subprocess.TimeoutExpired:
                   (root/'timeout.txt').write_text('Native ScreenCaptureKit query or stream exceeded 100 seconds. No TCC changes performed.\n')
-                  raise
-          raise SystemExit(result.returncode)
+              finally:
+                  try:
+                      os.killpg(process.pid, signal.SIGTERM)
+                      cleanup['remaining_group_terminated'] = True
+                  except ProcessLookupError:
+                      cleanup['remaining_group_terminated'] = False
+                  try:
+                      process.wait(timeout=5)
+                  except subprocess.TimeoutExpired:
+                      os.killpg(process.pid, signal.SIGKILL)
+                      process.wait(timeout=5)
+                      cleanup['forced_kill'] = True
+                  cleanup['parent_exit_code'] = process.returncode
+                  (root/'watchdog.json').write_text(json.dumps(cleanup, indent=2))
+          raise SystemExit(code)
           PY
       - name: Upload native evidence
         if: always()
