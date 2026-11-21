@@ -48,8 +48,13 @@ def verify(root: Path, *, metadata_only: bool = False) -> dict:
         raise ValueError('原生探测没有成功或不是 arm64')
     decoded = {}
     target_id, cover_id = data['target']['window'], data['cover']['window']
-    require_occlusion(data['window_list'], target_id, cover_id)
+    initial = require_occlusion(data['window_list'], target_id, cover_id)
     resized = require_occlusion(data['resized_window_list'], target_id, cover_id)
+    for phase, bounds in [('occluded', initial), ('resized', resized)]:
+        coverage = data.get('desktop_coverage', {}).get(phase, {})
+        if (coverage.get('checked_pixels') != bounds['Width'] * bounds['Height']
+                or coverage.get('mismatched_pixels') != 0):
+            raise ValueError('整屏目标区域没有被遮挡色完整覆盖')
     if (resized['Width'], resized['Height']) != (400, 240):
         raise ValueError('目标窗口本身没有改尺寸')
     for phase in ['visible', 'occluded', 'frozen', 'resized']:

@@ -157,7 +157,7 @@ final class Fixture: NSObject, NSApplicationDelegate {
             try? saveJSON(["error": String(describing: error)], root.appendingPathComponent("target-render-error.json"))
             NSApp.terminate(nil); return
         }
-        let rect = cover ? NSRect(x: 90, y: 20, width: 600, height: 400) : NSRect(x: 100, y: 100, width: 320, height: 180)
+        let rect = cover ? NSRect(x: 90, y: 100, width: 600, height: 400) : NSRect(x: 100, y: 200, width: 320, height: 180)
         window = NSWindow(contentRect: rect, styleMask: .borderless, backing: .buffered, defer: false)
         window.title = cover ? "GameQA cover" : "GameQA target"
         window.isReleasedWhenClosed = false
@@ -314,13 +314,36 @@ func collect(_ name: String, frames: Frames, root: URL, frozen: Bool = false,
     return rows
 }
 
-func captureDesktop(_ name: String, content: SCShareableContent, root: URL) async throws {
+@discardableResult
+func captureDesktop(_ name: String, content: SCShareableContent, root: URL,
+                    target: CGWindowID? = nil) async throws -> [String: Int] {
     guard let display = content.displays.first else { throw ProbeError("No display") }
     let filter = SCContentFilter(display: display, excludingApplications: [], exceptingWindows: [])
     let config = SCStreamConfiguration()
     config.width = display.width; config.height = display.height; config.showsCursor = false
     let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
     try savePNG(image, root.appendingPathComponent(name))
+    guard let target = target else { return [:] }
+    guard let rows = CGWindowListCopyWindowInfo(.optionIncludingWindow, target) as? [[String: Any]],
+          let bounds = rows.first?[kCGWindowBounds as String] as? [String: Any],
+          let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary),
+          let crop = image.cropping(to: rect),
+          crop.width == Int(rect.width), crop.height == Int(rect.height) else {
+        throw ProbeError("Cannot inspect target desktop region")
+    }
+    let pixels = NSBitmapImageRep(cgImage: crop)
+    var mismatches = 0
+    for row in 0..<crop.height {
+        for column in 0..<crop.width {
+            guard let color = pixels.colorAt(x: column, y: row)?.usingColorSpace(.sRGB) else {
+                throw ProbeError("Cannot decode desktop pixel")
+            }
+            if abs(color.redComponent * 255 - 200) > 8 ||
+               abs(color.greenComponent * 255 - 30) > 8 ||
+               abs(color.blueComponent * 255 - 180) > 8 { mismatches += 1 }
+        }
+    }
+    return ["checked_pixels": crop.width * crop.height, "mismatched_pixels": mismatches]
 }
 
 @main
@@ -405,7 +428,7 @@ struct Probe {
             result["frontmost_before"] = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
             result["window_list"] = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
             phases["occluded"] = try await collect("occluded", frames: frames, root: root, sample: sample)
-            try await captureDesktop("desktop-occluded.png", content: content, root: root)
+            let occludedCoverage = try await captureDesktop("desktop-occluded.png", content: content, root: root, target: window.windowID)
             try Data().write(to: root.appendingPathComponent("freeze"))
             try await pause(0.5)
             phases["frozen"] = try await collect("frozen", frames: frames, root: root, frozen: true, sample: sample)
@@ -416,7 +439,8 @@ struct Probe {
             try await pause(0.8)
             result["resized_window_list"] = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
             phases["resized"] = try await collect("resized", frames: frames, root: root, sample: sample)
-            try await captureDesktop("desktop-resized.png", content: content, root: root)
+            let resizedCoverage = try await captureDesktop("desktop-resized.png", content: content, root: root, target: window.windowID)
+            result["desktop_coverage"] = ["occluded": occludedCoverage, "resized": resizedCoverage]
             result["phases"] = phases
             result["frontmost_after"] = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
             guard result["frontmost_before"] as? Int32 == result["frontmost_after"] as? Int32 else { throw ProbeError("Frontmost application changed during capture") }

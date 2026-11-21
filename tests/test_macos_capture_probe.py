@@ -50,6 +50,9 @@ class MacCaptureEvidenceTests(unittest.TestCase):
                 'target': {'window': 1}, 'cover': {'window': 2},
                 'window_list': [cover, target], 'resized_window_list': [cover, resized],
                 'frontmost_before': 123, 'frontmost_after': 123, 'phases': {}}
+        data['desktop_coverage'] = {
+            'occluded': {'checked_pixels': 57600, 'mismatched_pixels': 0},
+            'resized': {'checked_pixels': 96000, 'mismatched_pixels': 0}}
         for index, (phase, counters) in enumerate([
                 ('visible', [1, 2, 3, 4]), ('occluded', [6, 7, 8, 9]),
                 ('frozen', [10, 10, 10, 10]), ('resized', [12, 13, 14, 15])]):
@@ -87,6 +90,18 @@ class MacCaptureEvidenceTests(unittest.TestCase):
         result = self.metadata_gate(data)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('目标端没有确认完全遮挡状态', result.stderr)
+
+    def test_metadata_gate_rejects_dock_over_target_pixels(self):
+        data = self.metadata()
+        data['desktop_coverage']['resized']['mismatched_pixels'] = 15200
+        result = self.metadata_gate(data)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('整屏目标区域没有被遮挡色完整覆盖', result.stderr)
+
+    def test_metadata_gate_rejects_missing_pixel_coverage(self):
+        data = self.metadata()
+        del data['desktop_coverage']
+        self.assertNotEqual(self.metadata_gate(data).returncode, 0)
 
     def test_cover_cannot_decode_as_target_counter(self):
         with self.assertRaises(ValueError):
