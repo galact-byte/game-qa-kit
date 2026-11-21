@@ -72,9 +72,6 @@ func windowIdentity(_ window: SCWindow) throws -> [String: Any] {
                      Int((filter.contentRect.height * scale).rounded(.up))]]
 }
 
-#if !GAMEQA_NONISOLATED_CAPTURE
-@MainActor
-#endif
 @available(macOS 14.0, *)
 func execute(_ request: [String: Any], sequence: inout Int) async throws {
     guard CGPreflightScreenCaptureAccess() else {

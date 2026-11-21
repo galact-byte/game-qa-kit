@@ -44,19 +44,18 @@ jobs:
           sw_vers >> product-output/environment.txt
           test "$(uname -m)" = arm64
           xcrun swiftc -parse-as-library -swift-version 5 -O -target arm64-apple-macosx14.0 -import-objc-header plugins/macos_capture/ProcessIdentity.h plugins/macos_capture/CaptureHelper.swift -o plugins/macos_capture/GameQACapture -framework AppKit -framework ScreenCaptureKit
-          xcrun swiftc -parse-as-library -swift-version 5 -O -target arm64-apple-macosx14.0 -D GAMEQA_NONISOLATED_CAPTURE -import-objc-header plugins/macos_capture/ProcessIdentity.h plugins/macos_capture/CaptureHelper.swift -o product-output/native/GameQACapture-generic -framework AppKit -framework ScreenCaptureKit
           xcrun swiftc -parse-as-library -swift-version 5 -O tools/probe_macos_capture.swift -o product-output/native/fixture -framework AppKit -framework ScreenCaptureKit -framework CoreMedia -framework CoreVideo -framework CoreImage -framework Metal -framework MetalKit
       - name: Check contracts and entry lifecycle
         run: >-
           python -X utf8 -B -m unittest tests.test_macos_capture tests.test_macos_entry
           tests.test_capture_session tests.test_platform_support tests.test_application
           tests.test_release_assembly tests.test_release_build -v
-      - name: Isolate helper executor and independent capture lifecycle
+      - name: Compare independent and overlapping capture processes
         continue-on-error: true
         run: >-
           python -X utf8 -B tools/diagnose_macos_helper.py --root product-output/helper-comparison
           --fixture product-output/native/fixture
-          --helper plugins/macos_capture/GameQACapture --helper product-output/native/GameQACapture-generic
+          --helper plugins/macos_capture/GameQACapture
       - name: Verify source MCP observation against real windows
         env:
           GAMEQAKIT_NATIVE_ASYNC_STDIN: '1'

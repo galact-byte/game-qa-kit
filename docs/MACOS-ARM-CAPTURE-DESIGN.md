@@ -1,12 +1,12 @@
-# macOS arm64 被动窗口采集接入设计（待审阅）
+# macOS arm64 被动窗口采集接入设计（实施中）
 
 ## 目标与当前边界
 
 Windows 保持主线，非 Windows 优先 macOS Apple Silicon。人工玩游戏时，工具持续截取所选窗口、留图和接受人工标记；不发送输入，不抢焦点，不关闭用户游戏。
 
-本设计尚未实施。独立探针在 macOS 15.8.2 arm64 云端环境中发现：SCStream 在完全遮挡时停止产生 complete 帧；相同窗口改用 SCScreenshotManager 单窗口截图能获得新内容。运行 `44940206862` 已完成 AppKit 与 Metal 两组的正常、完整遮挡、冻结反例、遮挡中改尺寸及正常退出验证，并独立回读 36 张 PNG；详细计数、覆盖检查与限制见[探针结果](MACOS-ARM-CAPTURE-PROBE.md)。该证据支持选择截图路线，不能将探针当作产品交付。
+已按持续推进授权进入实施，源码入口与辅助进程已接通，但完整遮挡后的产品采集仍在排查，冻结包验收尚未通过。独立探针在 macOS 15.8.2 arm64 云端环境中发现：SCStream 在完全遮挡时停止产生 complete 帧；相同窗口改用 SCScreenshotManager 单窗口截图能获得新内容。运行 `44940206862` 已完成 AppKit 与 Metal 两组的正常、完整遮挡、冻结反例、遮挡中改尺寸及正常退出验证，并独立回读 36 张 PNG；详细计数、覆盖检查与限制见[探针结果](MACOS-ARM-CAPTURE-PROBE.md)。该证据支持选择截图路线，不能将探针当作产品交付。
 
-公共层已有 `CaptureSource`、`CaptureFrame`、`CaptureSession.read(timeout, stop_event)` 和 `close()`，观察循环绑定来源并自动释放会话。它位于另一工作区，尚未合并至 main；本实验不覆盖那 9 份现有改动。
+公共层已有 `CaptureSource`、`CaptureFrame`、`CaptureSession.read(timeout, stop_event)` 和 `close()`，观察循环绑定来源并自动释放会话。实施工作区已纳入公共契约的已验快照；main 尚未合并，另一工作区的 9 份未提交改动原样保留。
 
 ## 推荐形态
 
@@ -48,6 +48,6 @@ SCScreenshotManager 的 API 起点是 macOS 14。当前仅有 macOS 15 arm64 的
 
 首次授权/拒绝/撤销、普通用户桌面、真实 GPU 游戏、最小化、长期稳定性和 macOS 14 兼容性分别验收；没有环境证据的项目明确保留未验。不能将本设计或自写窗口通过写成全部游戏已支持。
 
-## 需要审阅的取舍
+## 已采用的取舍
 
-推荐按上述“Swift 随包辅助进程 + SCScreenshotManager 单窗口按需截图 + 现有公共观察契约”推进；保持 Windows 主线，macOS arm64 单独交付已验范围。正式实现前需对该辅助进程与打包形态取得批准；当前不修改产品的权限、分发或平台能力声明。
+按“Swift 随包辅助进程 + SCScreenshotManager 单窗口按需截图 + 现有公共观察契约”实施；保持 Windows 主线，macOS arm64 单独验收。老师已授权依路线图持续推进，无须在常规实施阶段重复审阅。当前产品遮挡取图尚未通过，不能据此扩大平台支持声明；权限、安全控制及真实游戏范围仍按既有批准边界执行。

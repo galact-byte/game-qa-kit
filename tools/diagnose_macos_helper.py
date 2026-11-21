@@ -24,14 +24,15 @@ def wait_json(path, timeout=5):
     raise TimeoutError(str(path))
 
 
-def run_case(root, fixture, helper, asynchronous, hidden_start):
+def run_case(root, fixture, helper, asynchronous, hidden_start, concurrent=False):
     root.mkdir(parents=True, exist_ok=False)
     os.environ['GAMEQAKIT_NATIVE_ASYNC_STDIN'] = '1' if asynchronous else '0'
     native.helper_command = lambda: [str(helper)]
     row = {'helper': helper.name, 'async_stdin': asynchronous, 'hidden_start': hidden_start,
-           'ok': False, 'phase': 'start', 'samples': {}}
+           'ok': False, 'concurrent': concurrent, 'phase': 'start', 'samples': {}}
     children = []
     session = None
+    peer = None
     log = (root/'fixture.log').open('w')
     try:
         children.append(subprocess.Popen([str(fixture), 'target', str(root)], stdout=log, stderr=log))
@@ -60,7 +61,15 @@ def run_case(root, fixture, helper, asynchronous, hidden_start):
         if not hidden_start:
             collect('visible')
             cover()
-        collect('occluded')
+        if concurrent:
+            peer = session
+            session = native.MacOSCaptureSession(source, interval=.35)
+            collect('occluded-second')
+            session.close()
+            session, peer = peer, None
+            collect('occluded-first')
+        else:
+            collect('occluded')
         row['ok'] = True
     except Exception as exc:
         row['error'] = repr(exc)
@@ -68,6 +77,8 @@ def run_case(root, fixture, helper, asynchronous, hidden_start):
         (root/'stop').touch()
         if session:
             session.close()
+        if peer:
+            peer.close()
         cleanup = []
         for child in children:
             forced = False
@@ -93,10 +104,10 @@ def main():
     rows = []
     for helper in args.helper:
         for asynchronous in (False, True):
-            for hidden_start in (False, True):
-                name = f'{helper.name}-async{int(asynchronous)}-hidden{int(hidden_start)}'
+            for concurrent in (False, True):
+                name = f'{helper.name}-async{int(asynchronous)}-concurrent{int(concurrent)}'
                 rows.append(run_case(args.root/name, args.fixture.resolve(), helper.resolve(),
-                                     asynchronous, hidden_start))
+                                     asynchronous, hidden_start=False, concurrent=concurrent))
     (args.root/'comparison.json').write_text(json.dumps(rows, indent=2), encoding='utf-8')
 
 

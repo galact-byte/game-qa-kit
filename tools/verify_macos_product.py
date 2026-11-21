@@ -98,9 +98,17 @@ def run(root, fixture, executable):
         result['windows'] = windows
         result['window'] = client.call('win')
         assert result['window']['window_id'] == ready['window']
+        initial = root/'visible-independent.png'
+        client.call('capture', out=str(initial))
+        with Image.open(initial) as image:
+            result['initial_counter'] = decode_counter(image)
         status = client.call('watch_start', interval=.3, threshold=0, analysis_mode='rules')
         session = Path(status['out'])
         wait_value(lambda: client.call('watch_status'), lambda x: x.get('captured',0) >= 3)
+        concurrent = root/'visible-watched.png'
+        client.call('capture', out=str(concurrent))
+        with Image.open(concurrent) as image:
+            result['concurrent_visible_counter'] = decode_counter(image)
         children.append(subprocess.Popen([str(fixture),'cover',str(root)]))
         wait_value(lambda: json.loads((root/'cover-ready.json').read_text()), lambda x: 'window' in x)
         for phase in ('occluded','frozen','resized'):
@@ -153,6 +161,11 @@ def run(root, fixture, executable):
         result.update(ok=True,phases=phases,archive_frames=len(index_rows))
     except Exception as exc:
         result.update(error=repr(exc),phases=phases)
+        if client:
+            try:
+                result['last_watch_status'] = client.call('watch_status')
+            except Exception as status_error:
+                result['status_error'] = repr(status_error)
         raise
     finally:
         (root/'stop').touch()
