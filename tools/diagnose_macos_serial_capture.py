@@ -23,6 +23,7 @@ def client(root, helper, number, persistent=False):
     pipe = native._Pipe(3) if persistent else None
     try:
         for index in range(4):
+            target_before = json.loads((root/'target-state.json').read_text())
             started = time.monotonic()
             with (root/'native.lock').open('a+b') as lock:
                 fcntl.flock(lock, fcntl.LOCK_EX)
@@ -32,8 +33,10 @@ def client(root, helper, number, persistent=False):
                         image = encoded.convert('RGB')
                 else:
                     image = native._capture_once(source).image
-            samples.append({'counter': decode_counter(image),
+            samples.append({'counter': decode_counter(image), 'target_before': target_before,
+                            'target_after': json.loads((root/'target-state.json').read_text()),
                             'elapsed_ms': (time.monotonic()-started)*1000})
+            (root/f'client-{number}.json').write_text(json.dumps(samples, indent=2))
             image.save(root/f'client-{number}-{index}.png')
             time.sleep(.35)
     finally:
@@ -43,7 +46,7 @@ def client(root, helper, number, persistent=False):
     (root/f'client-{number}.json').write_text(json.dumps(samples, indent=2))
 
 
-def run(root, fixture, helper, persistent=False):
+def run(root, fixture, helper, persistent=False, client_count=2):
     root.mkdir(parents=True, exist_ok=False)
     native.helper_command = lambda: [str(helper)]
     children = []
@@ -57,14 +60,15 @@ def run(root, fixture, helper, persistent=False):
         children.append(subprocess.Popen([str(fixture), 'cover', str(root)]))
         wait_json(root/'cover-ready.json')
         time.sleep(.6)
-        for number in (1, 2):
+        for number in range(1, client_count + 1):
             clients.append(subprocess.Popen([sys.executable, '-X', 'utf8', '-B', __file__,
                 '--root', str(root), '--helper', str(helper), '--client', str(number)]
                 + (['--persistent'] if persistent else [])))
         for process in clients:
             if process.wait(timeout=20) != 0:
                 raise RuntimeError(f'Client failed: {process.returncode}')
-        result.update(ok=True, clients=[json.loads((root/f'client-{n}.json').read_text()) for n in (1, 2)])
+        result.update(ok=True, clients=[json.loads((root/f'client-{n}.json').read_text())
+                                       for n in range(1, client_count + 1)])
     except Exception as exc:
         result['error'] = repr(exc)
         raise
@@ -91,8 +95,9 @@ if __name__ == '__main__':
     parser.add_argument('--fixture', type=Path)
     parser.add_argument('--client', type=int)
     parser.add_argument('--persistent', action='store_true')
+    parser.add_argument('--clients', type=int, choices=(1, 2), default=2)
     args = parser.parse_args()
     if args.client:
         client(args.root.resolve(), args.helper.resolve(), args.client, args.persistent)
     else:
-        run(args.root.resolve(), args.fixture.resolve(), args.helper.resolve(), args.persistent)
+        run(args.root.resolve(), args.fixture.resolve(), args.helper.resolve(), args.persistent, args.clients)

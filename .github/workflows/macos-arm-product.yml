@@ -50,6 +50,12 @@ jobs:
           python -X utf8 -B -m unittest tests.test_macos_capture tests.test_macos_entry
           tests.test_capture_session tests.test_platform_support tests.test_application
           tests.test_release_assembly tests.test_release_build -v
+      - name: Compare persistent Metal capture with per-frame component restarts
+        env:
+          GAMEQA_PROBE_RENDERER: metal
+        run: |
+          python -X utf8 -B tools/diagnose_macos_serial_capture.py --root product-output/metal-persistent --fixture product-output/native/fixture --helper plugins/macos_capture/GameQACapture --clients 1 --persistent || true
+          python -X utf8 -B tools/diagnose_macos_serial_capture.py --root product-output/metal-restarted --fixture product-output/native/fixture --helper plugins/macos_capture/GameQACapture --clients 1 || true
       - name: Verify source MCP observation against real windows
         run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source --fixture product-output/native/fixture
       - name: Verify source MCP observation of a Metal window
