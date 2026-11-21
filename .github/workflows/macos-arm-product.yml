@@ -25,6 +25,7 @@ jobs:
       PYTHONUTF8: '1'
       PYTHONDONTWRITEBYTECODE: '1'
       QT_QPA_PLATFORM: offscreen
+      GAMEQAKIT_NATIVE_DIAGNOSTICS: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
@@ -49,6 +50,10 @@ jobs:
           python -X utf8 -B -m unittest tests.test_macos_capture tests.test_macos_entry
           tests.test_capture_session tests.test_platform_support tests.test_application
           tests.test_release_assembly tests.test_release_build -v
+      - name: Compare native helper with previously accepted snapshot probe
+        continue-on-error: true
+        run: >-
+          GAMEQA_CAPTURE_MODE=snapshot product-output/native/fixture capture product-output/reference
       - name: Verify source MCP observation against real windows
         run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source --fixture product-output/native/fixture
       - name: Build arm64 application with native capture component

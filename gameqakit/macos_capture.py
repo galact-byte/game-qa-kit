@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import math
+import os
 from pathlib import Path
 import platform
 import struct
@@ -49,7 +50,7 @@ class _Pipe:
     def __init__(self, timeout):
         self.timeout = timeout
         self.process = subprocess.Popen(helper_command(), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                        stderr=subprocess.DEVNULL, bufsize=0)
+                                        stderr=None if os.environ.get('GAMEQAKIT_NATIVE_DIAGNOSTICS') == '1' else subprocess.DEVNULL, bufsize=0)
         self.expired = False
 
     def _exact(self, size):

@@ -7,6 +7,12 @@ struct CaptureFailure: Error {
     let code: String
 }
 
+func diagnostic(_ stage: String) {
+    guard ProcessInfo.processInfo.environment["GAMEQAKIT_NATIVE_DIAGNOSTICS"] == "1" else { return }
+    let text = "capture-helper pid=\(ProcessInfo.processInfo.processIdentifier) t=\(ProcessInfo.processInfo.systemUptime) stage=\(stage)\n"
+    try? FileHandle.standardError.write(contentsOf: Data(text.utf8))
+}
+
 func emit(_ metadata: [String: Any], png: Data = Data()) throws {
     var row = metadata
     row["version"] = 1
@@ -63,12 +69,14 @@ func execute(_ request: [String: Any], sequence: inout Int) async throws {
         if request["op"] as? String == "list" { _ = CGRequestScreenCaptureAccess() }
         throw CaptureFailure(code: "permission_denied")
     }
+    diagnostic("query.begin")
     let content: SCShareableContent
     do { content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false) }
     catch {
         if !CGPreflightScreenCaptureAccess() { throw CaptureFailure(code: "permission_denied") }
         throw CaptureFailure(code: "window_query_failed")
     }
+    diagnostic("query.end")
     switch request["op"] as? String {
     case "list":
         var windows: [[String: Any]] = []
@@ -109,9 +117,13 @@ func execute(_ request: [String: Any], sequence: inout Int) async throws {
         config.ignoreShadowsSingleWindow = true
         config.pixelFormat = kCVPixelFormatType_32BGRA
         let started = ProcessInfo.processInfo.systemUptime
+        diagnostic("image.begin")
         let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+        diagnostic("image.end")
         guard CGPreflightScreenCaptureAccess() else { throw CaptureFailure(code: "permission_denied") }
+        diagnostic("recheck.begin")
         let refreshed = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
+        diagnostic("recheck.end")
         guard let same = refreshed.windows.first(where: { $0.windowID == window.windowID && $0.owningApplication?.processID == pid_t(pid) }),
               try windowIdentity(same)["started_at"] as? String == stamp else { throw CaptureFailure(code: "source_changed") }
         guard let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else {
