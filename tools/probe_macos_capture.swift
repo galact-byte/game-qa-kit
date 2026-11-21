@@ -4,6 +4,7 @@ import ScreenCaptureKit
 import CoreMedia
 import CoreVideo
 import CoreImage
+import QuartzCore
 
 struct ProbeError: Error, CustomStringConvertible {
     let description: String
@@ -83,6 +84,7 @@ final class Fixture: NSObject, NSApplicationDelegate {
                     view.counter += 1
                     view.needsDisplay = true
                     view.display()
+                    CATransaction.flush()
                 }
                 try? saveJSON(["counter": view.counter, "draws": view.draws,
                                "occlusion_visible": window.occlusionState.contains(.visible),
