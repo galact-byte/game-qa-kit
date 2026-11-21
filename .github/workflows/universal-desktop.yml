@@ -45,10 +45,12 @@ jobs:
         run: >-
           python -m pip install --disable-pip-version-check --only-binary=:all: -r tools/requirements-windows.txt
       - name: Run portable Windows regression suite
+        env:
+          PYTHONPATH: ${{ github.workspace }}/tests
+          QT_QPA_PLATFORM: offscreen
         shell: pwsh
         run: |
-          $env:QT_QPA_PLATFORM = 'offscreen'
-          python -X utf8 -B -W error::ResourceWarning -m unittest discover -s tests -p "test_*.py" -v
+          python -X utf8 -B -W error::ResourceWarning -m unittest tests.test_application tests.test_release_build tests.test_core tests.test_admission tests.test_admission_cli tests.test_admission_directories tests.test_game_session tests.test_game_worker tests.test_game_mcp tests.test_sessions tests.test_admission_gui tests.test_gui -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build and self-test Windows portable application
         run: python -X utf8 -B tools/build_windows.py --version "${{ inputs.version }}" --output "${{ runner.temp }}/gameqa-build"
@@ -57,7 +59,7 @@ jobs:
         with:
           name: GameQA-windows-x64
           path: |
-            ${{ runner.temp }}/gameqa-build/GameQA-*.zip
+            ${{ runner.temp }}/gameqa-build/game-qa-kit-*-windows-x64.zip
             ${{ runner.temp }}/gameqa-build/SHA256SUMS.txt
             ${{ runner.temp }}/gameqa-build/self-test.json
           if-no-files-found: error
