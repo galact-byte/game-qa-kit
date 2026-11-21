@@ -415,7 +415,17 @@ struct Probe {
             if mode == "snapshot" {
                 sample = {
                     let started = ProcessInfo.processInfo.systemUptime
-                    let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+                    let snapshotFilter: SCContentFilter
+                    if ProcessInfo.processInfo.environment["GAMEQA_PROBE_REFRESH_FILTER"] == "1" {
+                        let current = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+                        guard let same = current.windows.first(where: { $0.windowID == window.windowID }) else {
+                            throw ProbeError("Refresh lost target window")
+                        }
+                        snapshotFilter = SCContentFilter(desktopIndependentWindow: same)
+                    } else {
+                        snapshotFilter = filter
+                    }
+                    let image = try await SCScreenshotManager.captureImage(contentFilter: snapshotFilter, configuration: config)
                     frames.acceptSnapshot(image, elapsed: ProcessInfo.processInfo.systemUptime - started)
                 }
                 try await sample?()
