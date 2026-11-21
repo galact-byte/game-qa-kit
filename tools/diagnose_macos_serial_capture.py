@@ -13,25 +13,37 @@ from tools.diagnose_macos_helper import wait_json
 from tools.verify_macos_capture_probe import decode_counter, require_growth
 
 
-def client(root, helper, number):
+def client(root, helper, number, persistent=False):
     import fcntl
+    import io
+    from PIL import Image
     native.helper_command = lambda: [str(helper)]
     source = json.loads((root/'source.json').read_text())
     samples = []
-    for index in range(4):
-        started = time.monotonic()
-        with (root/'native.lock').open('a+b') as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            frame = native._capture_once(source)
-        samples.append({'counter': decode_counter(frame.image),
-                        'elapsed_ms': (time.monotonic()-started)*1000})
-        frame.image.save(root/f'client-{number}-{index}.png')
-        time.sleep(.35)
+    pipe = native._Pipe(3) if persistent else None
+    try:
+        for index in range(4):
+            started = time.monotonic()
+            with (root/'native.lock').open('a+b') as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                if pipe:
+                    row, payload = pipe.request({'op': 'capture', 'source': source})
+                    with Image.open(io.BytesIO(payload)) as encoded:
+                        image = encoded.convert('RGB')
+                else:
+                    image = native._capture_once(source).image
+            samples.append({'counter': decode_counter(image),
+                            'elapsed_ms': (time.monotonic()-started)*1000})
+            image.save(root/f'client-{number}-{index}.png')
+            time.sleep(.35)
+    finally:
+        if pipe:
+            pipe.close()
     require_growth([s['counter'] for s in samples])
     (root/f'client-{number}.json').write_text(json.dumps(samples, indent=2))
 
 
-def run(root, fixture, helper):
+def run(root, fixture, helper, persistent=False):
     root.mkdir(parents=True, exist_ok=False)
     native.helper_command = lambda: [str(helper)]
     children = []
@@ -47,7 +59,8 @@ def run(root, fixture, helper):
         time.sleep(.6)
         for number in (1, 2):
             clients.append(subprocess.Popen([sys.executable, '-X', 'utf8', '-B', __file__,
-                '--root', str(root), '--helper', str(helper), '--client', str(number)]))
+                '--root', str(root), '--helper', str(helper), '--client', str(number)]
+                + (['--persistent'] if persistent else [])))
         for process in clients:
             if process.wait(timeout=20) != 0:
                 raise RuntimeError(f'Client failed: {process.returncode}')
@@ -77,8 +90,9 @@ if __name__ == '__main__':
     parser.add_argument('--helper', type=Path, required=True)
     parser.add_argument('--fixture', type=Path)
     parser.add_argument('--client', type=int)
+    parser.add_argument('--persistent', action='store_true')
     args = parser.parse_args()
     if args.client:
-        client(args.root.resolve(), args.helper.resolve(), args.client)
+        client(args.root.resolve(), args.helper.resolve(), args.client, args.persistent)
     else:
-        run(args.root.resolve(), args.fixture.resolve(), args.helper.resolve())
+        run(args.root.resolve(), args.fixture.resolve(), args.helper.resolve(), args.persistent)

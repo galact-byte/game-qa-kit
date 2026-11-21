@@ -60,6 +60,11 @@ jobs:
         run: >-
           python -X utf8 -B tools/diagnose_macos_serial_capture.py --root product-output/serial-comparison
           --fixture product-output/native/fixture --helper plugins/macos_capture/GameQACapture
+      - name: Compare persistent helpers with serialized requests
+        continue-on-error: true
+        run: >-
+          python -X utf8 -B tools/diagnose_macos_serial_capture.py --root product-output/persistent-serial-comparison
+          --fixture product-output/native/fixture --helper plugins/macos_capture/GameQACapture --persistent
       - name: Verify source MCP observation against real windows
         env:
           GAMEQAKIT_NATIVE_ASYNC_STDIN: '1'
