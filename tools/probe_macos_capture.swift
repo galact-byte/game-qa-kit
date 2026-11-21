@@ -69,6 +69,7 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
     var completedCommands = 0
     var gpuFailure = ""
     var presentations = [[String: Any]]()
+    let transactionalPresentation = ProcessInfo.processInfo.environment["GAMEQA_PROBE_METAL_TRANSACTION"] == "1"
     var rendererInfo: [String: Any] {
         gpuLock.lock(); defer { gpuLock.unlock() }
         return ["renderer": "metal", "gpu": device?.name ?? "unknown",
@@ -109,6 +110,9 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
         isPaused = true
         enableSetNeedsDisplay = false
         delegate = self
+        if transactionalPresentation {
+            (layer as? CAMetalLayer)?.presentsWithTransaction = true
+        }
     }
     required init(coder: NSCoder) { fatalError("init(coder:) unsupported") }
     func render() {
@@ -138,7 +142,7 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
                                        "presented_time": presented.presentedTime])
             self.presentations = Array(self.presentations.suffix(16))
         }
-        command.present(drawable)
+        if !transactionalPresentation { command.present(drawable) }
         command.addCompletedHandler { [weak self] completed in
             guard let self = self else { return }
             self.gpuLock.lock(); defer { self.gpuLock.unlock() }
@@ -146,6 +150,10 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
             if let error = completed.error { self.gpuFailure = error.localizedDescription }
         }
         command.commit()
+        if transactionalPresentation {
+            command.waitUntilScheduled()
+            drawable.present()
+        }
         draws += 1
     }
 }
