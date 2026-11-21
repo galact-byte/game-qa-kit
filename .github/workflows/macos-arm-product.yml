@@ -56,6 +56,10 @@ jobs:
           python -X utf8 -B tools/diagnose_macos_helper.py --root product-output/helper-comparison
           --fixture product-output/native/fixture
           --helper plugins/macos_capture/GameQACapture
+      - name: Measure serialized native capture from two processes
+        run: >-
+          python -X utf8 -B tools/diagnose_macos_serial_capture.py --root product-output/serial-comparison
+          --fixture product-output/native/fixture --helper plugins/macos_capture/GameQACapture
       - name: Verify source MCP observation against real windows
         env:
           GAMEQAKIT_NATIVE_ASYNC_STDIN: '1'
