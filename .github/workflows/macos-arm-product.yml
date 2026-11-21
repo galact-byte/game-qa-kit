@@ -9,6 +9,9 @@ on:
       - plugins/macos_capture/**
       - tools/**
       - tests/test_macos_*.py
+      - tests/test_capture_session.py
+      - tests/test_platform_support.py
+      - tests/test_application.py
       - .github/workflows/macos-arm-product.yml
 
 permissions:
