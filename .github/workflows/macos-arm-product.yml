@@ -50,7 +50,12 @@ jobs:
           python -X utf8 -B -m unittest tests.test_macos_capture tests.test_macos_entry
           tests.test_capture_session tests.test_platform_support tests.test_application
           tests.test_release_assembly tests.test_release_build -v
+      - name: Verify native helper failure and recovery paths
+        run: >-
+          python -X utf8 -B tools/verify_macos_native_failures.py --root product-output/native-failures
+          --helper plugins/macos_capture/GameQACapture --fixture product-output/native/fixture
       - name: Recheck the previously passing independent Metal probe
+        if: ${{ !cancelled() }}
         env:
           GAMEQA_PROBE_RENDERER: metal
           GAMEQA_CAPTURE_MODE: snapshot
@@ -91,8 +96,10 @@ jobs:
                       (root / 'watchdog.json').write_text(json.dumps(cleanup, indent=2))
           PY
       - name: Verify source MCP observation against real windows
+        if: ${{ !cancelled() }}
         run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source --fixture product-output/native/fixture
       - name: Verify source MCP observation of a Metal window
+        if: ${{ !cancelled() }}
         env:
           GAMEQA_PROBE_RENDERER: metal
         run: python -X utf8 -B tools/verify_macos_product.py --root product-output/source-metal --fixture product-output/native/fixture
@@ -105,6 +112,21 @@ jobs:
           python -X utf8 -B tools/verify_macos_product.py --root product-output/frozen
           --fixture product-output/native/fixture
           --executable "$RUNNER_TEMP/macos-product-build/dist/GameQA.app/Contents/MacOS/GameQA"
+      - name: Verify packaged helper failure and recovery paths
+        if: ${{ !cancelled() }}
+        run: |
+          python -X utf8 -B - <<'PY'
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          app = Path(os.environ['RUNNER_TEMP'], 'macos-product-build/dist/GameQA.app')
+          helpers = {path.resolve() for path in app.rglob('GameQACapture') if path.is_file()}
+          assert len(helpers) == 1, helpers
+          subprocess.run([sys.executable, '-X', 'utf8', '-B', 'tools/verify_macos_native_failures.py',
+                          '--root', 'product-output/frozen-native-failures', '--helper', str(helpers.pop()),
+                          '--fixture', 'product-output/native/fixture'], check=True)
+          PY
       - name: Verify frozen MCP and observation of a Metal window
         if: ${{ !cancelled() }}
         env:
