@@ -5,6 +5,10 @@
 #include <stdint.h>
 #include <sys/proc_info.h>
 
+static inline uint32_t gameqa_process_path_capacity(void) {
+    return PROC_PIDPATHINFO_MAXSIZE;
+}
+
 /* Launch Services registration is optional for command-line window owners. */
 static inline int gameqa_process_identity(pid_t pid, uint64_t *seconds,
                                          uint64_t *microseconds, char *path,

@@ -42,7 +42,7 @@ func windowIdentity(_ window: SCWindow) throws -> [String: Any] {
     guard let app = window.owningApplication else { throw CaptureFailure(code: "missing_owner") }
     var seconds: UInt64 = 0
     var microseconds: UInt64 = 0
-    let pathCapacity = UInt32(PROC_PIDPATHINFO_MAXSIZE)
+    let pathCapacity = gameqa_process_path_capacity()
     var path = [CChar](repeating: 0, count: Int(pathCapacity))
     guard gameqa_process_identity(app.processID, &seconds, &microseconds, &path, pathCapacity) == 1 else {
         throw CaptureFailure(code: "process_identity_unavailable")
