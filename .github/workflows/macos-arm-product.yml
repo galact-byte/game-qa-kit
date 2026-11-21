@@ -69,12 +69,19 @@ jobs:
           import signal
           import subprocess
           from pathlib import Path
-          for executable, name in [('baseline', 'baseline-metal'), ('fixture', 'current-independent-metal')]:
+          cases = [('baseline', 'baseline-metal', 'snapshot', False),
+                   ('fixture', 'current-independent-metal', 'snapshot', False),
+                   ('fixture', 'cadence-stream', 'stream', True),
+                   ('fixture', 'cadence-snapshot', 'snapshot', True)]
+          for executable, name, mode, product_cadence in cases:
+              environment = dict(os.environ, GAMEQA_CAPTURE_MODE=mode)
+              if product_cadence:
+                  environment['GAMEQA_PROBE_PRODUCT_CADENCE'] = '1'
               root = Path('product-output', name).resolve()
               root.mkdir(parents=True, exist_ok=True)
               with (root / 'run.log').open('wb') as log:
                   process = subprocess.Popen([str(Path('product-output/native', executable).resolve()), 'capture', str(root)],
-                                             stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                                             stdout=log, stderr=subprocess.STDOUT, start_new_session=True, env=environment)
                   cleanup = {'timed_out': False}
                   try:
                       process.wait(timeout=100)

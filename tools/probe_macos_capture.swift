@@ -312,7 +312,7 @@ func collect(_ name: String, frames: Frames, root: URL, frozen: Bool = false,
              sample: (() async throws -> Void)? = nil) async throws -> [[String: Any]] {
     var rows = [[String: Any]]()
     for index in 0..<4 {
-        try await pause(0.6)
+        try await pause(ProcessInfo.processInfo.environment["GAMEQA_PROBE_PRODUCT_CADENCE"] == "1" ? 0.35 : 0.6)
         if let sample = sample { try await sample() }
         let (serial, image, timestamp) = try frames.snapshot()
         let counter = try decode(image)
