@@ -2,6 +2,7 @@
 import importlib.util
 from pathlib import Path
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -24,12 +25,13 @@ class MacOSCaptureTests(unittest.TestCase):
     def tearDown(self):
         for session in getattr(self, 'sessions', []):
             session.close()
-            self.assertIsNotNone(session.process.poll(), '辅助进程必须被回收')
+            if session.process is not None:
+                self.assertIsNotNone(session.process.poll(), '辅助进程必须被回收')
             self.assertFalse(session.worker.is_alive(), '读取线程必须退出')
 
-    def session(self, scenario='normal', **options):
+    def session(self, scenario='normal', *, helper_args=(), **options):
         helper = Path(__file__).parent / 'fixtures/macos_capture_helper.py'
-        with mock.patch.object(self.module, 'helper_command', return_value=[sys.executable, '-X', 'utf8', '-B', str(helper), scenario]):
+        with mock.patch.object(self.module, 'helper_command', return_value=[sys.executable, '-X', 'utf8', '-B', str(helper), scenario, *helper_args]):
             session = self.module.MacOSCaptureSession(SOURCE, interval=.02, **options)
         self.sessions.append(session)
         return session
@@ -90,11 +92,43 @@ class MacOSCaptureTests(unittest.TestCase):
         session.close()
         self.assertIsNotNone(session.process.poll())
 
-    def test_duplicate_native_sequence_is_rejected(self):
-        session = self.session('duplicate')
-        self.frame(session)
-        with self.assertRaises(CaptureEnded):
-            self.frame(session)
+    def test_fresh_helper_rejects_invalid_sequence(self):
+        with self.assertRaisesRegex(CaptureEnded, '序号'):
+            self.frame(self.session('wrong_sequence'))
+
+    def test_session_sequences_increase_across_fresh_helpers(self):
+        session = self.session()
+        previous = self.frame(session)
+        previous_process = session.process
+        current = self.frame(session)
+        self.assertGreater(current.sequence, previous.sequence)
+        self.assertIsNot(session.process, previous_process)
+        self.assertIsNotNone(previous_process.poll())
+
+    def test_observation_and_screenshot_never_overlap_native_capture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = self.session('exclusive', helper_args=[directory])
+            second = self.session('exclusive', helper_args=[directory])
+            try:
+                for _ in range(3):
+                    self.assertIsNotNone(self.frame(first))
+                    self.assertIsNotNone(self.frame(second))
+            finally:
+                first.close()
+                second.close()
+
+    def test_busy_native_slot_obeys_timeout_and_releases_waiter_on_close(self):
+        from gameqakit.sessions import SessionLease
+        with SessionLease(self.module._capture_lock_path(SOURCE)):
+            blocked = self.session(request_timeout=.2)
+            with self.assertRaisesRegex(CaptureEnded, '超时'):
+                self.frame(blocked)
+            blocked.close()
+            waiting = self.session()
+            started = time.monotonic()
+            waiting.close()
+            self.assertLess(time.monotonic() - started, .5)
+        self.assertIsNotNone(self.frame(self.session()))
 
     def test_list_uses_same_native_protocol_and_reaps_helper(self):
         helper = Path(__file__).parent / 'fixtures/macos_capture_helper.py'

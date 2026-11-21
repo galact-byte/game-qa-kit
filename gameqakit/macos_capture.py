@@ -1,6 +1,7 @@
 """macOS 单窗口截图；仅管理本工具的原生辅助进程。"""
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import math
@@ -10,6 +11,7 @@ import platform
 import struct
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
@@ -46,10 +48,15 @@ def _identity(source):
     return f"{source['window_id']}:{source['pid']}:{stamp}"
 
 
+def _capture_lock_path(source):
+    identity = hashlib.sha256(_identity(source).encode('utf-8')).hexdigest()
+    return Path(tempfile.gettempdir()) / 'gameqakit-macos-capture' / f'{identity}.lock'
+
+
 class _Pipe:
-    def __init__(self, timeout):
+    def __init__(self, timeout, command=None):
         self.timeout = timeout
-        self.process = subprocess.Popen(helper_command(), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        self.process = subprocess.Popen(command or helper_command(), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=None if os.environ.get('GAMEQAKIT_NATIVE_DIAGNOSTICS') == '1' else subprocess.DEVNULL, bufsize=0)
         self.expired = False
 
@@ -158,8 +165,10 @@ class MacOSCaptureSession:
             raise ValueError('采集间隔和超时必须为正的有限秒数')
         self.target = dict(source)
         self.source = CaptureSource('darwin', BACKEND, identity)
-        self.pipe = _Pipe(request_timeout)
-        self.process = self.pipe.process
+        self.command = helper_command()
+        self.request_timeout = request_timeout
+        self.pipe = None
+        self.process = None
         self.condition = threading.Condition()
         self.stop = threading.Event()
         self.closed = False
@@ -168,38 +177,70 @@ class MacOSCaptureSession:
         self.worker = threading.Thread(target=self._run, args=(interval,), name='GameQA-MacCapture', daemon=True)
         self.worker.start()
 
+    def _request_frame(self):
+        from .sessions import SessionLease
+        deadline = time.monotonic() + self.request_timeout
+        while not self.stop.is_set():
+            lease = SessionLease(_capture_lock_path(self.target))
+            try:
+                lease.__enter__()
+            except RuntimeError:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise CaptureEnded('等待原生单窗口采集超时')
+                self.stop.wait(min(.005, remaining))
+                continue
+            try:
+                with self.condition:
+                    if self.stop.is_set():
+                        return None
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise CaptureEnded('等待原生单窗口采集超时')
+                    self.pipe = _Pipe(remaining, self.command)
+                    self.process = self.pipe.process
+                try:
+                    return self.pipe.request({'op': 'capture', 'source': self.target})
+                finally:
+                    # SCK conflicts persist while another helper lives, even with serialized requests.
+                    self.pipe.close()
+            finally:
+                lease.__exit__(None, None, None)
+        return None
+
     def _run(self, interval):
         sequence = 0
         try:
             while not self.stop.is_set():
                 started = time.monotonic()
-                row, payload = self.pipe.request({'op': 'capture', 'source': self.target})
+                response = self._request_frame()
+                if response is None:
+                    break
+                row, payload = response
                 if (_identity(row.get('source')) != self.source.source_id
                         or row['source'].get('exe_path') != self.target.get('exe_path')):
                     raise CaptureEnded('目标窗口来源变化，请重新选择')
                 serial = row.get('sequence')
-                if type(serial) is not int or serial <= sequence:
-                    raise CaptureEnded('原生采集返回重复或倒退的序号')
+                if type(serial) is not int or serial != 1:
+                    raise CaptureEnded('原生采集返回无效序号')
                 with Image.open(io.BytesIO(payload)) as encoded:
                     if encoded.format != 'PNG' or encoded.width * encoded.height > MAX_PIXELS:
                         raise CaptureEnded('原生图像格式或像素数无效')
                     if list(encoded.size) != row['source'].get('size'):
                         raise CaptureEnded('原生图像尺寸与来源不符')
                     image = encoded.convert('RGB')
-                frame = CaptureFrame(image, self.source, serial, row.get('captured_at'), row['source'].get('title', ''))
-                sequence = serial
+                sequence += 1
+                frame = CaptureFrame(image, self.source, sequence, row.get('captured_at'), row['source'].get('title', ''))
                 with self.condition:
                     self.frame = frame
                     self.condition.notify_all()
-                self.stop.wait(max(0, interval - (time.monotonic() - started)))
+                # Yield the cross-process slot even when native work exceeds the polling interval.
+                self.stop.wait(max(.01, interval - (time.monotonic() - started)))
         except Exception as exc:
             with self.condition:
                 self.error = exc if isinstance(exc, CaptureEnded) else CaptureEnded(f'原生帧无效：{exc}')
                 self.frame = None
                 self.condition.notify_all()
-        finally:
-            # Worker owns the pipes; close only terminates the process to unblock it.
-            self.pipe.close()
 
     def read(self, *, timeout, stop_event):
         deadline = time.monotonic() + max(0, timeout)
@@ -225,7 +266,7 @@ class MacOSCaptureSession:
             self.stop.set()
             self.frame = None
             self.condition.notify_all()
-        if self.process.poll() is None:
+        if self.process is not None and self.process.poll() is None:
             try:
                 self.process.terminate()
             except ProcessLookupError:
