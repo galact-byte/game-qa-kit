@@ -19,7 +19,7 @@ BRIDGE = Path(__file__).resolve().parents[1] / 'plugins/godot/GameQaBridge.gd'
 RUNTIME = os.environ.get('GAMEQAKIT_TEST_GODOT', '')
 
 
-def fixture_pack(path, *, black=False, bright_speck=False, no_focus=False):
+def fixture_pack(path, *, black=False, bright_speck=False, no_focus=False, render_control=False):
     """自写场景以真实 Input 查询移动方块，不替桥生成动作或回执。"""
     files = {
         '.godot/global_script_class_cache.cfg': b'list=[]\n',
@@ -70,8 +70,6 @@ func _ready():
         speck.position = Vector2(2, 2)
         add_child(speck)
 func _process(_delta):
-    if FileAccess.file_exists(OS.get_environment("GAMEQA_FIXTURE_STATE") + ".no-auto-draw"):
-        RenderingServer.render_loop_enabled = false
     if Input.is_action_just_pressed("ui_accept"):
         confirms += 1
         if FileAccess.file_exists(OS.get_environment("GAMEQA_FIXTURE_STATE") + ".blank"):
@@ -91,13 +89,19 @@ func _process(_delta):
         "left_pressed": Input.is_action_pressed("ui_left"),
         "mouse_pressed": Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT),
         "clicks": clicks, "confirms": confirms,
-        "render_loop_enabled": RenderingServer.render_loop_enabled,
         "user_data_dir": OS.get_user_data_dir()}))
     output.close()
     DirAccess.rename_absolute(fixture_path + ".part", fixture_path)
 ''' % ('true' if black else 'false', 'true' if black else 'false',
        'true' if black else 'false', 'true' if bright_speck else 'false')).encode(),
     }
+    if render_control:
+        files['main.gd'] = files['main.gd'].replace(b'func _process(_delta):\n', b'''func _process(_delta):
+    if FileAccess.file_exists(OS.get_environment("GAMEQA_FIXTURE_STATE") + ".no-auto-draw"):
+        RenderingServer.render_loop_enabled = false
+''').replace(b'        "clicks": clicks, "confirms": confirms,\n', b'''        "clicks": clicks, "confirms": confirms,
+        "render_loop_enabled": RenderingServer.render_loop_enabled,
+''')
     if no_focus:
         files['project.godot'] = files['project.godot'].replace(
             b'[display]\n', b'[display]\nwindow/size/no_focus=true\n')
@@ -131,9 +135,10 @@ class GodotBridgeTests(unittest.TestCase):
         for name in ('tmp', 'appdata', 'localappdata'):
             (self.root / name).mkdir()
 
-    def start(self, *, black=False, bright_speck=False, wrong_session=False):
+    def start(self, *, black=False, bright_speck=False, wrong_session=False, render_control=False):
         from gameqakit.desktop import DesktopProcess
-        fixture_pack(self.root / 'fixture.pck', black=black, bright_speck=bright_speck)
+        fixture_pack(self.root / 'fixture.pck', black=black, bright_speck=bright_speck,
+                     render_control=render_control)
         self.host = DesktopProcess([str(self.exe), '--main-pack', str(self.root / 'fixture.pck'),
             '--script', str(BRIDGE), '--audio-driver', 'Dummy', '--max-fps', '60',
             '--log-file', str(self.root / 'godot.log')], cwd=self.root, env={
@@ -231,7 +236,7 @@ class GodotBridgeTests(unittest.TestCase):
         self.until(lambda: self.client.status()['frame'] > frame + 3)
 
     def test_paused_observation_updates_when_automatic_rendering_stops(self):
-        self.start()
+        self.start(render_control=True)
         self.disable_automatic_rendering()
         before = self.client.status()
         self.until(lambda: self.client.status()['observation_seq'] > before['observation_seq'], timeout=3)
@@ -239,7 +244,7 @@ class GodotBridgeTests(unittest.TestCase):
         self.assertEqual(self.fixture()['x'], 60)
 
     def test_action_returns_fresh_scene_image_without_automatic_rendering(self):
-        self.start()
+        self.start(render_control=True)
         self.disable_automatic_rendering()
         self.client.resume(command_id='resume', timeout=3)
         result = self.client.action('move', direction='right', frames=10, command_id='right', timeout=3)
@@ -256,7 +261,7 @@ class GodotBridgeTests(unittest.TestCase):
         self.assertEqual(self.fixture()['x'], 100)
 
     def assert_release_without_automatic_rendering(self, reason):
-        self.start()
+        self.start(render_control=True)
         self.disable_automatic_rendering()
         self.client.resume(command_id='resume', timeout=3)
         self.raw_request('long', {'action': 'move', 'direction': 'right', 'frames': 120})
