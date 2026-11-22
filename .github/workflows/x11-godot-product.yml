@@ -44,6 +44,12 @@ jobs:
               assert path, name
               ctypes.CDLL(path)
           PY
+      - name: Install Linux desktop libraries used by the existing build workflow
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0
+          libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0
+          libxcb-shape0 libxcb-xinerama0
       - name: Install existing pinned Python requirements
         run: >-
           python -m pip install --disable-pip-version-check --only-binary=:all: -r tools/requirements-unix.txt

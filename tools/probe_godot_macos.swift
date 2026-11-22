@@ -31,7 +31,7 @@ final class Cover: NSObject, NSApplicationDelegate {
             window.orderFrontRegardless()
             try save(["pid": ProcessInfo.processInfo.processIdentifier, "window": window.windowNumber,
                       "target": target, "frontmost": NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1], root.appendingPathComponent("cover-ready.json"))
-            timer = Timer.scheduledTimer(withTimeInterval: .1, repeats: true) { [self] _ in
+            timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [self] _ in
                 if FileManager.default.fileExists(atPath: root.appendingPathComponent("cover-stop").path) {
                     timer?.invalidate(); window.close(); NSApp.terminate(nil)
                 }
