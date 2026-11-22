@@ -1,0 +1,46 @@
+# Godot macOS arm64 受管验证
+
+当前处于原生验收前：组件配置中的实际摘要尚未登记，默认不开放 macOS 游戏控制。Windows 回归不能替代 macOS 原生进程组、焦点、绘制和冻结入口检查。既有独立 no-focus 实验通过的范围另见 `CHANGES.md` 与 `docs/ENGINE-COVERAGE.md`。
+
+## 接入范围
+
+仅支持验证 macOS 14+ Apple Silicon、固定 Godot 4.5.1 no-focus 构建与仓库自写 PCK。`GAMEQA_MACOS_MANAGED_VALIDATION=1` 只打开有限工具入口；检查、准备及启动仍要求源码登记的运行时、样本、桥和来源文件摘要匹配。不能用组件目录自带的清单提供信任摘要。
+
+MCP 复用 `game_inspect`、`game_prepare`、`game_start`、绑定、`control_*`、解绑和 `game_stop`。桌面键鼠、任意外部进程停止、其他引擎、商业 PCK、Intel macOS、真实游戏与长期稳定性均不在此次验收范围内。
+
+## 生命周期与证据
+
+- `gameqakit/macos_process.py` 通过监督器、等待门与创建者管道管理本会话的进程组。先取得 PID 和启动身份，再建立连接及启动前焦点监视，最后允许目标 exec。停止权由活着的创建者持有，不从磁盘 PID 恢复。
+- `gameqakit/process_identity.py` 通过已有 Swift 辅助程序调用 libproc；身份查询不依赖屏幕录制权限。连接同时核对 PID、启动时间、可执行路径及会话标识。
+- `gameqakit/macos_focus.py` 及 Swift 监视器从目标 exec 前持续记录前台与激活事件。目标激活、前台变化、陈旧记录或监视器退出都会停止输入；不恢复前台掩盖变化。
+- Godot 会话使用独立用户及临时目录；桥内绘制、回执和原有守卫继续生效。数据目录隔离不构成文件系统沙箱。3 秒截图和松键确认、原租约与 15 秒产品启动循环不延长。
+
+## 两步组件验证
+
+独立工作流 `.github/workflows/godot-macos-managed.yml` 以固定上游 `f62fdbde15035c5576dad93e586201f4d41ef0cb` 与 `tools/godot-no-focus.patch` 构建组件。空 `component_run_id` 只构建和测量，不启动游戏场景。
+
+构建结果记录实际版本、架构、运行时及自写 PCK 摘要，附源码清单、补丁、Godot `LICENSE.txt` 和 `COPYRIGHT.txt`。检查这些实际产物后，再将摘要登记到 `plugins/godot/macos-arm64-component.json`，不能沿用旧构建摘要。
+
+登记后以原构建运行号作为 `component_run_id` 下载同一份组件，不再编译运行时。先通过真实 MCP 执行源码验收，再构建冻结 `.app` 并验证其 MCP、worker 和监督器内部入口。各阶段失败即停，保留失败证据，不自动重复原生批次。
+
+原生验收包括：
+
+1. 准备去重、启动前取消、组件被改拒绝及无持键暂停首图。
+2. 遮挡像素、遮挡中新观察、正常移动与等待、回执去重及原始 PNG。
+3. 动作进行中暂停、租约自然到期松键、解绑后拒绝输入、重新绑定保持暂停。
+4. 观察者无停止权；正常停止、创建者 EOF／异常退出、worker 退出、目标先退出和焦点监视失效的进程回收。
+5. 固定源样本摘要不变、源码与冻结形态的焦点和进程退出证据。
+
+原始 MCP 请求／响应、PNG、状态、来源清单及清理记录归档到 `<Godot macOS受管验证目录>/`。成功批次需另行独立解码图片并核对结果，日志中的 `ok` 不能替代可视证据。构建树和临时运行时在记录清单后清理，失败证据保留。
+
+## 本地检查与回退
+
+入口及平台聚焦检查：
+
+```sh
+python -X utf8 -B -m unittest tests.test_macos_entry tests.test_platform_support tests.test_macos_managed -v
+```
+
+当前 Windows 聚焦记录为 15 项中 10 通过、5 项需 macOS 原生环境；随后全量 997 项中 698 通过、299 项环境条件跳过、零失败，392.701 秒。首次 Godot 启动超时的原因仍未确定；后续通过不能追认原失败。完整回归及原生结果分别登记，不能将跳过项算作通过。
+
+关闭验证开关即可关闭新增工具入口；需要代码回退时撤回 macOS 组件、监督器及平台分派，保留 Windows 既有运行时和入口。先通过创建者停止自有会话，不能凭留存 PID 停止进程。

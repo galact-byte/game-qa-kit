@@ -90,7 +90,7 @@ class Binding:
                 'can_stop': False, 'directory': str(self.client.directory)}
 
     def unbind(self, *, timeout=3.0):
-        from .win32 import _pid_path
+        from .process_identity import _pid_path
         if not self._action_lock.acquire(blocking=False):
             raise RuntimeError('动作执行中，请先查询原命令结果再解绑')
         try:
@@ -152,7 +152,12 @@ class Manager:
         import os
         import sys
         from . import admission
-        from .process_job import OwnedProcess
+        from .platform_support import require_managed_game
+        require_managed_game(plan.get('backend'))
+        if sys.platform == 'darwin':
+            from .macos_process import MacOSProcess as OwnedProcess
+        else:
+            from .process_job import OwnedProcess
         from .sessions import write_json
         if confirm is not True:
             raise ValueError('准备需要明确确认这份操作摘要')
@@ -166,8 +171,9 @@ class Manager:
                     return self.status(directory)
                 admission.revalidate_plan(plan)
                 write_json(record, content)
+                worker_cwd = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).resolve().parents[1]
                 worker = OwnedProcess([sys.executable, '-m', 'gameqakit.game_worker', str(record), str(os.getpid())],
-                                      cwd=str(Path(__file__).resolve().parents[1]),
+                                      cwd=str(worker_cwd),
                                       env={'PYTHONUTF8': '1', 'TEMP': str(directory.parent), 'TMP': str(directory.parent)})
                 try:
                     worker.__enter__()

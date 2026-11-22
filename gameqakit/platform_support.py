@@ -22,6 +22,17 @@ def macos_capture_supported():
             and int(platform.mac_ver()[0].split('.')[0]) >= 14)
 
 
+def macos_managed_supported():
+    return macos_capture_supported() and os.environ.get('GAMEQA_MACOS_MANAGED_VALIDATION') == '1'
+
+
+def require_managed_game(backend):
+    if sys.platform == 'win32':
+        return
+    if not macos_managed_supported() or backend != 'godot_authored':
+        raise UnsupportedPlatformError('本平台仅接入 macOS 14+ arm64 的登记 Godot 自写样本；其他引擎受管启动尚未验收。')
+
+
 def x11_capture_supported():
     return (sys.platform == 'linux' and os.environ.get('GAMEQA_X11_VALIDATION') == '1'
             and bool(os.environ.get('DISPLAY'))
@@ -40,7 +51,8 @@ def info():
         'architecture': platform.machine(),
         'features': {'profiles': True, 'save_snapshots': True, 'evidence_review': True,
                      'window_capture': sys.platform == 'win32' or macos_capture_supported() or x11_capture_supported(),
-                     'game_control': sys.platform == 'win32'},
+                     'game_control': sys.platform == 'win32' or macos_managed_supported(),
+                     'godot_managed': sys.platform == 'win32' or macos_managed_supported()},
     }
 
 

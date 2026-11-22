@@ -334,7 +334,9 @@ class GodotBridgeTests(unittest.TestCase):
 
     def test_atomic_lease_renewal_does_not_pause_live_bridge(self):
         self.start()
-        self.client.resume(command_id='resume')
+        resumed = self.client.resume(command_id='resume')
+        # 回执先于状态文件发布；先等同一帧状态，避免把启动暂停误判成续租失效。
+        self.until(lambda: self.client.status().get('frame', -1) >= resumed['frame'])
         stop = threading.Event()
 
         def renew():

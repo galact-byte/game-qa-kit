@@ -1,0 +1,8 @@
+{
+  "component_id": "godot-4.5.1-macos-arm64-no-focus",
+  "runtime": "godot-runtime-macos-arm64",
+  "runtime_sha256": null,
+  "pack_sha256": null,
+  "support_files": {},
+  "status": "awaiting-measured-build"
+}

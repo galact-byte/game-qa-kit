@@ -1,5 +1,7 @@
-"""Run the registered authored Godot scene on a private desktop."""
+"""Run only the registered authored Godot scene with creator-owned lifetime."""
+import os
 from pathlib import Path
+import sys
 import shutil
 import time
 import uuid
@@ -7,9 +9,8 @@ import uuid
 from gameqakit.admission import no_links, revalidate_plan
 from gameqakit.admission_runtime import validate_ready
 from gameqakit.control import BridgeClient, write_connection
-from gameqakit.desktop import DesktopProcess
+from gameqakit.process_identity import _pid_path
 from gameqakit.sessions import read_json, write_json
-from gameqakit.win32 import _pid_path
 from . import prepare as recipe
 
 
@@ -18,7 +19,7 @@ class GodotSession:
         self.plan = plan
         self.root = Path(plan["destination"])
         self.runtime = self.root / "runtime"
-        self.host = self.bridge = None
+        self.host = self.bridge = self.focus = None
         self.baseline = {**plan["source_digests"], **plan["artifact_digests"]}
         self.prepared = False
 
@@ -34,10 +35,13 @@ class GodotSession:
         self.root.mkdir(exist_ok=False)
         for name in ("runtime", "bridge", "data", "appdata", "localappdata", "tmp"):
             (self.root / name).mkdir()
-        for file in (Path(self.plan["source"]) / recipe.PACK,
-                     Path(self.plan["artifacts"]) / recipe.RUNTIME, recipe.BRIDGE):
+        for name in self.baseline:
+            file = (Path(self.plan['source']) / name if name == recipe.PACK else
+                    recipe.BRIDGE if name == recipe.BRIDGE.name else Path(self.plan['artifacts']) / name)
             no_links(file)
             shutil.copyfile(file, self.runtime / file.name)
+            if sys.platform == 'darwin' and name == recipe.component()['runtime']:
+                (self.runtime / name).chmod(0o755)
         self._verify_runtime()
         self.prepared = True
 
@@ -60,22 +64,37 @@ class GodotSession:
                 raise ValueError(f"启动前文件已存在：{path.name}")
         if cancelled():
             raise InterruptedError("接入已取消")
-        executable = self.runtime / recipe.RUNTIME
+        mac = sys.platform == 'darwin'
+        executable = self.runtime / recipe.component()['runtime']
         session = uuid.uuid4().hex
-        self.host = DesktopProcess([str(executable), "--main-pack", str(self.runtime / recipe.PACK),
+        if mac:
+            from gameqakit.macos_process import MacOSProcess as Host
+        else:
+            from gameqakit.desktop import DesktopProcess as Host
+        command = [str(executable), "--main-pack", str(self.runtime / recipe.PACK),
             "--script", str(self.runtime / recipe.BRIDGE.name), "--audio-driver", "Dummy", "--max-fps", "60",
-            "--log-file", str(self.root / "godot.log")], cwd=self.runtime, env={
+            "--log-file", str(self.root / "godot.log")]
+        if mac:
+            command += ['--rendering-driver', 'opengl3', '--', '--qa-no-focus']
+        self.host = Host(command, cwd=self.runtime, env={
                 "GAMEQAKIT_BRIDGE_DIR": directory.as_posix(), "GAMEQAKIT_SESSION_ID": session,
                 "GAMEQA_FIXTURE_STATE": (self.root / "fixture-state.json").as_posix(),
                 "APPDATA": str(self.root / "appdata"), "LOCALAPPDATA": str(self.root / "localappdata"),
-                "TEMP": str(self.root / "tmp"), "TMP": str(self.root / "tmp")})
+                "TEMP": str(self.root / "tmp"), "TMP": str(self.root / "tmp"),
+                **({'HOME': str(self.root / 'appdata'), 'TMPDIR': str(self.root / 'tmp')} if mac else {})})
         self.host.__enter__()
+        if mac:
+            from gameqakit.macos_focus import FocusMonitor
+            self.focus = FocusMonitor(directory, self.host.pid, self.host.started_at)
         write_connection(directory, {"protocol": 1, "session_id": session, "pid": self.host.pid,
-                                     "exe_path": str(executable), "engine": "godot"})
+                                     "exe_path": str(executable), "engine": "godot",
+                                     **({'started_at': self.host.started_at} if mac else {})})
         self.bridge = BridgeClient(directory, pid=self.host.pid, exe_path=str(executable))
         self.host.run()
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
+            if self.focus:
+                self.focus.check()
             if cancelled():
                 raise InterruptedError("接入已取消")
             if not self.host.alive():
@@ -85,11 +104,14 @@ class GodotSession:
                 raise RuntimeError(state["error"])
             if state.get("input_ready"):
                 image = validate_ready(self.root, state)
-                expected = self.root / "appdata/gameqa-godot-fixture"
+                expected = (self.root / 'appdata/Library/Application Support/gameqa-godot-fixture'
+                            if mac else self.root / 'appdata/gameqa-godot-fixture')
                 if Path(state.get("user_data_dir", "")).resolve() != expected.resolve():
                     raise RuntimeError("Godot 用户目录未落在会话内")
                 return {**state, **image, "state": "ready_paused", "bridge_directory": str(directory),
-                        "host_pid": self.host.pid}
+                        "host_pid": self.host.pid,
+                        **({'host_supervisor_pid': self.host.process.pid,
+                            'focus_monitor_pid': self.focus.process.pid} if mac else {})}
             time.sleep(.02)
         raise TimeoutError("startup_timeout：Godot 未取得有效首图")
 
@@ -118,8 +140,15 @@ class GodotSession:
         except (OSError, ValueError, RuntimeError) as exc:
             release, release_error = False, str(exc)
         finally:
-            if self.host:
-                self.host.close()
+            try:
+                if self.host:
+                    self.host.close()
+            finally:
+                if self.focus:
+                    try:
+                        self.focus.check()
+                    finally:
+                        self.focus.close()
         exited = not pid or not _pid_path(pid)
         checks = {}
         for key, field, expected, digest in (

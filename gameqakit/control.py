@@ -8,6 +8,7 @@ import json
 import math
 from pathlib import Path
 import re
+import sys
 import threading
 from contextlib import contextmanager
 import time
@@ -107,7 +108,7 @@ class BridgeClient:
             time.sleep(.002)
 
     def _connection(self):
-        from .win32 import _pid_path
+        from .process_identity import _pid_path
         meta = self._ipc_meta or _read(self.directory / 'connection.json')
         if (type(meta.get('protocol')) is not int or meta['protocol'] not in (1, 2) or not isinstance(meta.get('session_id'), str)
                 or not meta['session_id'] or type(meta.get('pid')) is not int or meta['pid'] <= 0
@@ -130,9 +131,20 @@ class BridgeClient:
             raise RuntimeError('Bakin 共享内存通道仅支持时间协议')
         if transport == 'wolf-shm-v1' and meta.get('command_format') != 'ini':
             raise RuntimeError('Wolf 共享内存要求 INI 命令格式')
-        actual = _pid_path(meta['pid'])
-        if not actual or not _same_path(actual, meta['exe_path']):
-            raise RuntimeError('目标进程已退出或路径不匹配')
+        if sys.platform == 'darwin':
+            if meta.get('engine') != 'godot' or meta.get('protocol') != 1 or transport != 'files-v1':
+                raise RuntimeError('macOS 仅接受 Godot 文件桥')
+            from .process_identity import query
+            identity = query(meta['pid'])
+            if (not identity or not meta.get('started_at') or identity['started_at'] != meta['started_at']
+                    or not _same_path(identity['exe_path'], meta['exe_path'])):
+                raise RuntimeError('目标进程已退出或启动身份不匹配')
+            from .macos_focus import validate_focus
+            validate_focus(self.directory, meta['pid'], meta['started_at'])
+        else:
+            actual = _pid_path(meta['pid'])
+            if not actual or not _same_path(actual, meta['exe_path']):
+                raise RuntimeError('目标进程已退出或路径不匹配')
         if transport in ('wolf-shm-v1', 'bakin-shm-v1'):
             self._mailbox(meta)
             self._ipc_meta = meta
@@ -254,6 +266,9 @@ class BridgeClient:
         def renew():
             try:
                 while not stop.wait(.1) and time.monotonic() < deadline:
+                    if sys.platform == 'darwin':
+                        from .macos_focus import validate_focus
+                        validate_focus(self.directory, meta['pid'], meta['started_at'])
                     self._wire_write('lease', {'session_id': meta['session_id'],
                                              'expires_at': time.time() + 1.5}, meta)
             except Exception as exc:

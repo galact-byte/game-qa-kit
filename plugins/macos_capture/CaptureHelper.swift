@@ -74,6 +74,22 @@ func windowIdentity(_ window: SCWindow) throws -> [String: Any] {
 
 @available(macOS 14.0, *)
 func execute(_ request: [String: Any], sequence: inout Int) async throws {
+    if request["op"] as? String == "process_identity" {
+        guard let pid = request["pid"] as? Int, pid > 0, pid <= Int(Int32.max) else {
+            throw CaptureFailure(code: "invalid_pid")
+        }
+        var seconds: UInt64 = 0
+        var microseconds: UInt64 = 0
+        let capacity = gameqa_process_path_capacity()
+        var path = [CChar](repeating: 0, count: Int(capacity))
+        if gameqa_process_identity(pid_t(pid), &seconds, &microseconds, &path, capacity) == 1 {
+            try emit(["ok": true, "identity": ["pid": pid, "started_at": "\(seconds).\(microseconds)",
+                                              "exe_path": String(cString: path)]])
+        } else {
+            try emit(["ok": true, "identity": NSNull()])
+        }
+        return
+    }
     guard CGPreflightScreenCaptureAccess() else {
         if request["op"] as? String == "list" { _ = CGRequestScreenCaptureAccess() }
         throw CaptureFailure(code: "permission_denied")
@@ -159,11 +175,80 @@ func execute(_ request: [String: Any], sequence: inout Int) async throws {
     }
 }
 
+final class ManagedFocusMonitor: NSObject, NSApplicationDelegate {
+    let root: URL
+    let pid: Int32
+    let identity: String
+    var baseline: Int32 = -1
+    var frontmost: Int32 = -1
+    var changed = false
+    var targetActivated = false
+    var samples = 0
+    var timer: Timer?
+    var observer: NSObjectProtocol?
+    var events: [[String: Any]] = []
+    init(root: URL, pid: Int32, identity: String) {
+        self.root = root; self.pid = pid; self.identity = identity
+    }
+    func save(_ name: String, stopped: Bool = false) throws {
+        let row: [String: Any] = ["target_pid": pid, "target_started_at": identity,
+            "original_frontmost": baseline, "frontmost": frontmost,
+            "target_activated": targetActivated, "frontmost_changed": changed,
+            "samples": samples, "updated_at": Date().timeIntervalSince1970,
+            "stopped": stopped, "events": events]
+        try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys])
+            .write(to: root.appendingPathComponent(name), options: .atomic)
+    }
+    func record(_ value: Int32, source: String) {
+        if value != baseline { changed = true }
+        if value == pid { targetActivated = true }
+        if value != frontmost || source == "activation" {
+            events.append(["pid": value, "source": source, "at": Date().timeIntervalSince1970])
+        }
+        frontmost = value
+    }
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        baseline = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
+        frontmost = baseline
+        guard baseline > 0, baseline != pid else { exit(1) }
+        observer = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [self] notification in
+            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+            record(app.processIdentifier, source: "activation")
+            do { try save("focus-state.json") } catch { exit(1) }
+        }
+        samples = 1
+        do { try save("focus-state.json"); try save("focus-ready.json") } catch { exit(1) }
+        timer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { [self] _ in
+            record(NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1, source: "poll")
+            samples += 1
+            do {
+                try save("focus-state.json")
+                if FileManager.default.fileExists(atPath: root.appendingPathComponent("focus-stop").path) {
+                    timer?.invalidate()
+                    if let observer { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
+                    try save("focus-final.json", stopped: true)
+                    NSApp.terminate(nil)
+                }
+            } catch { exit(1) }
+        }
+    }
+}
+
 @main
 struct CaptureHelper {
     static func main() async {
         let application = NSApplication.shared
         application.setActivationPolicy(.accessory)
+        if CommandLine.arguments.count == 5, CommandLine.arguments[1] == "--focus-monitor",
+           let pid = Int32(CommandLine.arguments[3]), pid > 0 {
+            let monitor = ManagedFocusMonitor(root: URL(fileURLWithPath: CommandLine.arguments[2]),
+                                              pid: pid, identity: CommandLine.arguments[4])
+            application.delegate = monitor
+            withExtendedLifetime(monitor) { application.run() }
+            return
+        }
         _ = NSScreen.screens
         guard #available(macOS 14.0, *) else {
             try? emit(["ok": false, "error": "unsupported_os"])

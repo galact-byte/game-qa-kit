@@ -1,0 +1,119 @@
+name: Godot macOS managed component and MCP validation
+
+on:
+  workflow_call:
+    inputs:
+      component_run_id:
+        type: string
+        default: ''
+  workflow_dispatch:
+    inputs:
+      component_run_id:
+        description: 'Empty builds and measures only; a build run id validates the registered component'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: godot-macos-managed-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  managed:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      BUILD_NAME: gameqa_nofocus
+      COMPONENT_RUN_ID: ${{ inputs.component_run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.12.7'
+          architecture: arm64
+      - name: Record tools and install pinned requirements
+        run: |
+          set -euo pipefail
+          mkdir validation-output
+          uname -a > validation-output/environment.txt
+          sw_vers >> validation-output/environment.txt
+          test "$(uname -m)" = arm64
+          python -m pip install --disable-pip-version-check --no-cache-dir --only-binary=:all: -r tools/requirements-unix.txt
+      - name: Compile identity helper and check process ownership contracts
+        run: |
+          set -euo pipefail
+          xcrun swiftc -parse-as-library -swift-version 5 -O -target arm64-apple-macosx14.0 -import-objc-header plugins/macos_capture/ProcessIdentity.h plugins/macos_capture/CaptureHelper.swift -o plugins/macos_capture/GameQACapture -framework AppKit -framework ScreenCaptureKit -framework CoreGraphics
+          python -X utf8 -B -m unittest tests.test_macos_managed -v > validation-output/native-contracts.log 2>&1
+      - name: Fetch pinned upstream source for measurement only
+        if: inputs.component_run_id == ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: godotengine/godot
+          ref: f62fdbde15035c5576dad93e586201f4d41ef0cb
+          path: godot-component-src
+          persist-credentials: false
+      - name: Build and measure without launching a scene
+        if: inputs.component_run_id == ''
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir --no-compile --require-hashes --only-binary=:all: --target "$RUNNER_TEMP/godot-scons" -r tools/requirements-godot-build.txt --report validation-output/scons-install.json
+          python -X utf8 -B tools/build_godot_macos_component.py
+      - name: Retain measured component for registration and one native validation
+        if: inputs.component_run_id == '' && success()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: godot-macos-component-${{ github.run_id }}
+          path: component
+          if-no-files-found: error
+          retention-days: 14
+      - name: Download the same component without rebuilding it
+        if: inputs.component_run_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$COMPONENT_RUN_ID" =~ ^[0-9]+$ ]]
+          gh run download "$COMPONENT_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "godot-macos-component-$COMPONENT_RUN_ID" --dir component
+      - name: Validate managed source and frozen MCP paths
+        if: inputs.component_run_id != ''
+        run: |
+          set -euo pipefail
+          xcrun swiftc -parse-as-library -swift-version 5 -O -target arm64-apple-macosx14.0 tools/probe_godot_macos.swift -o "$RUNNER_TEMP/godot-cover-probe" -framework AppKit -framework ScreenCaptureKit -framework CoreGraphics
+          python -X utf8 -B tools/verify_godot_macos_managed.py --out validation-output/managed-source --components component --probe "$RUNNER_TEMP/godot-cover-probe"
+          python -X utf8 -B tools/build_unix.py --version v0.0.0-managed-validation --output build-unix
+          python -X utf8 -B tools/verify_godot_macos_managed.py --out validation-output/managed-frozen --components component --probe "$RUNNER_TEMP/godot-cover-probe" --executable build-unix/dist/GameQA.app/Contents/MacOS/GameQA
+      - name: Record and remove rebuildable files
+        if: always()
+        run: |
+          python -B - <<'PY'
+          import json, os, shutil
+          from pathlib import Path
+          workspace = Path(os.environ['GITHUB_WORKSPACE']).resolve()
+          temporary = Path(os.environ['RUNNER_TEMP']).resolve()
+          rows = []
+          for path in (workspace / 'godot-component-src', workspace / 'component', workspace / 'build-unix', workspace / 'dist-unix', temporary / 'godot-scons', temporary / 'godot-cover-probe'):
+              assert path.parent in (workspace, temporary) and not path.is_symlink(), path
+              size = sum(p.stat().st_size for p in path.rglob('*') if p.is_file()) if path.is_dir() else path.stat().st_size if path.exists() else 0
+              rows.append({'path': str(path), 'bytes': size, 'removed': False})
+              (workspace / 'validation-output/cleanup.json').write_text(json.dumps(rows, indent=2))
+              if path.is_dir(): shutil.rmtree(path)
+              elif path.exists(): path.unlink()
+              rows[-1]['removed'] = not path.exists()
+              (workspace / 'validation-output/cleanup.json').write_text(json.dumps(rows, indent=2))
+              assert rows[-1]['removed']
+          PY
+      - name: Upload raw evidence and cleanup records
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: godot-macos-managed-${{ github.run_id }}-${{ github.run_attempt }}
+          path: validation-output
+          if-no-files-found: error
+          retention-days: 14
