@@ -1,6 +1,6 @@
 # Godot macOS arm64 受管验证
 
-当前处于原生验收前：组件配置中的实际摘要尚未登记，默认不开放 macOS 游戏控制。Windows 回归不能替代 macOS 原生进程组、焦点、绘制和冻结入口检查。既有独立 no-focus 实验通过的范围另见 `CHANGES.md` 与 `docs/ENGINE-COVERAGE.md`。
+当前处于原生验收前：组件测量批次 `45028494838` 已构建成功，实际摘要已登记，默认不开放 macOS 游戏控制。登记值来自该批次构建日志中的测量 JSON，版本、架构、固定上游、补丁及自写 PCK 摘要已核对；本机组件下载受 EOF 阻断，实际运行时、来源及许可文件由原生验收在启动前逐项核对摘要。Windows 回归不能替代 macOS 原生进程组、焦点、绘制和冻结入口检查。既有独立 no-focus 实验通过的范围另见 `CHANGES.md` 与 `docs/ENGINE-COVERAGE.md`。
 
 ## 接入范围
 
@@ -10,7 +10,7 @@ MCP 复用 `game_inspect`、`game_prepare`、`game_start`、绑定、`control_*`
 
 ## 生命周期与证据
 
-- `gameqakit/macos_process.py` 通过监督器、等待门与创建者管道管理本会话的进程组。先取得 PID 和启动身份，再建立连接及启动前焦点监视，最后允许目标 exec。停止权由活着的创建者持有，不从磁盘 PID 恢复。
+- `gameqakit/macos_process.py` 通过监督器、等待门与创建者管道管理本会话的进程组。先取得 PID 和启动身份，再建立连接及启动前焦点监视，最后允许目标 exec。停止权由活着的创建者持有，不从磁盘 PID 恢复。macOS 对只剩僵尸的进程组可能返回 EPERM；只有系统查询成功且组内全部为僵尸时接受，仍有活进程、空结果或查询失败均报错。
 - `gameqakit/process_identity.py` 通过已有 Swift 辅助程序调用 libproc；身份查询不依赖屏幕录制权限。连接同时核对 PID、启动时间、可执行路径及会话标识。
 - `gameqakit/macos_focus.py` 及 Swift 监视器从目标 exec 前持续记录前台与激活事件。目标激活、前台变化、陈旧记录或监视器退出都会停止输入；不恢复前台掩盖变化。
 - Godot 会话使用独立用户及临时目录；桥内绘制、回执和原有守卫继续生效。数据目录隔离不构成文件系统沙箱。3 秒截图和松键确认、原租约与 15 秒产品启动循环不延长。
@@ -41,6 +41,6 @@ MCP 复用 `game_inspect`、`game_prepare`、`game_start`、绑定、`control_*`
 python -X utf8 -B -m unittest tests.test_macos_entry tests.test_platform_support tests.test_macos_managed -v
 ```
 
-当前 Windows 聚焦记录为 15 项中 10 通过、5 项需 macOS 原生环境；随后全量 997 项中 698 通过、299 项环境条件跳过、零失败，392.701 秒。首次 Godot 启动超时的原因仍未确定；后续通过不能追认原失败。完整回归及原生结果分别登记，不能将跳过项算作通过。
+本轮 Windows 聚焦记录为 18 项中 12 通过、6 项需 macOS 原生环境；随后全量 1000 项中 700 通过、300 项环境条件跳过、零失败，375.625 秒。云端组件测量批次 `45028494838` 的原生进程所有权契约步骤及组件构建已通过；完整源码／冻结 MCP 验收仍待结果。首次 Godot 启动超时的原因仍未确定；后续通过不能追认原失败。完整回归及原生结果分别登记，不能将跳过项算作通过。
 
 关闭验证开关即可关闭新增工具入口；需要代码回退时撤回 macOS 组件、监督器及平台分派，保留 Windows 既有运行时和入口。先通过创建者停止自有会话，不能凭留存 PID 停止进程。

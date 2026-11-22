@@ -1,8 +1,19 @@
 {
   "component_id": "godot-4.5.1-macos-arm64-no-focus",
   "runtime": "godot-runtime-macos-arm64",
-  "runtime_sha256": null,
-  "pack_sha256": null,
-  "support_files": {},
-  "status": "awaiting-measured-build"
+  "runtime_sha256": "1b3517b4830e04e7eb130fe2c32689b3dba1dcb126b37eb5f838fd15de6387f5",
+  "pack_sha256": "e8e96dbb2feab9df489457933e45a4dbb5e4aa41aba4deb5cd9625f9516d29de",
+  "support_files": {
+    "source-manifest.json": "d96c36c702a85a55333685a6b158e268e3d5adbac1afa8ade5af3af3dbbe1125",
+    "Godot-LICENSE.txt": "b0435e3b3e4e55238f05f4b306f30524a1b2e20147810d436eaa554fa6855c80",
+    "Godot-COPYRIGHT.txt": "2039020f520ebd55592070ede2ef38dfbc28a6550140008da004143872789e5d",
+    "godot-no-focus.patch": "05da646d691e8e586378b6cc8ffa6f7bc3c61d2d4c0a04b830a034f5198ed1cf"
+  },
+  "architecture": "arm64",
+  "version": "4.5.1.stable.gameqa_nofocus.f62fdbde1",
+  "upstream": "https://github.com/godotengine/godot",
+  "revision": "f62fdbde15035c5576dad93e586201f4d41ef0cb",
+  "official_asset": false,
+  "measurement_run_id": "45028494838",
+  "status": "measured-awaiting-native-validation"
 }

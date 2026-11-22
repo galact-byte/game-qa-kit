@@ -3,9 +3,10 @@
 ## Godot macOS arm64 受管入口（原生验收前）
 
 - 按已批准方案增加 macOS 自有进程监督器、libproc 启动身份核对、启动前焦点监视及 Godot 会话分派，复用原有 MCP 动作和文件桥。创建者通过管道持有生命周期，停止权限不从落盘 PID 恢复；Windows 继续使用现有独立桌面与 Job。
-- 新入口仅限 macOS 14+ arm64、显式 `GAMEQA_MACOS_MANAGED_VALIDATION=1` 与登记的 no-focus 自写组件；组件摘要当前尚未登记，默认关闭。工具清单按平台实时过滤，不开放桌面键鼠、任意进程停止、商业 PCK 或其他引擎。
-- 独立工作流先构建并测量组件，待实际摘要登记后下载同一份产物验证源码与冻结 MCP 链；覆盖遮挡新图、动作中暂停、失租松键、解绑、创建者退出及故障回收。保留上游版本、构建补丁、来源及 Godot MIT 许可。原生检查尚未运行，不能记为支持。
-- 相关入口与平台回归 `python -X utf8 -B -m unittest tests.test_macos_entry tests.test_platform_support tests.test_macos_managed -v` 共 15 项：10 通过、5 项 macOS 原生条件跳过。最终全量回归 `python -X utf8 -B -W error::ResourceWarning -m unittest discover -s tests -p 'test_*.py' -fv` 共 997 项：698 通过、299 项环境条件跳过、零失败，392.701 秒。前次失败与启动超时原始证据保留，不追认为已修复；不调整 3 秒截图、租约或启动期限。证据位于 `<Godot macOS受管验证目录>/`。
+- 新入口仅限 macOS 14+ arm64、显式 `GAMEQA_MACOS_MANAGED_VALIDATION=1` 与登记的 no-focus 自写组件；已按构建批次 `45028494838` 的实际测量日志登记摘要，默认仍关闭。本机组件下载受 EOF 阻断，原生验收启动前必须复核实际运行时、来源及许可文件摘要。工具清单按平台实时过滤，不开放桌面键鼠、任意进程停止、商业 PCK 或其他引擎。
+- 独立工作流先构建并测量组件，待实际摘要登记后下载同一份产物验证源码与冻结 MCP 链；覆盖遮挡新图、动作中暂停、失租松键、解绑、创建者退出及故障回收。保留上游版本、构建补丁、来源及 Godot MIT 许可。云端 `45028494838` 的进程所有权契约步骤及组件构建已通过，完整源码／冻结 MCP 原生检查尚未运行，不能记为支持。
+- macOS 正常退出后对仅剩僵尸的进程组发送信号会返回 EPERM；监督器只在系统查询成功且组内全为僵尸时接受该返回，真实权限拒绝、活进程、空结果与查询异常仍报错。新增父进程退出后忽略 SIGTERM 的子进程回收用例。
+- 相关入口与平台回归 `python -X utf8 -B -m unittest tests.test_macos_entry tests.test_platform_support tests.test_macos_managed -v` 共 18 项：12 通过、6 项 macOS 原生条件跳过。最终全量回归 `python -X utf8 -B -W error::ResourceWarning -m unittest discover -s tests -p 'test_*.py' -fv` 共 1000 项：700 通过、300 项环境条件跳过、零失败，375.625 秒。前次失败与启动超时原始证据保留，不追认为已修复；不调整 3 秒截图、租约或启动期限。证据位于 `<Godot macOS受管验证目录>/`。
 - 修正两个测试侧问题：Bakin 夹具先发布匹配暂停状态再发布进度，避免客户端读到不完整证据；macOS 入口测试检查实际 `tools/list`，避免把内部完整表误认成客户端开放工具。部分原生测试路径同步到当前验证目录布局，产品准入和输入守卫不变。
 - 撤回 macOS 验证开关、组件配置及宿主分派即可回退；无游戏或存档迁移。进程监督、固定组件登记和原生验收范围见 [受管验证说明](docs/GODOT-MACOS-MANAGED.md)。
 
