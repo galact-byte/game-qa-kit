@@ -28,6 +28,7 @@ var last_request = ""
 var error = ""
 var observation_seq: int = 0
 var last_observation: int = 0
+var last_rendered_frame: int = -1
 var last_status: int = 0
 var capture_error = ""
 
@@ -268,6 +269,18 @@ func _before_frame():
                 active.phase = "capture"
     _poll(request)
     _status()
+    call_deferred("_ensure_render")
+
+func _ensure_render():
+    if not capture_error.is_empty() or current_scene == null or frame < 3:
+        return
+    if last_rendered_frame >= frame - 1:
+        return
+    var observing = Time.get_ticks_msec() - last_observation >= 200
+    var completing = not active.is_empty() and active.phase == "capture"
+    if observing or completing:
+        # 完全遮挡时引擎会跳过自动绘制；在场景处理后离屏绘制，仍由原回调取图与回执。
+        RenderingServer.force_draw(false)
 
 func _save_image(image: Image, relative: String) -> bool:
     var target = directory.path_join(relative)
@@ -300,6 +313,7 @@ func _fail_capture(message: String):
     _fail(message)
 
 func _after_render():
+    last_rendered_frame = frame
     if not capture_error.is_empty() or current_scene == null or frame < 3:
         return
     var observing = Time.get_ticks_msec() - last_observation >= 200

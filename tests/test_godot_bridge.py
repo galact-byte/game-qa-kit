@@ -70,6 +70,8 @@ func _ready():
         speck.position = Vector2(2, 2)
         add_child(speck)
 func _process(_delta):
+    if FileAccess.file_exists(OS.get_environment("GAMEQA_FIXTURE_STATE") + ".no-auto-draw"):
+        RenderingServer.render_loop_enabled = false
     if Input.is_action_just_pressed("ui_accept"):
         confirms += 1
         if FileAccess.file_exists(OS.get_environment("GAMEQA_FIXTURE_STATE") + ".blank"):
@@ -89,6 +91,7 @@ func _process(_delta):
         "left_pressed": Input.is_action_pressed("ui_left"),
         "mouse_pressed": Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT),
         "clicks": clicks, "confirms": confirms,
+        "render_loop_enabled": RenderingServer.render_loop_enabled,
         "user_data_dir": OS.get_user_data_dir()}))
     output.close()
     DirAccess.rename_absolute(fixture_path + ".part", fixture_path)
@@ -220,6 +223,57 @@ class GodotBridgeTests(unittest.TestCase):
         self.assertGreater(state['frame'], before['frame'])
         self.assertTrue(state['paused'])
         self.assertEqual(self.fixture()['x'], 60)
+
+    def disable_automatic_rendering(self):
+        (self.root / 'fixture-state.json.no-auto-draw').touch()
+        self.until(lambda: self.fixture().get('render_loop_enabled') is False)
+        frame = self.client.status()['frame']
+        self.until(lambda: self.client.status()['frame'] > frame + 3)
+
+    def test_paused_observation_updates_when_automatic_rendering_stops(self):
+        self.start()
+        self.disable_automatic_rendering()
+        before = self.client.status()
+        self.until(lambda: self.client.status()['observation_seq'] > before['observation_seq'], timeout=3)
+        self.assertTrue(self.client.status()['paused'])
+        self.assertEqual(self.fixture()['x'], 60)
+
+    def test_action_returns_fresh_scene_image_without_automatic_rendering(self):
+        self.start()
+        self.disable_automatic_rendering()
+        self.client.resume(command_id='resume', timeout=3)
+        result = self.client.action('move', direction='right', frames=10, command_id='right', timeout=3)
+        self.assertEqual(self.fixture()['x'], 100)
+        self.assertFalse(self.fixture()['right_pressed'])
+        self.assertTrue(result['consumed'])
+        with Image.open(result['screenshot']) as image:
+            image = image.convert('RGB')
+            self.assertEqual(image.getpixel((105, 105)), (255, 128, 32))
+            self.assertEqual(image.getpixel((65, 105)), image.getpixel((20, 20)))
+        self.assertEqual(self.client.status()['held'], [])
+        again = self.client.action('move', direction='right', frames=10, command_id='right', timeout=3)
+        self.assertEqual(again['screenshot_sha256'], result['screenshot_sha256'])
+        self.assertEqual(self.fixture()['x'], 100)
+
+    def assert_release_without_automatic_rendering(self, reason):
+        self.start()
+        self.disable_automatic_rendering()
+        self.client.resume(command_id='resume', timeout=3)
+        self.raw_request('long', {'action': 'move', 'direction': 'right', 'frames': 120})
+        self.until(lambda: self.fixture().get('right_pressed'))
+        if reason == 'manual_pause':
+            self.client.pause()
+        else:
+            write_json(self.directory / 'lease.json', {'session_id': 'fixture-session', 'expires_at': time.time() - 1})
+        self.until(lambda: self.client.status()['paused'] and not self.fixture()['right_pressed'])
+        self.assertEqual(self.client.result('long')['error'], reason)
+        self.assertEqual(self.client.status()['held'], [])
+
+    def test_manual_pause_releases_input_without_automatic_rendering(self):
+        self.assert_release_without_automatic_rendering('manual_pause')
+
+    def test_lease_expiry_releases_input_without_automatic_rendering(self):
+        self.assert_release_without_automatic_rendering('lease_expired')
 
     def test_capture_write_failure_stops_active_input(self):
         self.start()

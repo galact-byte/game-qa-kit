@@ -10,6 +10,8 @@ on:
       - tools/probe_godot_macos.swift
       - tools/verify_godot_macos.py
       - tests/test_godot_macos_validation.py
+      - tests/test_godot_bridge.py
+      - plugins/godot/GameQaBridge.gd
 
 permissions:
   contents: read

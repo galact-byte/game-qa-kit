@@ -162,7 +162,9 @@ def run(root, runtime, probe):
             result['proofs'].append({'phase': name, **row})
 
         proof('before-input')
-        result['paused_observation'] = until(status, lambda row: row['frame'] > initial['frame'] and row['observation_seq'] > initial['observation_seq'])
+        covered = status()
+        result['covered_observation_baseline'] = covered
+        result['paused_observation'] = until(status, lambda row: row['frame'] > covered['frame'] and row['observation_seq'] > covered['observation_seq'])
         before = action('resume', 'resume')
         after = action('right10', 'move', 10, direction='right')
         assert fixture()['x'] == 100, fixture()
