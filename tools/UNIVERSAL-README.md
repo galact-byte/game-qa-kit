@@ -1,6 +1,8 @@
 # macOS／Linux 通用测试版
 
-本包用于体验界面、编辑游戏配置、查看存档快照和复核已有证据。无需安装 Python。游戏窗口截图、持续采集、桌面输入和游戏后台控制目前仅在 Windows 版开放。
+本包可编辑游戏配置、查看存档快照和复核已有证据，无需安装 Python。macOS 14 及更新版本的 Apple Silicon 另提供窗口截图、持续观察、人工标记与证据归档；首次使用请按系统提示授予屏幕录制权限。
+
+该采集功能目前只完成云端自写 AppKit 窗口的源码及冻结验证。Metal 画面仍有重复帧，普通用户桌面、首次授权／拒绝／撤权和真实游戏尚未验收，请核对实际截图是否更新。macOS Intel 与默认 Linux 入口仍只提供公共功能；桌面键鼠输入仅在 Windows 开放，实验 Godot 后台控制默认关闭。
 
 ## 打开程序
 
@@ -22,7 +24,7 @@ Linux x64 构建基于 Ubuntu 22.04，要求 glibc 2.35 或更新版本；arm64 
 
 ## MCP
 
-MCP 使用同一个可执行文件，增加 `--mcp` 参数：macOS 的命令为 `GameQA.app/Contents/MacOS/GameQA`，Linux 为 `GameQA/GameQA`。通用版只提供配置、快照、报告和引擎识别等公共工具；`platform_info` 可查询当前能力。
+MCP 使用同一个可执行文件，增加 `--mcp` 参数：macOS 的命令为 `GameQA.app/Contents/MacOS/GameQA`，Linux 为 `GameQA/GameQA`。各平台均提供配置、快照、报告和引擎识别等公共工具；`platform_info` 可查询当前能力。符合上述系统要求的 Apple Silicon 包另开放观察、人工标记和采集相关工具。固定 Godot 自写实验组件需单独准备并显式启用，其他平台或引擎不会据此开放后台控制。
 
 ## 反馈
 

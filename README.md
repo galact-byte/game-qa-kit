@@ -37,7 +37,9 @@
 
 从 [Releases](https://github.com/galact-byte/game-qa-kit/releases/latest) 按系统和芯片下载 x64 或 arm64 程序包。macOS 解压后打开 `GameQA.app`；Linux 解压后打开 `GameQA/GameQA`，无需安装 Python。
 
-这些平台可使用配置读写、存档快照、已有证据复核和公共 MCP 工具。游戏窗口采集、持续盯屏与引擎后台控制目前仍限 Windows。
+这些平台可使用配置读写、存档快照、已有证据复核和公共 MCP 工具。`v0.4.3` 正式包的游戏窗口采集、持续盯屏与引擎后台控制仍限 Windows。
+
+当前源码另已接入 macOS 14 及更新版本的 Apple Silicon 窗口采集、人工标记和证据归档。云端自写 AppKit 窗口已通过源码及冻结验证；Metal 画面仍有重复帧，普通用户桌面、首次授权／撤权和真实游戏尚未验收。Godot 后台控制仅对显式启用的固定自写实验组件通过受管验收，默认关闭；Intel、Linux 和其他引擎的范围见[跨平台说明](docs/UNIVERSAL-BUILD.md)。
 
 macOS 包采用临时签名，尚未获得开发者签名或公证。Linux x64 要求 glibc 2.35 或更新版本，arm64 要求 glibc 2.39 或更新版本；较旧系统、Wayland 和日常桌面使用尚未验证。下载、数据目录和兼容范围见[跨平台说明](docs/UNIVERSAL-BUILD.md)。
 
