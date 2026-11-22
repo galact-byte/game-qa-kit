@@ -40,7 +40,7 @@ class MacManagedContractTests(unittest.TestCase):
     def test_unregistered_runtime_cannot_supply_its_own_digest(self):
         from plugins.godot import prepare
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             (root / 'godot-runtime-macos-arm64').write_bytes(b'not a registered runtime')
             (root / 'component.json').write_text(json.dumps({'runtime_sha256': 'caller supplied'}), encoding='utf-8')
             with mock.patch.object(sys, 'platform', 'darwin'):
