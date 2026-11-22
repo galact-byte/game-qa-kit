@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import sys
 
 from .engines import inspect_game
 
@@ -101,7 +102,8 @@ def inspect(path, *, artifacts=None):
         result['blockers'] = godot.inspect(result['root'], artifacts)
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
         if not result['blockers']:
-            result.update(adapter='godot_authored', profile_id='godot-4.5.1-authored-fixed')
+            result.update(adapter='godot_authored', profile_id=(godot.component().get('component_id')
+                          if sys.platform == 'darwin' else 'godot-4.5.1-authored-fixed'))
     elif result['engine'] == 'renpy_authored_candidate':
         from plugins.renpy import prepare as renpy
         result['blockers'] = renpy.inspect(result['root'], artifacts)
@@ -296,9 +298,12 @@ def make_plan(source, destination, *, artifacts):
         payload = dict(schema_version=1, backend='godot_authored', engine='godot', source=str(source),
                        destination=str(destination), artifacts=str(artifacts),
                        source_digests=godot.source_digests(source), artifact_digests=godot.artifact_digests(artifacts),
-                       data_policy='blank-authored-godot-private-user-dir', desktop='private',
+                       data_policy='blank-authored-godot-private-user-dir',
+                       desktop='nonactivating' if sys.platform == 'darwin' else 'private',
+                       platform='darwin-arm64' if sys.platform == 'darwin' else 'win32-x64',
                        changes=['只复制已登记自写场景、固定运行时与工具自带的控制桥，不带存档',
-                                '使用独立桌面和会话内用户目录；暂停等首图，不自动输入',
+                                ('使用不激活窗口和会话内用户目录；暂停等首图，不自动输入' if sys.platform == 'darwin'
+                                 else '使用独立桌面和会话内用户目录；暂停等首图，不自动输入'),
                                 '结束自有进程，保留截图和回执；不支持商业游戏'])
         return {**payload, 'fingerprint': fingerprint(payload)}
     if result['engine'] == 'renpy_authored_candidate':

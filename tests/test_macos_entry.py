@@ -50,7 +50,7 @@ with tempfile.TemporaryDirectory() as tmp:
     marked = watch.mark('人工标记', p.proc, p.state_dir, p.watch_dir, target_source=source)
     assert Path(marked['marked']).is_file(), marked
     from gameqakit import mcp_server
-    names = set(mcp_server.TOOLS)
+    names = {row['name'] for row in mcp_server.handle('tools/list', {})['tools']}
     assert {'capture','win','mark','watch_start','watch_stop','processes'} <= names, names
     assert not ({'click','key','load','kill_game','game_start'} & names), names
 print('macOS 观察、标记、来源与工具边界通过')

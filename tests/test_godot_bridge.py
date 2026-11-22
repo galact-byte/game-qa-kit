@@ -19,7 +19,7 @@ BRIDGE = Path(__file__).resolve().parents[1] / 'plugins/godot/GameQaBridge.gd'
 RUNTIME = os.environ.get('GAMEQAKIT_TEST_GODOT', '')
 
 
-def fixture_pack(path, *, black=False, bright_speck=False, no_focus=False, render_control=False):
+def fixture_pack(path, *, black=False, bright_speck=False, no_focus=False, render_control=False, native_opengl=False):
     """自写场景以真实 Input 查询移动方块，不替桥生成动作或回执。"""
     files = {
         '.godot/global_script_class_cache.cfg': b'list=[]\n',
@@ -102,6 +102,11 @@ func _process(_delta):
 ''').replace(b'        "clicks": clicks, "confirms": confirms,\n', b'''        "clicks": clicks, "confirms": confirms,
         "render_loop_enabled": RenderingServer.render_loop_enabled,
 ''')
+    if native_opengl:
+        # Windows 桥夹具固定原生 OpenGL，避免 ANGLE 自动检测的 WMI 查询占用启动预算。
+        files['project.godot'] = files['project.godot'].replace(
+            b'renderer/rendering_method="gl_compatibility"\n',
+            b'renderer/rendering_method="gl_compatibility"\ngl_compatibility/fallback_to_angle=false\n')
     if no_focus:
         files['project.godot'] = files['project.godot'].replace(
             b'[display]\n', b'[display]\nwindow/size/no_focus=true\n')
@@ -138,7 +143,7 @@ class GodotBridgeTests(unittest.TestCase):
     def start(self, *, black=False, bright_speck=False, wrong_session=False, render_control=False):
         from gameqakit.desktop import DesktopProcess
         fixture_pack(self.root / 'fixture.pck', black=black, bright_speck=bright_speck,
-                     render_control=render_control)
+                     render_control=render_control, native_opengl=True)
         self.host = DesktopProcess([str(self.exe), '--main-pack', str(self.root / 'fixture.pck'),
             '--script', str(BRIDGE), '--audio-driver', 'Dummy', '--max-fps', '60',
             '--log-file', str(self.root / 'godot.log')], cwd=self.root, env={
@@ -200,6 +205,27 @@ class GodotBridgeTests(unittest.TestCase):
         again = self.client.action('move', direction='right', frames=10, command_id='right')
         self.assertEqual(again['screenshot_sha256'], result['screenshot_sha256'])
         self.assertEqual(self.fixture()['x'], 100)
+
+    def test_released_status_is_visible_when_action_receipt_appears(self):
+        from unittest.mock import patch
+        bridge = self.root / 'delayed-receipt-bridge.gd'
+        original = BRIDGE.read_text(encoding='utf-8')
+        publication = '    return success and DirAccess.rename_absolute(target + ".part", target) == OK'
+        self.assertEqual(original.count(publication), 1)
+        bridge.write_text(original.replace(publication, '''    var published = success and DirAccess.rename_absolute(target + ".part", target) == OK
+    if name == "results/right.json":
+        OS.delay_msec(350)
+    return published'''), encoding='utf-8')
+        # 只延长真实文件发布间隙，输入、松键和取图仍执行原桥逻辑。
+        with patch(__name__ + '.BRIDGE', bridge):
+            self.start()
+        self.client.resume(command_id='resume')
+        result = self.client.action('move', direction='right', frames=10, command_id='right')
+        state = self.client.status()
+        self.assertGreaterEqual(state['frame'], result['frame'])
+        self.assertEqual(state['held'], [])
+        self.assertEqual(self.fixture()['x'], 100)
+        self.assertFalse(self.fixture()['right_pressed'])
 
     def test_click_reaches_normal_gui_and_mouse_is_released(self):
         self.start()
@@ -285,13 +311,20 @@ class GodotBridgeTests(unittest.TestCase):
         self.client.resume(command_id='resume')
         self.raw_request('long', {'action': 'move', 'direction': 'right', 'frames': 120})
         self.until(lambda: self.fixture().get('right_pressed'))
-        # 只阻断夹具的下一次 PNG 原子写入，复现真实发布失败路径。
-        (self.directory / 'screenshots/observation.png.part').mkdir()
+        # 避开正在完成的临时文件写入，再阻断下一次 PNG 原子写入。
+        def block_next_capture():
+            try:
+                (self.directory / 'screenshots/observation.png.part').mkdir()
+            except FileExistsError:
+                return False
+            return True
+        self.until(block_next_capture)
         self.until(lambda: self.client.status().get('error') == 'capture_write_failed')
         self.until(lambda: not self.fixture().get('right_pressed'))
         self.assertTrue(self.client.status()['paused'])
         self.assertEqual(self.client.status()['capabilities'], [])
         self.assertEqual(self.client.result('long')['status'], 'failed')
+        self.assertEqual(self.client.result('long')['error'], 'capture_write_failed')
 
     def test_first_frame_capture_failure_does_not_hide_consumed_input(self):
         self.start()
@@ -334,7 +367,9 @@ class GodotBridgeTests(unittest.TestCase):
 
     def test_atomic_lease_renewal_does_not_pause_live_bridge(self):
         self.start()
-        self.client.resume(command_id='resume')
+        resumed = self.client.resume(command_id='resume')
+        # 回执先于状态文件发布；先等同一帧状态，避免把启动暂停误判成续租失效。
+        self.until(lambda: self.client.status().get('frame', -1) >= resumed['frame'])
         stop = threading.Event()
 
         def renew():

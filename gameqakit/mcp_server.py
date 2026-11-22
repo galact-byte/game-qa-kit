@@ -377,16 +377,23 @@ TOOLS = {
 
 
 TOOLS['platform_info'] = ('查询当前平台、架构及本版本可用功能。', _obj({}), lambda _a: platform_info())
-if sys.platform != 'win32':
-    _COMMON_TOOLS = {'platform_info', 'profile', 'save', 'list_saves', 'watch_report',
-                     'watch_status', 'watch_events', 'engine_inspect'}
-    if platform_info()['features']['window_capture']:
-        _COMMON_TOOLS |= {'win', 'capture', 'mark', 'watch_start', 'watch_stop', 'processes'}
-    TOOLS = {name: tool for name, tool in TOOLS.items() if name in _COMMON_TOOLS}
+def _available_tools():
+    if sys.platform == 'win32':
+        return TOOLS
+    common = {'platform_info', 'profile', 'save', 'list_saves', 'watch_report',
+              'watch_status', 'watch_events', 'engine_inspect'}
+    features = platform_info()['features']
+    if features['window_capture']:
+        common |= {'win', 'capture', 'mark', 'watch_start', 'watch_stop', 'processes'}
+    if features['godot_managed']:
+        common |= {'game_inspect', 'game_prepare', 'game_start', 'game_stop', 'game_bind',
+                   'game_unbind', 'game_status', 'control_status', 'control_action',
+                   'control_result', 'control_pause', 'control_resume'}
+    return {name: tool for name, tool in TOOLS.items() if name in common}
 
 
 def _tool_list():
-    return [{"name": n, "description": d, "inputSchema": s} for n, (d, s, _) in TOOLS.items()]
+    return [{"name": n, "description": d, "inputSchema": s} for n, (d, s, _) in _available_tools().items()]
 
 
 def handle(method, params):
@@ -400,7 +407,7 @@ def handle(method, params):
     if method == "tools/call":
         name = params.get("name")
         args = params.get("arguments") or {}
-        if name not in TOOLS:
+        if name not in _available_tools():
             raise ValueError(f"未知工具: {name}")
         if _BINDING.engaged and name in {'click', 'key', 'load', 'kill_game', 'save', 'list_saves',
                                         'capture', 'win', 'mark', 'watch_start', 'watch_stop',

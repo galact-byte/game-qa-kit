@@ -1,8 +1,11 @@
 """Reject a transient or stale foreground change before background inputs."""
 import time
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from tools import verify_godot_macos as verification
+from tools import verify_godot_macos_managed as managed
 
 
 class GodotFocusGuardTests(unittest.TestCase):
@@ -36,6 +39,30 @@ class GodotFocusGuardTests(unittest.TestCase):
         for row in ({}, self.state(samples=0)):
             with self.subTest(row=row), self.assertRaises(AssertionError):
                 verification.check_focus(row, 42, 7)
+
+
+class ManagedInterruptionTests(unittest.TestCase):
+    ready = {'pid': 11, 'worker_pid': 12, 'host_supervisor_pid': 13, 'focus_monitor_pid': 14}
+
+    def test_waits_for_creator_owned_supervisor_after_inner_processes_exit(self):
+        client = mock.Mock()
+        client.call.side_effect = [
+            {'state': 'connection_lost', 'worker_alive': True, 'can_stop': True},
+            {'state': 'interrupted_unverified', 'worker_alive': False, 'can_stop': False},
+        ]
+        with mock.patch.object(managed, '_pid_path', return_value=''):
+            final = managed.await_interrupted(client, Path('session'), self.ready)
+        self.assertFalse(final['worker_alive'])
+        self.assertEqual(client.call.call_count, 2)
+
+    def test_live_supervisor_still_fails_within_original_eight_second_budget(self):
+        client = mock.Mock()
+        client.call.return_value = {'state': 'connection_lost', 'worker_alive': True, 'can_stop': True}
+        with (mock.patch.object(managed, '_pid_path', return_value=''),
+              mock.patch('tools.verify_macos_product.time.monotonic', side_effect=[0, 0, 9]),
+              mock.patch('tools.verify_macos_product.time.sleep')):
+            with self.assertRaisesRegex(RuntimeError, '超时'):
+                managed.await_interrupted(client, Path('session'), self.ready)
 
 
 if __name__ == '__main__':

@@ -350,6 +350,8 @@ func _after_render():
             "ok": true, "consumed": true, "frame": frame, "capture_frame": frame,
             "screenshot": relative, "paused": input_paused}
         result.merge(_view())
+        # 客户端看到完成回执时，必须已经能读到松键后的状态。
+        _status(true)
         if not _write("results/" + request.id + ".json", result):
             _fail("result_write_failed")
             return

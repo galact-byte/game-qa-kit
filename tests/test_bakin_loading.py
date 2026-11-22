@@ -1,5 +1,6 @@
 """Bakin loading is an explicit, bounded extension of the duration protocol."""
 import unittest
+from unittest import mock
 import hashlib
 import os
 from pathlib import Path
@@ -107,11 +108,11 @@ class LoadingClientTests(unittest.TestCase):
                         loading_deadline_monotonic_ms=int((time.monotonic()+299)*1000),
                         blank_frame=False, scene='MAP', map_loading=False, map_fade='None', loading_protocol=1)
         progress.update(updates)
-        write_json(self.root/'progress/load_one.json', progress)
         write_json(self.root/'progress/load_one/3.json', progress)
         write_json(self.root/'pause.json', dict(session_id='fixture', id='load_pause'))
         write_json(self.root/'status.json', dict(self.state, paused=True, pause_id='load_pause',
                    observation_seq=3, loading=dict(command_id='load_one', pause_id='load_pause', phase='loading')))
+        write_json(self.root/'progress/load_one.json', progress)
         return progress
 
     def stored_request(self):
@@ -119,6 +120,19 @@ class LoadingClientTests(unittest.TestCase):
                      payload=dict(action='confirm', duration_ms=100, loading_mode=MODE))
         write_json(self.root/'requests/load_one.json', value)
         return value
+
+    def test_progress_publication_already_has_matching_pause_and_status(self):
+        self.stored_request()
+        publish = write_json
+
+        def verify(path, value):
+            publish(path, value)
+            if path == self.root / 'progress/load_one.json':
+                self.assertTrue(self.client.result('load_one')['in_progress'])
+
+        with mock.patch(__name__ + '.write_json', side_effect=verify):
+            self.progress()
+            self.loading_without_image()
 
     def test_loading_submit_returns_pending_without_timeout_pause_or_reconfirmation(self):
         def respond():
@@ -144,10 +158,10 @@ class LoadingClientTests(unittest.TestCase):
                      press_consumed=True, release_consumed=False, observation_pending=True,
                      observation_seq=2, loading_deadline_monotonic_ms=int((time.monotonic()+299)*1000))
         value.update(updates)
-        write_json(self.root/'progress/load_one.json', value)
         write_json(self.root/'pause.json', dict(session_id='fixture', id='load_pause'))
         write_json(self.root/'status.json', dict(self.state, paused=True, pause_id='load_pause',
                    loading=dict(command_id='load_one', pause_id='load_pause', phase='loading')))
+        write_json(self.root/'progress/load_one.json', value)
         return value
 
     def test_loading_submit_returns_progress_while_rendering_is_unavailable(self):

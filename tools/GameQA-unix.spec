@@ -11,6 +11,8 @@ licenses = [(str(ROOT / 'LICENSE'), 'licenses/game-qa-kit'),
             (str(ROOT / 'tools/licenses'), 'licenses/open-source'),
             (str(ROOT / 'plugins/native_input/samples/srpgstudio-x86-fixed.json'),
              'plugins/native_input/samples')]
+licenses += [(str(ROOT / 'plugins/godot/GameQaBridge.gd'), 'plugins/godot'),
+             (str(ROOT / 'plugins/godot/macos-arm64-component.json'), 'plugins/godot')]
 metadata = []
 native_binaries = []
 if sys.platform == 'darwin' and platform.machine() == 'arm64':
@@ -31,9 +33,11 @@ a = Analysis([str(ROOT / 'tools/portable_entry.py')], pathex=[str(ROOT)], binari
              hiddenimports=['gameqakit.gui', 'gameqakit.cli', 'gameqakit.mcp_server',
                             'gameqakit.sessions', 'gameqakit.startup_check',
                             'gameqakit.macos_capture', 'gameqakit.x11_capture',
-                            'gameqakit.x11_helper', 'gameqakit.x11_native'],
+                            'gameqakit.x11_helper', 'gameqakit.x11_native',
+                            'gameqakit.game_worker', 'gameqakit.macos_process',
+                            'plugins.godot.prepare', 'plugins.godot.session'],
              excludes=['gameqakit.win32', 'gameqakit.inputs', 'gameqakit.desktop',
-                       'gameqakit.game_worker', 'gameqakit.background_agent',
+                       'gameqakit.background_agent',
                        'torch', 'torchvision', 'ultralytics', 'easyocr', 'paddleocr',
                        'paddle', 'cv2', 'onnxruntime', 'numpy', 'matplotlib', 'scipy',
                        'tensorflow', 'IPython', 'tkinter', 'pytest'], noarchive=False)

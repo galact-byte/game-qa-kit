@@ -2,16 +2,32 @@ name: Godot isolated no-focus runtime validation
 
 on:
   workflow_dispatch:
+    inputs:
+      managed:
+        description: 'Run the managed product chain instead of the standalone probe'
+        type: boolean
+        default: false
+      component_run_id:
+        description: 'Measured managed component run id; empty builds only'
+        type: string
+        default: ''
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: godot-no-focus-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  managed:
+    if: inputs.managed == true
+    uses: ./.github/workflows/godot-macos-managed.yml
+    with:
+      component_run_id: ${{ inputs.component_run_id }}
   godot:
+    if: inputs.managed != true
     runs-on: macos-15
     timeout-minutes: 45
     env:
