@@ -65,6 +65,17 @@ def await_state(client, directory, expected):
                       (expected not in ('failed', 'cleanup_failed', 'stopped') or not r['worker_alive']), timeout=25)
 
 
+def await_interrupted(client, directory, ready):
+    def read():
+        paths = [_pid_path(ready[k]) for k in ('pid', 'worker_pid', 'host_supervisor_pid', 'focus_monitor_pid')]
+        return paths, client.call('game_status', directory=str(directory))
+
+    # 内层目标已消失时，创建者持有的外层监督器仍可能正在完成回收。
+    _, final = wait_value(read, lambda row: not any(row[0]) and row[1]['worker_alive'] is False, timeout=8)
+    assert final['state'] == 'interrupted_unverified' and final['can_stop'] is False, final
+    return final
+
+
 def verify_interruptions(owner, observer, session, bridge):
     evidence = {}
     # 第二个实际 MCP 客户端可暂停正在执行的动作，但不能取得创建者的停止权。
@@ -198,10 +209,7 @@ def run_case(root, components, probe, executable=None, ending='stop'):
                 result['interruptions'] = verify_interruptions(owner, other, session, bridge)
         if ending == 'worker-kill':
             os.kill(ready['worker_pid'], signal.SIGKILL)
-            wait_value(lambda: [_pid_path(ready[k]) for k in ('pid', 'worker_pid', 'host_supervisor_pid', 'focus_monitor_pid')],
-                       lambda rows: not any(rows), timeout=8)
-            final = owner.call('game_status', directory=str(session))
-            assert final['state'] == 'interrupted_unverified' and final['can_stop'] is False, final
+            final = await_interrupted(owner, session, ready)
         elif ending == 'target-exit':
             os.kill(ready['pid'], signal.SIGKILL)
             final = await_state(owner, session, 'cleanup_failed')

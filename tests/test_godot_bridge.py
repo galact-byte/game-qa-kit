@@ -311,13 +311,20 @@ class GodotBridgeTests(unittest.TestCase):
         self.client.resume(command_id='resume')
         self.raw_request('long', {'action': 'move', 'direction': 'right', 'frames': 120})
         self.until(lambda: self.fixture().get('right_pressed'))
-        # 只阻断夹具的下一次 PNG 原子写入，复现真实发布失败路径。
-        (self.directory / 'screenshots/observation.png.part').mkdir()
+        # 避开正在完成的临时文件写入，再阻断下一次 PNG 原子写入。
+        def block_next_capture():
+            try:
+                (self.directory / 'screenshots/observation.png.part').mkdir()
+            except FileExistsError:
+                return False
+            return True
+        self.until(block_next_capture)
         self.until(lambda: self.client.status().get('error') == 'capture_write_failed')
         self.until(lambda: not self.fixture().get('right_pressed'))
         self.assertTrue(self.client.status()['paused'])
         self.assertEqual(self.client.status()['capabilities'], [])
         self.assertEqual(self.client.result('long')['status'], 'failed')
+        self.assertEqual(self.client.result('long')['error'], 'capture_write_failed')
 
     def test_first_frame_capture_failure_does_not_hide_consumed_input(self):
         self.start()
