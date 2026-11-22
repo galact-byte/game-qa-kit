@@ -38,11 +38,10 @@ def run(root, runtime, probe):
         result['version'] = version
         help_text = subprocess.run([str(runtime), '--help'], capture_output=True, text=True, check=True, timeout=15).stdout
         (root / 'runtime-help.txt').write_text(help_text)
-        assert '--no-focus' in help_text, '运行时未提供不请求窗口焦点的启动参数'
-        fixture_pack(root / 'fixture.pck')
+        fixture_pack(root / 'fixture.pck', no_focus=True)
         result['pack_sha256'] = hashlib.sha256((root / 'fixture.pck').read_bytes()).hexdigest()
         args = [str(runtime), '--main-pack', str(root / 'fixture.pck'), '--script', str(ROOT / 'plugins/godot/GameQaBridge.gd'),
-                '--audio-driver', 'Dummy', '--max-fps', '60', '--no-focus', '--position', '100,200', '--log-file', str(root / 'godot.log')]
+                '--audio-driver', 'Dummy', '--max-fps', '60', '--position', '100,200', '--log-file', str(root / 'godot.log')]
         env = dict(os.environ, HOME=str(root / 'home'), TMPDIR=str(root / 'tmp'), XDG_DATA_HOME=str(root / 'data'),
                    GAMEQAKIT_BRIDGE_DIR=str(directory), GAMEQAKIT_SESSION_ID=session,
                    GAMEQA_FIXTURE_STATE=str(root / 'fixture-state.json'))

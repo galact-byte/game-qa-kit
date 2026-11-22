@@ -19,7 +19,7 @@ BRIDGE = Path(__file__).resolve().parents[1] / 'plugins/godot/GameQaBridge.gd'
 RUNTIME = os.environ.get('GAMEQAKIT_TEST_GODOT', '')
 
 
-def fixture_pack(path, *, black=False, bright_speck=False):
+def fixture_pack(path, *, black=False, bright_speck=False, no_focus=False):
     """自写场景以真实 Input 查询移动方块，不替桥生成动作或回执。"""
     files = {
         '.godot/global_script_class_cache.cfg': b'list=[]\n',
@@ -95,6 +95,9 @@ func _process(_delta):
 ''' % ('true' if black else 'false', 'true' if black else 'false',
        'true' if black else 'false', 'true' if bright_speck else 'false')).encode(),
     }
+    if no_focus:
+        files['project.godot'] = files['project.godot'].replace(
+            b'[display]\n', b'[display]\nwindow/size/no_focus=true\n')
     index, contents = struct.pack('<I', len(files)), b''
     for name, data in files.items():
         encoded = ('res://' + name).encode() + b'\0'
