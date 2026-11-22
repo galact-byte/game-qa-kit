@@ -1,32 +1,40 @@
-# macOS／Linux 通用测试版构建
+# macOS 与 Linux 程序包
 
-已发布通用测试包的交付目标是软件可启动并能使用公共功能：配置读写、存档快照、已有证据复核、公共 MCP 工具。该批包在非 Windows 系统上禁用游戏窗口采集、持续盯屏、桌面输入和引擎后台控制。Windows 的既有引擎验收不能外推到其他系统。
+v0.4.3 起，正式 Release 提供 macOS Intel、macOS Apple Silicon、Linux x64 和 Linux arm64 四种独立程序包，与 Windows 包共用 `SHA256SUMS.txt`。
 
-开发中的 macOS arm64 采集分支已另行原生构建 Swift 组件及冻结应用：cloud-22 的源码／冻结 AppKit 产品链分别通过遮挡新图、冻结反例、尺寸变化、并发观察／人工标记、归档与退出，各独立核对 33 张 PNG；真实组件故障与恢复各通过 11 项、各回收 12 个辅助进程且无残留。Metal 仍有重复计数，完整产品验收未通过，首次授权／撤权、普通用户桌面与真实游戏未验。这些结果不改变下文旧测试包的功能范围；实施及限制见[接入设计](MACOS-ARM-CAPTURE-DESIGN.md)。
+## 下载与运行
 
-## 构建目标
+从 [Releases](https://github.com/galact-byte/game-qa-kit/releases/latest) 按系统和芯片选择 `.tar.gz`，完整解压后运行：
 
-| 产物 | 原生构建环境 | 架构 |
+| 平台 | 程序入口 | 兼容范围 |
 | --- | --- | --- |
-| macOS 测试包 | GitHub `macos-15-intel` | x64／Intel |
-| macOS 测试包 | GitHub `macos-15` | arm64／Apple Silicon |
-| Linux 测试包 | GitHub `ubuntu-22.04` | x64 |
-| Linux 测试包 | GitHub `ubuntu-24.04-arm` | arm64 |
+| macOS Intel | `GameQA.app` | x64；临时签名，尚未公证 |
+| macOS Apple Silicon | `GameQA.app` | arm64；临时签名，尚未公证 |
+| Linux x64 | `GameQA/GameQA` | glibc 2.35 或更新版本 |
+| Linux arm64 | `GameQA/GameQA` | glibc 2.39 或更新版本 |
 
-两个架构分别提供包，不提供合并架构包。Linux 目标分别要求 glibc 2.35／2.39；这来自构建环境与固定 Qt wheel 的最低要求，不包含 Alpine／musl 支持。macOS 使用临时签名，不具备开发者签名或公证；较旧 macOS、Wayland 桌面和各发行版的日常使用仍需反馈。
+无需另装 Python。Linux 包内附中文字体；Alpine／musl 不在支持范围内。较旧 macOS、Wayland 与各发行版的日常桌面使用尚未验证。
 
-## 已验证测试包
+## 可以使用的功能
 
-版本 `v0.4.2-universal-test`，源码 `3532d01e61f7dc5261d24424769dd1e4e04e6b2b`。[运行 44746750109](https://github.com/galact-byte/game-qa-kit/actions/runs/44746750109) 的四个 job 全部通过，各平台 12 项公共入口回归、冻结程序自检及 Cocoa／X11 桌面启动检查通过；8 份结果 JSON 与四张桌面截图已回读，中文正常。
+macOS／Linux 可以配置项目、处理存档快照、复核已有证据并使用公共 MCP 工具。游戏窗口采集、持续盯屏、桌面输入和引擎后台控制目前仍限 Windows。
 
-| 平台 | 下载 artifact |
+开发分支中的采集实验不代表正式程序包已支持该功能。Windows 上验证过的游戏和控制桥也不能直接视为支持其他系统。
+
+## 升级与数据
+
+升级前结束旧会话，并保留自己的配置与数据。macOS 使用用户的 Application Support 目录，Linux 使用 XDG 目录。详细位置和使用方法见随包说明，源码在 [UNIVERSAL-README](../tools/UNIVERSAL-README.md)。
+
+## 构建环境
+
+四个平台分别使用原生环境构建，不提供合并架构包。
+
+| 目标 | GitHub runner |
 | --- | --- |
-| macOS Apple Silicon | [universal-macos-arm64](https://github.com/galact-byte/game-qa-kit/actions/runs/44746750109/artifacts/14632958547) |
-| macOS Intel | [universal-macos-x64](https://github.com/galact-byte/game-qa-kit/actions/runs/44746750109/artifacts/14633417025) |
-| Linux x64 | [universal-linux-x64](https://github.com/galact-byte/game-qa-kit/actions/runs/44746750109/artifacts/14633152854) |
-| Linux arm64 | [universal-linux-arm64](https://github.com/galact-byte/game-qa-kit/actions/runs/44746750109/artifacts/14634081145) |
-
-Actions 下载需登录 GitHub；artifact 保留 14 天。每份下载包含 `.tar.gz` 程序包和 SHA-256 文件，解压外层下载文件后再解压程序包。用户真实桌面的日常交互与 Wayland 仍待反馈。
+| macOS x64 | `macos-15-intel` |
+| macOS arm64 | `macos-15` |
+| Linux x64 | `ubuntu-22.04` |
+| Linux arm64 | `ubuntu-24.04-arm` |
 
 ## 本地构建
 
@@ -34,7 +42,7 @@ Actions 下载需登录 GitHub；artifact 保留 14 天。每份下载包含 `.t
 
 ```bash
 python -m pip install --only-binary=:all: -r tools/requirements-unix.txt
-python -B tools/build_unix.py --version v0.4.1-universal-test --output /path/to/new-build
+python -B tools/build_unix.py --version <构建版本> --output /path/to/new-build
 ```
 
 Linux 构建环境还须具备 `fonts-noto-cjk` 和 Qt X11 依赖（含 `libxcb-shape0`）；工作流安装这些构建依赖。Noto 字体与完整许可一起装入 Linux 包并由应用加载，不要求试用者自行安装中文字体。
@@ -48,7 +56,7 @@ Linux 构建环境还须具备 `fonts-noto-cjk` 和 Qt X11 依赖（含 `libxcb-
 手动工作流 `.github/workflows/universal-desktop.yml` 的四个 Unix 构建最多同时运行两个，Windows x64 候选单独构建；不创建标签或 GitHub Release。Unix 任务先跑公共入口测试，再构建四种产物，并在 Linux X11 虚拟显示／macOS Cocoa 下执行启动自检。Windows 任务使用既有固定依赖，运行可用回归、构建便携包并执行实际 EXE 自检，上传 ZIP、摘要和自检 JSON。五目标候选均来自同一提交；仅正式发布的复用调用跳过此 Windows 候选任务，继续使用发布入口自身的 Windows 构建。包和 JSON／PNG 验证记录分别作为保留 14 天的 artifacts。
 
 ```bash
-gh workflow run universal-desktop.yml --ref <构建分支> -f version=v0.4.1-universal-test
+gh workflow run universal-desktop.yml --ref <构建分支> -f version=<构建版本>
 ```
 
 工作流和目标提交必须已在远端，手动工作流文件需先进入默认分支。若某一架构失败，其他架构仍继续构建；只有相应检查全部通过才上传该平台测试包。
@@ -57,7 +65,7 @@ gh workflow run universal-desktop.yml --ref <构建分支> -f version=v0.4.1-uni
 
 `.github/workflows/windows-release.yml` 保留原调用入口，发布时复用本文件的四平台原生构建任务，再汇总 Windows x64 ZIP、macOS x64／arm64 与 Linux x64／arm64 四份 `.tar.gz`。只有五个目标全部通过构建及启动自检，并且每份原始 SHA-256 验证通过，才创建标签与 Release。`tools/assemble_release.py` 拒绝缺少平台、摘要不符、重名或越界资产，输出一份统一的 `SHA256SUMS.txt`。
 
-工作流接入与本地汇总测试不等于已经发布。下次正式版本仍须有对应 `docs/releases/<版本>.md`，并在远端完成构建后回读标签、说明和五份资产；macOS 签名与 Linux 兼容范围沿用上面的限制。
+每次正式发布须准备对应的 `docs/releases/<版本>.md`，完成远端构建后核对标签、说明、五个平台的程序包和统一校验文件。macOS 签名与 Linux 兼容范围沿用上面的限制。
 
 ## 验证口径
 

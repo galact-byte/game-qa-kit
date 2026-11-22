@@ -2,9 +2,9 @@
 
 # game-qa-kit
 
-游戏截图、疑点标记与 AI 测试工具 · Windows
+游戏截图、疑点标记与 AI 测试工具
 
-[**下载 Windows 版**](https://github.com/galact-byte/game-qa-kit/releases/latest) · [MCP 接入指南](docs/MCP.md) · [支持哪些游戏](docs/ENGINE-COVERAGE.md)
+[**下载程序**](https://github.com/galact-byte/game-qa-kit/releases/latest) · [MCP 接入指南](docs/MCP.md) · [支持哪些游戏](docs/ENGINE-COVERAGE.md)
 
 </div>
 
@@ -24,7 +24,7 @@
 
 ## 下载后开始使用
 
-1. 从 [Releases](https://github.com/galact-byte/game-qa-kit/releases/latest) 下载 Windows x64 ZIP，完整解压，双击 **`GameQA.exe`**。不需要安装 Python。
+1. 从 [Releases](https://github.com/galact-byte/game-qa-kit/releases/latest) 下载 Windows x64 ZIP，完整解压，打开 **`GameQA/GameQA.exe`**。不需要安装 Python。
 2. 打开游戏，在主程序中点「新建」，从运行中的程序列表选择游戏，保存并加载配置。
 3. 点「开始盯屏」，切回游戏正常玩。发现问题时，填写备注并点「标记疑点」。
 4. 结束后停止盯屏，等停止完成，再点「汇总复核日志」。
@@ -33,9 +33,13 @@
 
 请保留完整解压目录，EXE 需要旁边的 `_internal`。升级时解压到新目录，再迁移自己的 `profiles/` 和 `data/`；配置中另行指定的数据目录继续使用原路径。
 
-## macOS／Linux 通用测试版
+## macOS 与 Linux
 
-macOS／Linux 通用测试包已完成四个平台的原生构建与启动检查，x64 与 arm64 分别提供包，无需另装 Python。已发布测试包提供配置、存档快照、已有证据复核与公共 MCP 工具；游戏窗口采集和后台控制暂仅在 Windows 开放。构建记录、下载入口和已知限制见 [通用版说明](docs/UNIVERSAL-BUILD.md)。开发中的 macOS arm64 采集分支已分别验证源码和冻结成品的 AppKit 自写窗口；Metal 仍有重复画面，尚未通过完整产品验收，见[接入记录](docs/MACOS-ARM-CAPTURE-DESIGN.md)。下一版 Release 的候选工作流已接入四个平台构建与汇总；正式发布仍须五个目标全部通过，当前尚未发布。
+从 [Releases](https://github.com/galact-byte/game-qa-kit/releases/latest) 按系统和芯片下载 x64 或 arm64 程序包。macOS 解压后打开 `GameQA.app`；Linux 解压后打开 `GameQA/GameQA`，无需安装 Python。
+
+这些平台可使用配置读写、存档快照、已有证据复核和公共 MCP 工具。游戏窗口采集、持续盯屏与引擎后台控制目前仍限 Windows。
+
+macOS 包采用临时签名，尚未获得开发者签名或公证。Linux x64 要求 glibc 2.35 或更新版本，arm64 要求 glibc 2.39 或更新版本；较旧系统、Wayland 和日常桌面使用尚未验证。下载、数据目录和兼容范围见[跨平台说明](docs/UNIVERSAL-BUILD.md)。
 
 ## 让 AI 调用
 
