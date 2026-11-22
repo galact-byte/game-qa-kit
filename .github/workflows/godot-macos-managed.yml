@@ -50,7 +50,10 @@ jobs:
         run: |
           set -euo pipefail
           xcrun swiftc -parse-as-library -swift-version 5 -O -target arm64-apple-macosx14.0 -import-objc-header plugins/macos_capture/ProcessIdentity.h plugins/macos_capture/CaptureHelper.swift -o plugins/macos_capture/GameQACapture -framework AppKit -framework ScreenCaptureKit -framework CoreGraphics
-          python -X utf8 -B -m unittest tests.test_macos_managed -v > validation-output/native-contracts.log 2>&1
+          if ! python -X utf8 -B -m unittest tests.test_macos_managed -v > validation-output/native-contracts.log 2>&1; then
+            cat validation-output/native-contracts.log
+            exit 1
+          fi
       - name: Fetch pinned upstream source for measurement only
         if: inputs.component_run_id == ''
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

@@ -28,7 +28,7 @@ class MacOSProcess:
     def __enter__(self):
         config = json.dumps({'command': self.command, 'cwd': self.cwd, 'env': self.env}, ensure_ascii=False)
         self.process = subprocess.Popen([sys.executable, '-m', 'gameqakit.macos_process', config],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             close_fds=True, start_new_session=True, bufsize=0)
         timer = threading.Timer(5, self.process.kill)
         timer.start()
@@ -68,7 +68,7 @@ class MacOSProcess:
         finally:
             self.process.stdout.close()
         if self.process.returncode != 0:
-            raise RuntimeError('macOS 自有进程组未确认回收')
+            raise RuntimeError(f'macOS 自有进程组未确认回收（监督器退出码 {self.process.returncode}）')
 
     def __exit__(self, *_args):
         self.close()
