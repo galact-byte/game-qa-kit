@@ -34,7 +34,9 @@ Apple 对 [`MTLDrawable.presentedTime`](https://developer.apple.com/documentatio
 
 云端 `44963580724`（`2afddac`）完成原截图、sample buffer 与 AppKit 对照。`<macOS产品实施目录>/cloud-25/independent-frame-timing-review.json` 直接解码 PNG：Metal 改尺寸后仍出现重复像素，sample buffer 的返回时间戳继续增长；AppKit 对照通过。新的缓冲区时间戳不能证明内容新，也不能替代原像素增长判据。
 
-夹具在 `resize` 标记存在后每 150 毫秒重复设置同一尺寸。新增 `GAMEQA_PROBE_RESIZE_ONCE=1` 显式对照只设置一次，不改变原尺寸、采样或默认路径；记录实际设置次数及最近 16 条 drawable 获取／提交 mach 时间、纹理尺寸，用于核对是否存在目标线程停顿。云端批次 `44964046948`（`84327f1`）正在运行，本地 27 项相关回归及工作流语法检查通过，不能提前认定此假设成立。
+夹具在 `resize` 标记存在后每 150 毫秒重复设置同一尺寸。新增 `GAMEQA_PROBE_RESIZE_ONCE=1` 显式对照只设置一次，不改变原尺寸、采样或默认路径；记录实际设置次数及最近 16 条 drawable 获取／提交 mach 时间、纹理尺寸，用于核对是否存在目标线程停顿。云端批次 `44964046948`（`84327f1`）已结束：单次改尺寸仍失败，PNG 计数 `43、44、44、44`。`44964474813` 的局部 autorelease 与关闭显示同步亦均失败；后者改尺寸 PNG `31、32、32、32` 对应目标提交 `31、33、34、36`，这四次 drawable 获取耗时约 0.2～1.7 毫秒。因此约 1 秒等待不能解释全部重复帧，未确定根因。
+
+下一项独立诊断保持默认单窗口过滤，追加 `SCContentFilter(display:including:)` 仅包含目标窗口的显示器过滤与同路径 AppKit 裁剪对照。每次截图重新校验目标 PID、窗口 ID 和边界，以相对显示器的 `sourceRect` 裁剪；默认产品路径不变。Apple [过滤器初始化](https://developer.apple.com/documentation/screencapturekit/sccontentfilter/init(display:including:)) 只承诺包含指定窗口，不证明遮挡 Metal 必然能正常采集；结果以原 PNG、覆盖证据和原判据为准。本地 26 项相关回归通过，Swift 原生编译与执行待云端验证。
 
 ## 回退
 

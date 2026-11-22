@@ -522,7 +522,20 @@ struct Probe {
                 throw ProbeError("Target not found by pid/window id")
             }
             result["target"] = ready
-            let filter = SCContentFilter(desktopIndependentWindow: window)
+            let displayFilterEnabled = ProcessInfo.processInfo.environment["GAMEQA_PROBE_DISPLAY_FILTER"] == "1"
+            let filter: SCContentFilter
+            var captureDisplay: SCDisplay?
+            if displayFilterEnabled {
+                guard mode == "snapshot",
+                      let display = updated.displays.first(where: { $0.frame.contains(window.frame) }) else {
+                    throw ProbeError("Display-filter diagnostic needs a snapshot window contained in one display")
+                }
+                captureDisplay = display
+                filter = SCContentFilter(display: display, including: [window])
+            } else {
+                filter = SCContentFilter(desktopIndependentWindow: window)
+            }
+            result["filter_mode"] = displayFilterEnabled ? "display-including-window" : "desktop-independent-window"
             diagnosticFilter = filter
             let config = SCStreamConfiguration()
             config.width = 320; config.height = 180; config.showsCursor = false
@@ -536,6 +549,17 @@ struct Probe {
             if mode == "snapshot" {
                 sample = {
                     let started = ProcessInfo.processInfo.systemUptime
+                    if let display = captureDisplay {
+                        guard let windows = CGWindowListCopyWindowInfo(.optionIncludingWindow, window.windowID) as? [[String: Any]],
+                              let info = windows.first(where: { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value == window.windowID }),
+                              (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == target.processIdentifier,
+                              let bounds = info[kCGWindowBounds as String] as? [String: Any],
+                              let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary),
+                              display.frame.contains(rect) else {
+                            throw ProbeError("Display-filter diagnostic lost target bounds or identity")
+                        }
+                        config.sourceRect = rect.offsetBy(dx: -display.frame.minX, dy: -display.frame.minY)
+                    }
                     let snapshotFilter: SCContentFilter
                     if ProcessInfo.processInfo.environment["GAMEQA_PROBE_REFRESH_FILTER"] == "1" {
                         let current = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
