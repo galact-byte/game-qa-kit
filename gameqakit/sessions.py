@@ -166,7 +166,7 @@ def start_watch(profile, *, interval=2.0, threshold=4, region=None, downscale=No
                             "state_dir": str(profile.state_dir.resolve()),
                             "title_substr": profile.title_substr, "exe_path": profile.exe_path,
                             "target_pid": profile.target_pid,
-                            **({'target_source': window_backend.find_profile_window(profile)} if sys.platform == 'darwin' else {}),
+                            **({'target_source': window_backend.find_profile_window(profile)} if sys.platform in ('darwin', 'linux') else {}),
                             **options})
         with (directory / "worker.log").open("x", encoding="utf-8") as log:
             child = subprocess.Popen([sys.executable, "-m", "gameqakit.sessions", str(config.resolve())],

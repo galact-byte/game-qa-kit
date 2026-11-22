@@ -36,7 +36,17 @@ Apple 对 [`MTLDrawable.presentedTime`](https://developer.apple.com/documentatio
 
 夹具在 `resize` 标记存在后每 150 毫秒重复设置同一尺寸。新增 `GAMEQA_PROBE_RESIZE_ONCE=1` 显式对照只设置一次，不改变原尺寸、采样或默认路径；记录实际设置次数及最近 16 条 drawable 获取／提交 mach 时间、纹理尺寸，用于核对是否存在目标线程停顿。云端批次 `44964046948`（`84327f1`）已结束：单次改尺寸仍失败，PNG 计数 `43、44、44、44`。`44964474813` 的局部 autorelease 与关闭显示同步亦均失败；后者改尺寸 PNG `31、32、32、32` 对应目标提交 `31、33、34、36`，这四次 drawable 获取耗时约 0.2～1.7 毫秒。因此约 1 秒等待不能解释全部重复帧，未确定根因。
 
-下一项独立诊断保持默认单窗口过滤，追加 `SCContentFilter(display:including:)` 仅包含目标窗口的显示器过滤与同路径 AppKit 裁剪对照。每次截图重新校验目标 PID、窗口 ID 和边界，以相对显示器的 `sourceRect` 裁剪；默认产品路径不变。Apple [过滤器初始化](https://developer.apple.com/documentation/screencapturekit/sccontentfilter/init(display:including:)) 只承诺包含指定窗口，不证明遮挡 Metal 必然能正常采集；结果以原 PNG、覆盖证据和原判据为准。本地 26 项相关回归通过，Swift 原生编译与执行待云端验证。
+追加的 `SCContentFilter(display:including:)` 仅包含目标窗口过滤及 AppKit 裁剪对照已在云端 `44965433507`（cloud-28）执行。默认单窗口与显示过滤的 Metal 组均在完全遮挡后出现重复 PNG，过滤路径假设被否定；AppKit 显示过滤组虽增长但一帧未确认遮挡，仍按失败保留，sample-buffer AppKit 对照通过。默认产品路径、来源身份校验及全部判据不变。
+
+## 冻结目标与重新露出的呈现边界诊断
+
+云端 `44966177418`（`b41a3b0`，cloud-29）已完成独立诊断：原阶段结束后确认自写目标冻结，正常结束自写遮挡进程，再取得四张单窗口图及桌面目标区域。两组始终标为 `diagnostic_only=true`、`passed=false`；该操作不接入产品，不能作为遮挡采集方案，也不追认原失败组。
+
+Metal 目标计数／绘制数在恢复前后均为 36，GPU 原始行独立解码 1～36 均对应提交；四张恢复窗口图与桌面目标区域均为 36。AppKit 对照的相应计数均为 55。Metal 原阶段冻结图为 `35、36、36、36`，按原判据失败；这显示冻结后仍能先取到延迟内容，不能用后来一致的像素覆盖该失败。该组未进入后续改尺寸阶段，不计为改尺寸验收。
+
+两组遮挡进程正常退出、看门狗未超时或强杀，目标已清理。采集阶段前后焦点相同；恢复诊断后没有独立焦点记录，该阶段焦点保持未验证。证据为 `<macOS产品实施目录>/cloud-29/independent-presentation-review-v2.json`，原图、原始状态、GPU 行和首次复核均保留。
+
+这证明停止绘制后，重新露出可以显示已有的最终内容；尚不能唯一判定故障来自目标呈现、WindowServer 合成还是系统采集。当前云端 GPU 为 `Apple Paravirtual device`；继续需要能区分这些边界的实际观测或物理 GPU／普通授权桌面对照，不把虚拟 GPU 属性当作根因，也不继续轮换已否定参数。
 
 ## 回退
 

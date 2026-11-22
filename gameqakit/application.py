@@ -5,7 +5,7 @@ import runpy
 import sys
 
 WORKER_MODULES = {'gameqakit.sessions', 'gameqakit.game_worker', 'gameqakit.mcp_server',
-                  'gameqakit.cli', 'gameqakit.capture_worker', 'plugins.kirikiri.capture_worker'}
+                  'gameqakit.cli', 'gameqakit.x11_helper', 'gameqakit.capture_worker', 'plugins.kirikiri.capture_worker'}
 
 
 def main(argv=None):

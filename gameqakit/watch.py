@@ -107,12 +107,12 @@ def _run_watch(out_dir, proc, state_dir, interval, threshold, region, downscale,
 
     if capture_session is not None:
         session = capture_session
-    elif sys.platform == 'darwin':
-        from .platform_support import require_capture
-        from .macos_capture import MacOSCaptureSession
+    elif sys.platform in ('darwin', 'linux'):
+        from .platform_support import require_capture, window_backend
         require_capture()
         selected = target_source or find_window(proc, title_substr, exe_path=exe_path, pid=target_pid)
-        session = MacOSCaptureSession(selected, interval=interval)
+        session_type = window_backend.MacOSCaptureSession if sys.platform == 'darwin' else window_backend.X11CaptureSession
+        session = session_type(selected, interval=interval)
         status.update(target_source=selected, target_pid=selected['pid'], target_exe_path=selected['exe_path'])
     else:
         session = WindowsCaptureSession(
@@ -251,11 +251,10 @@ def mark(note: str, proc: str, state_dir: Path, watch_dir: Path,
     directory = _active_watch_dir(state_dir, watch_dir) or (Path(watch_dir) / _ts())
     directory.mkdir(parents=True, exist_ok=True)
     out = directory / f"mark_{_ts()}.png"
-    if sys.platform == 'darwin':
-        from .platform_support import require_capture
-        from .macos_capture import _capture_once
+    if sys.platform in ('darwin', 'linux'):
+        from .platform_support import require_capture, window_backend
         require_capture()
-        frame = _capture_once(target_source or find_window(proc, title_substr, exe_path=exe_path, pid=target_pid))
+        frame = window_backend._capture_once(target_source or find_window(proc, title_substr, exe_path=exe_path, pid=target_pid))
         frame.image.save(out, 'PNG')
         row = {'t': frame.captured_at, 'file': out.name, 'note': note, 'hwnd': None,
                'size': list(frame.image.size), 'capture_source': frame.source.metadata(),

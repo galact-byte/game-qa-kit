@@ -109,7 +109,7 @@ def t_watch_mark(a):
     return _watch.mark(a.get("note", ""), p.proc, p.state_dir, p.watch_dir,
                        title_substr=p.title_substr, exe_path=p.exe_path,
                        target_pid=win32.profile_target(p)["pid"],
-                       **({'target_source': win32.find_profile_window(p)} if sys.platform == 'darwin' else {}))
+                       **({'target_source': win32.find_profile_window(p)} if sys.platform in ('darwin', 'linux') else {}))
 
 
 def t_watch_report(a):

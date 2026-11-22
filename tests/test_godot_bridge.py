@@ -13,7 +13,6 @@ import unittest
 
 from PIL import Image, ImageChops
 from gameqakit.control import BridgeClient, write_connection
-from gameqakit.desktop import DesktopProcess
 from gameqakit.sessions import read_json, write_json
 
 BRIDGE = Path(__file__).resolve().parents[1] / 'plugins/godot/GameQaBridge.gd'
@@ -127,6 +126,7 @@ class GodotBridgeTests(unittest.TestCase):
             (self.root / name).mkdir()
 
     def start(self, *, black=False, bright_speck=False, wrong_session=False):
+        from gameqakit.desktop import DesktopProcess
         fixture_pack(self.root / 'fixture.pck', black=black, bright_speck=bright_speck)
         self.host = DesktopProcess([str(self.exe), '--main-pack', str(self.root / 'fixture.pck'),
             '--script', str(BRIDGE), '--audio-driver', 'Dummy', '--max-fps', '60',

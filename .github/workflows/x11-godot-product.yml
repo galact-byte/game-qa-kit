@@ -1,0 +1,161 @@
+name: X11 product and Godot macOS fixture validation
+
+on:
+  push:
+    branches: [experiment/x11-godot-product]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: x11-godot-product-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  x11:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      QT_QPA_PLATFORM: offscreen
+      GAMEQA_X11_VALIDATION: '1'
+      XDG_SESSION_TYPE: x11
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.12.7'
+          architecture: x64
+      - name: Record existing system libraries without installing packages
+        run: |
+          mkdir -p validation-output
+          uname -a > validation-output/environment.txt
+          command -v Xvfb >> validation-output/environment.txt
+          command -v xvfb-run >> validation-output/environment.txt
+          ldconfig -p >> validation-output/environment.txt
+          python -B - <<'PY'
+          import ctypes, ctypes.util
+          for name in ('X11', 'Xcomposite', 'GL'):
+              path = ctypes.util.find_library(name)
+              assert path, name
+              ctypes.CDLL(path)
+          PY
+      - name: Install existing pinned Python requirements
+        run: >-
+          python -m pip install --disable-pip-version-check --only-binary=:all: -r tools/requirements-unix.txt
+      - name: Check capture and product contracts
+        env:
+          GAMEQA_X11_VALIDATION: '0'
+        run: >-
+          python -X utf8 -B -W error::ResourceWarning -m unittest tests.test_x11_capture
+          tests.test_capture_session tests.test_platform_support tests.test_application
+          tests.test_release_assembly tests.test_release_build -v
+      - name: Verify source MCP with CPU and OpenGL windows
+        run: |
+          timeout --signal=TERM --kill-after=5s 90s xvfb-run -a -s '-screen 0 1024x768x24 -nolisten tcp +extension Composite +extension GLX' python -B tools/verify_x11_product.py --root validation-output/source-cpu
+          timeout --signal=TERM --kill-after=5s 90s xvfb-run -a -s '-screen 0 1024x768x24 -nolisten tcp +extension Composite +extension GLX' python -B tools/verify_x11_product.py --root validation-output/source-opengl --renderer opengl
+      - name: Verify source identity, cancellation and server failures
+        run: timeout --signal=TERM --kill-after=5s 90s python -B tools/verify_x11_failures.py --root validation-output/source-failures
+      - name: Build frozen product
+        run: python -X utf8 -B tools/build_unix.py --version v0.4.3-x11-validation --output "$RUNNER_TEMP/x11-product-build"
+      - name: Verify frozen MCP with CPU and OpenGL windows
+        run: |
+          timeout --signal=TERM --kill-after=5s 90s xvfb-run -a -s '-screen 0 1024x768x24 -nolisten tcp +extension Composite +extension GLX' python -B tools/verify_x11_product.py --root validation-output/frozen-cpu --executable "$RUNNER_TEMP/x11-product-build/dist/GameQA/GameQA"
+          timeout --signal=TERM --kill-after=5s 90s xvfb-run -a -s '-screen 0 1024x768x24 -nolisten tcp +extension Composite +extension GLX' python -B tools/verify_x11_product.py --root validation-output/frozen-opengl --renderer opengl --executable "$RUNNER_TEMP/x11-product-build/dist/GameQA/GameQA"
+      - name: Verify frozen helper identity and failure recovery
+        run: timeout --signal=TERM --kill-after=5s 90s python -B tools/verify_x11_failures.py --root validation-output/frozen-failures --executable "$RUNNER_TEMP/x11-product-build/dist/GameQA/GameQA"
+      - name: Upload raw validation evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: x11-product-${{ github.run_id }}-${{ github.run_attempt }}
+          path: validation-output
+          if-no-files-found: error
+          retention-days: 14
+
+  godot:
+    runs-on: macos-15
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.12.7'
+          architecture: arm64
+      - name: Record native environment
+        run: |
+          mkdir -p validation-output
+          uname -a > validation-output/environment.txt
+          sw_vers >> validation-output/environment.txt
+          test "$(uname -m)" = arm64
+      - name: Install existing pinned Python requirements
+        run: >-
+          python -m pip install --disable-pip-version-check --only-binary=:all: -r tools/requirements-unix.txt
+      - name: Download only the approved official Godot asset and verify its digest
+        run: |
+          python -B - <<'PY'
+          import hashlib, json, os, urllib.request, zipfile
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'godot-runtime'
+          root.mkdir()
+          name = 'Godot_v4.5.1-stable_macos.universal.zip'
+          url = 'https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/' + name
+          archive = root / name
+          urllib.request.urlretrieve(url, archive)
+          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+          assert archive.stat().st_size == 160646527
+          assert digest == '65c27959d02aaacfc131ec7ecb90179ba8045200cb02982bf2be96d117010b8a', digest
+          with zipfile.ZipFile(archive) as source:
+              for entry in source.infolist():
+                  assert (root / entry.filename).resolve().is_relative_to(root.resolve())
+              source.extractall(root)
+          executable = root / 'Godot.app/Contents/MacOS/Godot'
+          assert executable.is_file()
+          executable.chmod(0o755)
+          license_url = 'https://raw.githubusercontent.com/godotengine/godot/4.5.1-stable/LICENSE.txt'
+          urllib.request.urlretrieve(license_url, 'validation-output/Godot-LICENSE.txt')
+          assert 'MIT' in Path('validation-output/Godot-LICENSE.txt').read_text()
+          Path('validation-output/download.json').write_text(json.dumps({'url': url, 'bytes': archive.stat().st_size, 'sha256': digest, 'license_source': license_url}, indent=2))
+          PY
+          lipo -archs "$RUNNER_TEMP/godot-runtime/Godot.app/Contents/MacOS/Godot" > validation-output/runtime-architectures.txt
+          grep -q arm64 validation-output/runtime-architectures.txt
+          "$RUNNER_TEMP/godot-runtime/Godot.app/Contents/MacOS/Godot" --version > validation-output/runtime-version.txt
+      - name: Compile independent cover and desktop pixel evidence probe
+        run: xcrun swiftc -parse-as-library -swift-version 5 -O -target arm64-apple-macosx14.0 tools/probe_godot_macos.swift -o "$RUNNER_TEMP/godot-cover-probe" -framework AppKit -framework ScreenCaptureKit -framework CoreGraphics
+      - name: Verify self authored scene, pause, lease release and covered rendering
+        run: >-
+          python -X utf8 -B tools/verify_godot_macos.py --root validation-output/godot
+          --runtime "$RUNNER_TEMP/godot-runtime/Godot.app/Contents/MacOS/Godot"
+          --probe "$RUNNER_TEMP/godot-cover-probe"
+      - name: Upload raw validation evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: godot-macos-${{ github.run_id }}-${{ github.run_attempt }}
+          path: validation-output
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove approved temporary runtime download after recording evidence
+        if: always()
+        run: |
+          python -B - <<'PY'
+          import os, shutil
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'godot-runtime'
+          if root.is_dir():
+              print(str(root), sum(p.stat().st_size for p in root.rglob('*') if p.is_file()), 'bytes')
+              shutil.rmtree(root)
+          probe = Path(os.environ['RUNNER_TEMP']) / 'godot-cover-probe'
+          if probe.is_file():
+              print(str(probe), probe.stat().st_size, 'bytes')
+              probe.unlink()
+          PY
