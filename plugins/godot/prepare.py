@@ -7,7 +7,7 @@ from gameqakit.admission import file_digest, no_links
 
 PACK = "fixture.pck"
 RUNTIME = "godot-runtime.exe"
-BRIDGE = Path(__file__).with_name("GameQaBridge.gd")
+BRIDGE = Path(__file__).with_name("GameQaBridge.gd").resolve()
 PACK_SHA256 = "3f919ad24862ef86a32c857d9e62b880bab510d84cccbe1fa6747a68443c3f6c"
 RUNTIME_SHA256 = "2a2ffce588f342dc40d4d913da7682bfda24fb986c543b1bf88afe69fe1e7aab"
 

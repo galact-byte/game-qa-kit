@@ -47,6 +47,38 @@ class MacManagedContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, '登记'):
                     prepare.artifact_digests(root)
 
+    def test_bundled_bridge_uses_physical_resource_path(self):
+        import hashlib
+        import importlib.util
+        from gameqakit.admission import no_links
+        from plugins.godot import prepare
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            resources = root / 'Contents/Resources/plugins/godot'
+            resources.mkdir(parents=True)
+            bridge = prepare.BRIDGE.read_bytes()
+            (resources / 'GameQaBridge.gd').write_bytes(bridge)
+            (resources / 'prepare.py').write_bytes(Path(prepare.__file__).read_bytes())
+            alias = root / 'Contents/Frameworks/plugins/godot'
+            alias.parent.mkdir(parents=True)
+            if os.name == 'nt':
+                made = subprocess.run(['cmd', '/d', '/c', 'mklink', '/J', str(alias), str(resources)],
+                                      capture_output=True)
+                self.assertEqual(made.returncode, 0, made.stderr)
+            else:
+                alias.symlink_to(resources, target_is_directory=True)
+            try:
+                spec = importlib.util.spec_from_file_location('bundled_godot_prepare', alias / 'prepare.py')
+                bundled = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(bundled)
+                digest = hashlib.sha256(bridge).hexdigest()
+                self.assertEqual(bundled.checked_digest(bundled.BRIDGE, digest), digest)
+                with self.assertRaisesRegex(ValueError, 'reparse_path_rejected'):
+                    no_links(alias / 'GameQaBridge.gd')
+            finally:
+                if os.name == 'nt': alias.rmdir()
+                else: alias.unlink()
+
     def test_bridge_rejects_same_pid_with_changed_start_identity(self):
         from gameqakit.control import BridgeClient, write_connection
         from gameqakit.profile import GameProfile

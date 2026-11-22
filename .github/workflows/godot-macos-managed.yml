@@ -112,6 +112,19 @@ jobs:
               (workspace / 'validation-output/cleanup.json').write_text(json.dumps(rows, indent=2))
               assert rows[-1]['removed']
           PY
+      - name: Upload review images and lifecycle records without runtime copies
+        if: always() && inputs.component_run_id != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: godot-macos-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            validation-output/**/result.json
+            validation-output/**/*proof.json
+            validation-output/**/*.png
+            validation-output/native-contracts.log
+            validation-output/cleanup.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload raw evidence and cleanup records
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
