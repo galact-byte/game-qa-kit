@@ -74,6 +74,24 @@ class MacOSProcess:
         self.close()
 
 
+def _signal_owned_group(pid, signum):
+    try:
+        os.killpg(pid, signum)
+    except ProcessLookupError:
+        pass
+    except PermissionError:
+        # XNU killpg1 跳过 SZOMB；仅剩僵尸的组会返回 EPERM。组长尚未 wait，组 ID 不会复用。
+        try:
+            row = subprocess.run(['/bin/ps', '-o', 'stat=', '-g', str(pid)],
+                                 capture_output=True, text=True, timeout=1)
+            states = row.stdout.split()
+            if row.returncode == 0 and states and all(state.startswith('Z') for state in states):
+                return
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        raise
+
+
 def supervise(config):
     if sys.platform != 'darwin':
         raise RuntimeError('仅支持 macOS')
@@ -137,12 +155,9 @@ def supervise(config):
         events.close()
         if gate_write is not None:
             os.close(gate_write)
-        try:
-            os.killpg(pid, signal.SIGTERM)
-            time.sleep(.1)
-            os.killpg(pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        _signal_owned_group(pid, signal.SIGTERM)
+        time.sleep(.1)
+        _signal_owned_group(pid, signal.SIGKILL)
         os.waitpid(pid, 0)
         reaped = True
     return 0 if reaped else 1

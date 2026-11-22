@@ -103,6 +103,31 @@ from gameqakit.process_identity import query
         self.assertEqual(run.returncode, 0, run.stderr)
 
 
+class MacProcessCleanupTests(unittest.TestCase):
+    def test_zombie_only_group_accepts_darwin_eperm(self):
+        from gameqakit.macos_process import _signal_owned_group
+        import signal
+        with mock.patch('os.killpg', create=True, side_effect=PermissionError(1, 'denied')), \
+             mock.patch('subprocess.run', return_value=subprocess.CompletedProcess([], 0, 'Z\nZ+\n', '')):
+            _signal_owned_group(123, signal.SIGTERM)
+
+    def test_permission_denial_is_not_success_without_zombie_only_evidence(self):
+        from gameqakit.macos_process import _signal_owned_group
+        import signal
+        for result in (subprocess.CompletedProcess([], 0, 'Z\nS\n', ''),
+                       subprocess.CompletedProcess([], 0, '', ''),
+                       subprocess.CompletedProcess([], 1, 'Z\n', 'failed')):
+            with self.subTest(result=result), \
+                 mock.patch('os.killpg', create=True, side_effect=PermissionError(1, 'denied')), \
+                 mock.patch('subprocess.run', return_value=result), \
+                 self.assertRaises(PermissionError):
+                _signal_owned_group(123, signal.SIGTERM)
+        with mock.patch('os.killpg', create=True, side_effect=PermissionError(1, 'denied')), \
+             mock.patch('subprocess.run', side_effect=subprocess.TimeoutExpired('ps', 1)), \
+             self.assertRaises(PermissionError):
+            _signal_owned_group(123, signal.SIGTERM)
+
+
 @unittest.skipUnless(sys.platform == 'darwin', '需 macOS 原生进程组与 libproc')
 class MacOwnedProcessTests(unittest.TestCase):
     def test_target_waits_at_gate_and_close_reaps_it(self):
@@ -159,6 +184,31 @@ class MacOwnedProcessTests(unittest.TestCase):
                     time.sleep(.02)
                 self.assertTrue(ready.exists())
             self.assertIsNone(query(host.pid))
+
+    def test_close_kills_resistant_child_after_group_leader_exits(self):
+        from gameqakit.macos_process import MacOSProcess
+        from gameqakit.process_identity import query
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            ready = root / 'child-ready'
+            pids_path = root / 'pids.json'
+            child = ('import signal,time,pathlib;signal.signal(signal.SIGTERM,signal.SIG_IGN);'
+                     f'pathlib.Path({str(ready)!r}).touch();time.sleep(30)')
+            script = ('import subprocess,sys,os,json,pathlib,time;'
+                      f'c=subprocess.Popen([sys.executable,"-c",{child!r}]);'
+                      f'pathlib.Path({str(pids_path)!r}).write_text(json.dumps([os.getpid(),c.pid]));'
+                      'time.sleep(30)')
+            with MacOSProcess([sys.executable, '-c', script], cwd=root) as host:
+                host.run()
+                deadline = time.monotonic() + 5
+                while not ready.exists() and time.monotonic() < deadline:
+                    time.sleep(.02)
+                self.assertTrue(ready.exists())
+                pids = json.loads(pids_path.read_text())
+            deadline = time.monotonic() + 5
+            while any(query(pid) for pid in pids) and time.monotonic() < deadline:
+                time.sleep(.02)
+            self.assertTrue(all(query(pid) is None for pid in pids), pids)
 
     def test_creator_kill_reaps_running_target_and_child(self):
         from gameqakit.process_identity import query
