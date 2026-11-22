@@ -3,7 +3,7 @@ import CoreGraphics
 import ScreenCaptureKit
 
 func save(_ value: [String: Any], _ url: URL) throws {
-    try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys, .prettyPrinted]).write(to: url)
+    try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys, .prettyPrinted]).write(to: url, options: .atomic)
 }
 
 final class Cover: NSObject, NSApplicationDelegate {
@@ -43,6 +43,65 @@ final class Cover: NSObject, NSApplicationDelegate {
     }
 }
 
+final class FocusMonitor: NSObject, NSApplicationDelegate {
+    let root: URL
+    let pid: Int32
+    var baseline: Int32 = -1
+    var frontmost: Int32 = -1
+    var changed = false
+    var targetActivated = false
+    var samples = 0
+    var startedAt = Date().timeIntervalSince1970
+    var events: [[String: Any]] = []
+    var timer: Timer?
+    var observer: NSObjectProtocol?
+    init(root: URL, pid: Int32) { self.root = root; self.pid = pid }
+    func state(stopped: Bool = false) -> [String: Any] {
+        return ["target_pid": pid, "original_frontmost": baseline, "frontmost": frontmost,
+                "target_activated": targetActivated, "frontmost_changed": changed,
+                "samples": samples, "started_at": startedAt, "updated_at": Date().timeIntervalSince1970,
+                "stopped": stopped, "events": events]
+    }
+    func record(_ value: Int32, source: String) {
+        if value != baseline { changed = true }
+        if value == pid { targetActivated = true }
+        if value != frontmost || source == "activation" {
+            events.append(["pid": value, "source": source, "at": Date().timeIntervalSince1970])
+        }
+        frontmost = value
+    }
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        baseline = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
+        frontmost = baseline
+        guard baseline > 0, baseline != pid else { NSApp.terminate(nil); return }
+        observer = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [self] notification in
+            guard let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+            record(application.processIdentifier, source: "activation")
+            try? save(state(), root.appendingPathComponent("focus-state.json"))
+        }
+        samples = 1
+        do {
+            try save(state(), root.appendingPathComponent("focus-state.json"))
+            try save(state(), root.appendingPathComponent("focus-ready.json"))
+        } catch { NSApp.terminate(nil); return }
+        timer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { [self] _ in
+            record(NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1, source: "poll")
+            samples += 1
+            do {
+                try save(state(), root.appendingPathComponent("focus-state.json"))
+                if FileManager.default.fileExists(atPath: root.appendingPathComponent("focus-stop").path) {
+                    timer?.invalidate()
+                    if let observer = observer { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
+                    try save(state(stopped: true), root.appendingPathComponent("focus-final.json"))
+                    NSApp.terminate(nil)
+                }
+            } catch { NSApp.terminate(nil) }
+        }
+    }
+}
+
 @main
 struct GodotProbe {
     static func main() async {
@@ -50,6 +109,9 @@ struct GodotProbe {
         let role = CommandLine.arguments[1]
         let root = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
         let app = NSApplication.shared; app.setActivationPolicy(.accessory)
+        if role == "monitor" {
+            let delegate = FocusMonitor(root: root, pid: pid); app.delegate = delegate; app.run(); return
+        }
         if role == "cover" {
             let delegate = Cover(root: root, pid: pid); app.delegate = delegate; app.run(); return
         }

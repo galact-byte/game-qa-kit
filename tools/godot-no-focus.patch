@@ -1,0 +1,12 @@
+diff --git a/platform/macos/display_server_macos.mm b/platform/macos/display_server_macos.mm
+--- a/platform/macos/display_server_macos.mm
++++ b/platform/macos/display_server_macos.mm
+@@ -1859,7 +1859,7 @@
+ void DisplayServerMacOS::show_window(WindowID p_id) {
+ 	WindowData &wd = windows[p_id];
+ 
+-	if (p_id == MAIN_WINDOW_ID) {
++	if (p_id == MAIN_WINDOW_ID && !wd.no_focus) {
+ 		[GodotApp activateApplication];
+ 	}
+ 

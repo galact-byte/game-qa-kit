@@ -1,0 +1,150 @@
+name: Godot isolated no-focus runtime validation
+
+on:
+  push:
+    branches: [experiment/godot-no-focus]
+    paths:
+      - .github/workflows/godot-no-focus.yml
+      - tools/godot-no-focus.patch
+      - tools/requirements-godot-build.txt
+      - tools/probe_godot_macos.swift
+      - tools/verify_godot_macos.py
+      - tests/test_godot_macos_validation.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: godot-no-focus-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  godot:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      PYTHONUTF8: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      BUILD_NAME: gameqa_nofocus
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.12.7'
+          architecture: arm64
+      - name: Record native tools and check architecture
+        run: |
+          set -euo pipefail
+          mkdir validation-output
+          uname -a > validation-output/environment.txt
+          sw_vers >> validation-output/environment.txt
+          xcrun clang --version >> validation-output/environment.txt
+          xcrun --show-sdk-path >> validation-output/environment.txt
+          sysctl -n hw.memsize >> validation-output/environment.txt
+          test "$(uname -m)" = arm64
+      - name: Install pinned Python requirements and isolated SCons
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir --only-binary=:all: -r tools/requirements-unix.txt
+          python -m pip install --disable-pip-version-check --no-cache-dir --no-compile --require-hashes --only-binary=:all: --target "$RUNNER_TEMP/godot-scons" -r tools/requirements-godot-build.txt --report validation-output/scons-install.json
+      - name: Check control contracts and compile focus monitor before building runtime
+        run: |
+          set -euo pipefail
+          python -X utf8 -B -m unittest tests.test_godot_macos_validation tests.test_godot_bridge -v
+          xcrun swiftc -parse-as-library -swift-version 5 -O -target arm64-apple-macosx14.0 tools/probe_godot_macos.swift -o "$RUNNER_TEMP/godot-cover-probe" -framework AppKit -framework ScreenCaptureKit -framework CoreGraphics
+      - name: Fetch only the pinned upstream source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: godotengine/godot
+          ref: f62fdbde15035c5576dad93e586201f4d41ef0cb
+          path: godot-no-focus-src
+          persist-credentials: false
+      - name: Apply one-condition patch and build isolated arm64 runtime
+        timeout-minutes: 35
+        run: |
+          python -X utf8 -B - <<'PY'
+          import hashlib, json, os, shutil, subprocess, sys, time
+          from pathlib import Path
+          root = Path.cwd()
+          source = root / 'godot-no-focus-src'
+          evidence = root / 'validation-output'
+          revision = subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()
+          assert revision == 'f62fdbde15035c5576dad93e586201f4d41ef0cb', revision
+          patch = root / 'tools/godot-no-focus.patch'
+          subprocess.run(['git', 'apply', '--check', str(patch)], cwd=source, check=True)
+          subprocess.run(['git', 'apply', str(patch)], cwd=source, check=True)
+          assert subprocess.check_output(['git', 'diff', '--name-only'], cwd=source, text=True).splitlines() == ['platform/macos/display_server_macos.mm']
+          diff = subprocess.check_output(['git', 'diff', '--numstat'], cwd=source, text=True).strip()
+          assert diff == '1\t1\tplatform/macos/display_server_macos.mm', diff
+          shutil.copyfile(patch, evidence / patch.name)
+          for name in ('LICENSE.txt', 'COPYRIGHT.txt'):
+              shutil.copyfile(source / name, evidence / ('Godot-' + name))
+          command = [sys.executable, '-B', '-m', 'SCons', '-j2', 'platform=macos', 'target=template_debug', 'arch=arm64',
+                     'vulkan=no', 'metal=no', 'opengl3=yes', 'disable_3d=yes', 'optimize=none',
+                     'modules_enabled_by_default=no', 'module_gdscript_enabled=yes', 'module_text_server_fb_enabled=yes',
+                     'module_freetype_enabled=yes', 'accesskit=no', 'sdl=no']
+          manifest = {'experimental_only': True, 'official_asset': False, 'upstream': 'https://github.com/godotengine/godot',
+                      'revision': revision, 'patch_sha256': hashlib.sha256(patch.read_bytes()).hexdigest(),
+                      'command': command, 'build_name': os.environ['BUILD_NAME'], 'build_ok': False, 'started_at': time.time()}
+          (evidence / 'source-manifest.json').write_text(json.dumps(manifest, indent=2))
+          env = dict(os.environ, PYTHONPATH=str(Path(os.environ['RUNNER_TEMP']) / 'godot-scons'))
+          with (evidence / 'build.log').open('w') as stream:
+              built = subprocess.run(command, cwd=source, env=env, stdout=stream, stderr=subprocess.STDOUT)
+          manifest['build_exit'] = built.returncode
+          (evidence / 'source-manifest.json').write_text(json.dumps(manifest, indent=2))
+          if built.returncode:
+              print('\n'.join((evidence / 'build.log').read_text().splitlines()[-100:]))
+              raise SystemExit(built.returncode)
+          runtime = source / 'bin/godot.macos.template_debug.arm64'
+          assert runtime.is_file(), list((source / 'bin').iterdir())
+          manifest.update(build_ok=True, runtime_sha256=hashlib.sha256(runtime.read_bytes()).hexdigest(),
+                          runtime_bytes=runtime.stat().st_size, finished_at=time.time(),
+                          architecture=subprocess.check_output(['lipo', '-archs', str(runtime)], text=True).strip(),
+                          version=subprocess.check_output([str(runtime), '--version'], text=True).strip())
+          assert manifest['architecture'] == 'arm64', manifest
+          assert manifest['version'].startswith('4.5.1.stable.gameqa_nofocus.'), manifest
+          (evidence / 'source-manifest.json').write_text(json.dumps(manifest, indent=2))
+          with Path(os.environ['GITHUB_ENV']).open('a') as stream:
+              stream.write('GODOT_EXPERIMENT_RUNTIME=' + str(runtime) + '\n')
+          print(json.dumps(manifest, indent=2))
+          PY
+      - name: Verify startup focus before any input then actions pause and lease release
+        run: >-
+          python -X utf8 -B tools/verify_godot_macos.py --root validation-output/godot
+          --runtime "$GODOT_EXPERIMENT_RUNTIME" --probe "$RUNNER_TEMP/godot-cover-probe"
+      - name: Record and remove all isolated source build and probe files
+        if: always()
+        run: |
+          python -B - <<'PY'
+          import json, os, shutil
+          from pathlib import Path
+          workspace = Path(os.environ['GITHUB_WORKSPACE']).resolve()
+          temporary = Path(os.environ['RUNNER_TEMP']).resolve()
+          evidence = workspace / 'validation-output'
+          evidence.mkdir(exist_ok=True)
+          paths = [workspace / 'godot-no-focus-src', temporary / 'godot-scons', temporary / 'godot-cover-probe']
+          rows = []
+          for path in paths:
+              assert path.parent in (workspace, temporary) and not path.is_symlink(), path
+              present = path.exists()
+              size = sum(p.stat().st_size for p in path.rglob('*') if p.is_file()) if path.is_dir() else path.stat().st_size if present else 0
+              row = {'path': str(path), 'present': present, 'bytes': size, 'removed': False}
+              rows.append(row)
+              (evidence / 'cleanup.json').write_text(json.dumps(rows, indent=2))
+              print(str(path), size, 'bytes')
+              if path.is_dir(): shutil.rmtree(path)
+              elif present: path.unlink()
+              row['removed'] = not path.exists()
+              (evidence / 'cleanup.json').write_text(json.dumps(rows, indent=2))
+              assert row['removed'], row
+          PY
+      - name: Upload evidence including cleanup manifest
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: godot-no-focus-${{ github.run_id }}-${{ github.run_attempt }}
+          path: validation-output
+          if-no-files-found: error
+          retention-days: 14
