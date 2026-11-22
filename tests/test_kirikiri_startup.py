@@ -15,7 +15,9 @@ class StartupGuardTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         import tempfile
-        cls.root = Path(tempfile.mkdtemp(prefix='kirikiri-startup-', dir='E:/DevData'))
+        test_root = Path('E:/DevData/gameqa-kirikiri/test-artifacts')
+        test_root.mkdir(parents=True, exist_ok=True)
+        cls.root = Path(tempfile.mkdtemp(prefix='kirikiri-startup-', dir=test_root))
         cls.target = build(cls.root / 'StartupTarget.exe', mode='startup-target')
         cls.guard = build(cls.root / 'KiriKiriGuard.dll', mode='guard', shell_counter_experiment=True)
         cls.strict_guard = build(cls.root / 'StrictGuard.dll', mode='guard')

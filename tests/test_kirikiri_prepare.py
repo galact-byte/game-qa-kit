@@ -12,7 +12,9 @@ class CommercialPreparationTests(unittest.TestCase):
         self.module_path = Path(__file__).resolve().parents[1] / 'plugins/kirikiri/prepare.py'
         self.assertTrue(self.module_path.is_file(), '固定商业准备器尚未实现')
         self.prepare = importlib.import_module('plugins.kirikiri.prepare')
-        self.temp = tempfile.TemporaryDirectory(dir='E:/DevData')
+        test_root = Path('E:/DevData/gameqa-kirikiri/test-artifacts')
+        test_root.mkdir(parents=True, exist_ok=True)
+        self.temp = tempfile.TemporaryDirectory(dir=test_root)
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.source = self.root / 'source'

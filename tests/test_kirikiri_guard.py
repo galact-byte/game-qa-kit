@@ -25,7 +25,9 @@ class KiriKiriGuardTests(unittest.TestCase):
     def run_boundary_case(self, *, experiment, commercial=False):
         self.assertTrue((BASE / 'plugins/kirikiri/Guard.hpp').is_file(), 'KiriKiri 专用写入守卫尚未实现')
         build = importlib.import_module('plugins.kirikiri.build')
-        root = Path(tempfile.mkdtemp(prefix='kirikiri-guard-', dir='E:/DevData'))
+        test_root = Path('E:/DevData/gameqa-kirikiri/test-artifacts')
+        test_root.mkdir(parents=True, exist_ok=True)
+        root = Path(tempfile.mkdtemp(prefix='kirikiri-guard-', dir=test_root))
         for folder in ('run/savedata', 'run/appdata', 'run/localappdata', 'run/tmp', 'run/bridge', 'run/game', 'outside'):
             (root / folder).mkdir(parents=True, exist_ok=True)
         sentinel = root / 'outside/sentinel.bin'
