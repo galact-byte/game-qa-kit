@@ -1,17 +1,7 @@
 name: Godot isolated no-focus runtime validation
 
 on:
-  push:
-    branches: [experiment/godot-no-focus]
-    paths:
-      - .github/workflows/godot-no-focus.yml
-      - tools/godot-no-focus.patch
-      - tools/requirements-godot-build.txt
-      - tools/probe_godot_macos.swift
-      - tools/verify_godot_macos.py
-      - tests/test_godot_macos_validation.py
-      - tests/test_godot_bridge.py
-      - plugins/godot/GameQaBridge.gd
+  workflow_dispatch:
 
 permissions:
   contents: read

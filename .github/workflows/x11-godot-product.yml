@@ -1,8 +1,6 @@
 name: X11 product and Godot macOS fixture validation
 
 on:
-  push:
-    branches: [experiment/x11-godot-product]
   workflow_dispatch:
 
 permissions:

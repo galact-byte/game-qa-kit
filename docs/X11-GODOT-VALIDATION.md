@@ -4,7 +4,7 @@
 
 用户已批准 X11 隔离辅助进程与冻结内部入口实施、Godot 精确运行时试验及独立验证分支云端执行，并授权同类隔离试验直接执行、收尾清理可再生产物。X11 `44997438877` 的源码／冻结产品链与故障回收通过；Godot 官方构建的启动激活失败仍保留，后续实验 no-focus 构建配合桥的主动绘制，在 `45009728323` 通过自写场景的完全遮挡后台控制验收。Metal 原失败结论不变。
 
-本机为 Windows，没有可用的 WSL Linux 发行版或 Swift 编译器。原生结果来自既有 GitHub Actions Ubuntu 22.04 x64／macOS arm64 临时环境；分支分别为 `experiment/x11-godot-product` 与 `experiment/godot-no-focus`，未合并主线或发布。X11 默认入口关闭，Godot macOS 正式受管 MCP 游戏入口尚未接入；自写样本结果均不外推普通桌面、物理 GPU、商业构建或其他运行时。
+本机为 Windows，没有可用的 WSL Linux 发行版或 Swift 编译器。原生结果来自既有 GitHub Actions Ubuntu 22.04 x64／macOS arm64 临时环境；历史执行分支为 `experiment/x11-godot-product` 与 `experiment/godot-no-focus`，相关实现随本次集成纳入主线，验证分支在确认提交可达后删除。本次不发布版本。X11 默认入口关闭，Godot macOS 正式受管 MCP 游戏入口尚未接入；自写样本结果均不外推普通桌面、物理 GPU、商业构建或其他运行时。
 
 ## Godot 后续实验结果：完全遮挡后台控制通过
 
@@ -28,12 +28,12 @@
 - X11：`gameqakit/x11_capture.py`、`x11_helper.py`、`x11_native.py`，通过现有有界帧管道连接公共采集会话。原生 Xlib 仅在隔离辅助进程加载。
 - 来源绑定 DISPLAY、X server 身份、XID、PID、进程启动 tick 和可执行路径；截图前后复核，尺寸变化重建 pixmap。命名 pixmap 缺少 RGB mask 时使用已确认窗口的 TrueColor visual。
 - 截图仍采用现有 3 秒期限，支持取消和辅助进程回收；不添加输入、焦点切换、整屏裁切回退或 X 认证修改。
-- Linux 平台分派、CLI／MCP／采集观察入口和 Unix 冻结内部入口已接入验证分支；默认入口保持关闭，仅原生验证任务通过 `GAMEQA_X11_VALIDATION=1` 启用。未合并或发布；本轮通过仅覆盖下述自写窗口与临时云端环境，不扩展为所有 Linux 桌面支持。
+- Linux 平台分派、CLI／MCP／采集观察入口和 Unix 冻结内部入口已接入；默认入口保持关闭，仅原生验证任务通过 `GAMEQA_X11_VALIDATION=1` 启用。本轮通过仅覆盖下述自写窗口与临时云端环境，不扩展为所有 Linux 桌面支持。
 - Godot 仅复用既有自写场景及 `plugins/godot/GameQaBridge.gd`。新夹具只补充实际按键状态和位置记录，不改变桥协议。此轮为独立桥／运行时试点，尚未迁入 macOS 正式受管 MCP 游戏入口。
 
 ## 原生验收入口
 
-独立工作流为 `.github/workflows/x11-godot-product.yml`，只对 `experiment/x11-godot-product` 分支 push 自动执行。不要推送原 `feature/macos-arm-capture-product` 分支，否则会触发旧 Metal 产品任务。工作流只有只读仓库权限，不创建发布或标签。
+独立工作流 `.github/workflows/x11-godot-product.yml` 与 `godot-no-focus.yml` 随主线保留，通过 `workflow_dispatch` 手动执行。分支收口同时将五份实验工作流改为仅手动触发，删除已完成实验分支不会丢失复现入口，后续推送也不会自动重跑旧 Metal 或 Godot 批次。工作流只有只读仓库权限，不创建发布或标签；存在停止条件或额度限制的批次仍须遵守原批准边界。
 
 | 线路 | 环境与动作 | 通过所需证据 |
 | --- | --- | --- |

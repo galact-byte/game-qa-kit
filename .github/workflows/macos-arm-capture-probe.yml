@@ -8,12 +8,6 @@ on:
         type: choice
         options: [snapshot, stream]
         default: snapshot
-  push:
-    branches: [experiment/macos-arm-capture]
-    paths:
-      - tools/probe_macos_capture.swift
-      - tools/verify_macos_capture_probe.py
-      - .github/workflows/macos-arm-capture-probe.yml
 
 permissions:
   contents: read

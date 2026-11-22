@@ -11,17 +11,6 @@ on:
         description: Diagnose frozen target presentation after the fixture cover exits
         type: boolean
         default: false
-  push:
-    branches: [feature/macos-arm-capture-product]
-    paths:
-      - gameqakit/**
-      - plugins/macos_capture/**
-      - tools/**
-      - tests/test_macos_*.py
-      - tests/test_capture_session.py
-      - tests/test_platform_support.py
-      - tests/test_application.py
-      - .github/workflows/macos-arm-product.yml
 
 permissions:
   contents: read
