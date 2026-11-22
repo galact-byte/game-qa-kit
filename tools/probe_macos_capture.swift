@@ -80,6 +80,8 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
         return ["renderer": "metal", "gpu": device?.name ?? "unknown",
                 "completed_commands": completedCommands, "gpu_error": gpuFailure,
                 "presentations": presentations, "draw_timings": drawTimings,
+                "display_sync_enabled": (layer as? CAMetalLayer)?.displaySyncEnabled ?? true,
+                "autorelease_enabled": ProcessInfo.processInfo.environment["GAMEQA_PROBE_METAL_AUTORELEASE"] == "1",
                 "gpu_readbacks": readbackRecords,
                 "readback_error": readbackFailure, "readback_enabled": readbackRoot != nil]
     }
@@ -122,10 +124,17 @@ final class MetalCounterView: MTKView, MTKViewDelegate, CounterRendering {
         if transactionalPresentation {
             (layer as? CAMetalLayer)?.presentsWithTransaction = true
         }
+        if ProcessInfo.processInfo.environment["GAMEQA_PROBE_METAL_UNSYNCED"] == "1" {
+            (layer as? CAMetalLayer)?.displaySyncEnabled = false
+        }
     }
     required init(coder: NSCoder) { fatalError("init(coder:) unsupported") }
     func render() {
-        draw()
+        if ProcessInfo.processInfo.environment["GAMEQA_PROBE_METAL_AUTORELEASE"] == "1" {
+            autoreleasepool { draw() }
+        } else {
+            draw()
+        }
         if ProcessInfo.processInfo.environment["GAMEQA_PROBE_FLUSH_METAL"] == "1" {
             CATransaction.flush()
         }
