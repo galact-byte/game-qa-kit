@@ -267,7 +267,8 @@ final class Fixture: NSObject, NSApplicationDelegate {
                        "rendering": renderer.rendererInfo],
                       root.appendingPathComponent(cover ? "cover-ready.json" : "target-ready.json"))
         timer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [self] _ in
-            if FileManager.default.fileExists(atPath: root.appendingPathComponent("stop").path) {
+            if FileManager.default.fileExists(atPath: root.appendingPathComponent("stop").path)
+                    || (cover && FileManager.default.fileExists(atPath: root.appendingPathComponent("cover-stop").path)) {
                 timer?.invalidate(); window.close(); NSApp.terminate(nil); return
             }
             if !cover {
@@ -276,11 +277,12 @@ final class Fixture: NSObject, NSApplicationDelegate {
                     window.setContentSize(NSSize(width: 400, height: 240))
                     resizeCount += 1
                 }
-                if !FileManager.default.fileExists(atPath: root.appendingPathComponent("freeze").path) {
+                let frozen = FileManager.default.fileExists(atPath: root.appendingPathComponent("freeze").path)
+                if !frozen {
                     renderer.counter += 1
                     renderer.render()
                 }
-                try? saveJSON(["counter": renderer.counter, "draws": renderer.draws,
+                try? saveJSON(["counter": renderer.counter, "draws": renderer.draws, "frozen": frozen,
                                "rendering": renderer.rendererInfo,
                                "recorded_mach": mach_absolute_time(),
                                "resize_count": resizeCount, "resize_once": resizeOnce,
@@ -652,12 +654,70 @@ struct Probe {
                 } catch { result["pull_after_stop_error"] = String(describing: error) }
             }
         }
-        result["frontmost_at_stream_end"] = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
         if !FileManager.default.fileExists(atPath: root.appendingPathComponent("desktop-occluded.png").path),
            let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false) {
             do { try await captureDesktop("desktop-occluded.png", content: content, root: root) }
             catch { result["desktop_evidence_error"] = String(describing: error) }
         }
+        if ProcessInfo.processInfo.environment["GAMEQA_PROBE_PRESENTATION_RECOVERY"] == "1" {
+            result["diagnostic_only"] = true
+            result["original_capture_passed"] = result["passed"]
+            result["passed"] = false
+            do {
+                guard children.count == 2, children[0].isRunning, children[1].isRunning,
+                      let ready = result["target"] as? [String: Any],
+                      let windowID = ready["window"] as? Int else {
+                    throw ProbeError("Presentation diagnostic requires both live fixture windows")
+                }
+                try Data().write(to: root.appendingPathComponent("freeze"))
+                var frozen = [String: Any]()
+                for _ in 0..<20 {
+                    frozen = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("target-state.json"))) as? [String: Any] ?? [:]
+                    if frozen["frozen"] as? Bool == true { break }
+                    try await pause(0.1)
+                }
+                guard frozen["frozen"] as? Bool == true else { throw ProbeError("Target did not confirm freeze") }
+                try Data().write(to: root.appendingPathComponent("cover-stop"))
+                for _ in 0..<20 {
+                    if !children[1].isRunning { break }
+                    try await pause(0.1)
+                }
+                guard !children[1].isRunning, children[1].terminationStatus == 0 else {
+                    throw ProbeError("Cover did not exit normally")
+                }
+                let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+                guard let window = content.windows.first(where: {
+                    $0.windowID == UInt32(windowID) && $0.owningApplication?.processID == children[0].processIdentifier
+                }) else { throw ProbeError("Frozen target identity changed") }
+                let filter = SCContentFilter(desktopIndependentWindow: window)
+                let config = SCStreamConfiguration()
+                config.width = Int(window.frame.width); config.height = Int(window.frame.height)
+                config.showsCursor = false; config.ignoreShadowsSingleWindow = true
+                var rows = [[String: Any]]()
+                for index in 0..<4 {
+                    try await pause(0.35)
+                    let started = ProcessInfo.processInfo.systemUptime
+                    let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+                    let elapsed = ProcessInfo.processInfo.systemUptime - started
+                    guard elapsed <= 3 else { throw ProbeError("Presentation diagnostic snapshot exceeded 3 seconds") }
+                    let file = "uncovered-\(index).png"
+                    try savePNG(image, root.appendingPathComponent(file))
+                    rows.append(["file": file, "counter": try decode(image), "snapshot_seconds": elapsed])
+                }
+                try await captureDesktop("desktop-uncovered.png", content: content, root: root)
+                let desktopData = try Data(contentsOf: root.appendingPathComponent("desktop-uncovered.png"))
+                guard let bitmap = NSBitmapImageRep(data: desktopData),
+                      let desktop = bitmap.cgImage,
+                      let crop = desktop.cropping(to: window.frame) else {
+                    throw ProbeError("Cannot decode uncovered desktop region")
+                }
+                try savePNG(crop, root.appendingPathComponent("desktop-uncovered-target.png"))
+                let after = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("target-state.json")))
+                result["presentation_recovery"] = ["frozen_state": frozen, "after_state": after,
+                    "rows": rows, "desktop_counter": try decode(crop), "cover_exit_code": children[1].terminationStatus]
+            } catch { result["presentation_recovery_error"] = String(describing: error) }
+        }
+        result["frontmost_at_stream_end"] = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
         result["frame_diagnostics"] = frames.diagnostics()
         try? Data().write(to: root.appendingPathComponent("stop"))
         for _ in 0..<30 {

@@ -7,6 +7,10 @@ on:
         description: Run only the independent frame timing diagnostic
         type: boolean
         default: false
+      presentation_recovery:
+        description: Diagnose frozen target presentation after the fixture cover exits
+        type: boolean
+        default: false
   push:
     branches: [feature/macos-arm-capture-product]
     paths:
@@ -195,6 +199,8 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.frame_timing_only }}
     runs-on: macos-15
     timeout-minutes: 8
+    env:
+      GAMEQA_DIAGNOSTIC_RECOVERY: ${{ inputs.presentation_recovery && '1' || '0' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Compile independent fixture
@@ -214,16 +220,25 @@ jobs:
           import subprocess
 
           fixture = Path('frame-timing/native/fixture').resolve()
-          for name, renderer, sample_buffer in [
+          cases = [
               ('metal-image', 'metal', False),
               ('metal-image-display-filter', 'metal', False),
               ('appkit-image-display-filter', 'appkit', False),
               ('appkit-sample-buffer', 'appkit', True),
-          ]:
+          ]
+          recovery = os.environ.get('GAMEQA_DIAGNOSTIC_RECOVERY') == '1'
+          if recovery:
+              cases = [('metal-presentation-recovery', 'metal', False),
+                       ('appkit-presentation-recovery', 'appkit', False)]
+          for name, renderer, sample_buffer in cases:
               root = Path('frame-timing', name).resolve()
               root.mkdir(exist_ok=False)
               env = dict(os.environ, GAMEQA_CAPTURE_MODE='snapshot',
                          GAMEQA_PROBE_PRODUCT_CADENCE='1', GAMEQA_PROBE_RENDERER=renderer)
+              if recovery:
+                  env['GAMEQA_PROBE_PRESENTATION_RECOVERY'] = '1'
+                  if renderer == 'metal':
+                      env['GAMEQA_PROBE_GPU_READBACK'] = '1'
               if sample_buffer:
                   env['GAMEQA_PROBE_SAMPLE_BUFFER'] = '1'
               if name.endswith('-display-filter'):
