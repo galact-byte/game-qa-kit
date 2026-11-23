@@ -3,6 +3,10 @@ name: macOS arm64 product capture validation
 on:
   workflow_dispatch:
     inputs:
+      buffer_boundary_only:
+        description: Run only the sample-buffer conversion boundary diagnostic
+        type: boolean
+        default: false
       frame_timing_only:
         description: Run only the independent frame timing diagnostic
         type: boolean
@@ -16,8 +20,12 @@ permissions:
   contents: read
 
 jobs:
+  buffer-boundary:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.buffer_boundary_only }}
+    uses: ./.github/workflows/macos-metal-buffer-diagnostic.yml
+
   product:
-    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.frame_timing_only }}
+    if: ${{ !inputs.buffer_boundary_only && (github.event_name != 'workflow_dispatch' || !inputs.frame_timing_only) }}
     runs-on: macos-15
     timeout-minutes: 25
     env:
@@ -185,7 +193,7 @@ jobs:
           retention-days: 14
 
   frame-timing:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.frame_timing_only }}
+    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.buffer_boundary_only && inputs.frame_timing_only }}
     runs-on: macos-15
     timeout-minutes: 8
     env:

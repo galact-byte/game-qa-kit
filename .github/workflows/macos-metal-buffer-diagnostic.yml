@@ -1,0 +1,105 @@
+name: macOS Metal buffer conversion diagnostic
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  buffer-boundary:
+    runs-on: macos-15
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Compile the diagnostic using the installed SDK
+        run: |
+          set -euo pipefail
+          mkdir -p buffer-output/native
+          uname -a > buffer-output/environment.txt
+          sw_vers >> buffer-output/environment.txt
+          xcrun swiftc --version >> buffer-output/environment.txt
+          test "$(uname -m)" = arm64
+          xcrun swiftc -parse-as-library -swift-version 5 -O tools/probe_macos_capture.swift -o buffer-output/native/fixture -framework AppKit -framework ScreenCaptureKit -framework CoreMedia -framework CoreVideo -framework CoreImage -framework Metal -framework MetalKit 2>&1 | tee buffer-output/native/compile.log
+      - name: Compare sample buffers with and without CPU readback
+        run: |
+          python3 -B - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import signal
+          import subprocess
+          root = Path('buffer-output').resolve()
+          fixture = root / 'native/fixture'
+          summaries = []
+          for renderer in ('appkit', 'metal'):
+              for paired in (False, True):
+                  name = renderer + ('-pairs' if paired else '-baseline')
+                  output = root / name
+                  output.mkdir()
+                  environment = {key: value for key, value in os.environ.items()
+                                 if not key.startswith('GAMEQA_PROBE_') and key != 'GAMEQA_CAPTURE_MODE'}
+                  environment.update(GAMEQA_CAPTURE_MODE='snapshot', GAMEQA_PROBE_SAMPLE_BUFFER='1',
+                                     GAMEQA_PROBE_RENDERER=renderer, GAMEQA_PROBE_PRODUCT_CADENCE='1',
+                                     GAMEQA_PROBE_RAW_PIXEL_PAIRS='1' if paired else '0')
+                  watchdog = {'timed_out': False, 'forced_kill': False}
+                  with (output / 'run.log').open('wb') as log:
+                      process = subprocess.Popen([str(fixture), 'capture', str(output)], env=environment,
+                                                 stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                      try:
+                          process.wait(timeout=45)
+                      except subprocess.TimeoutExpired:
+                          watchdog['timed_out'] = True
+                      finally:
+                          (output / 'stop').touch()
+                          try:
+                              os.killpg(process.pid, signal.SIGTERM)
+                              watchdog['remaining_group_terminated'] = True
+                          except ProcessLookupError:
+                              watchdog['remaining_group_terminated'] = False
+                          try:
+                              process.wait(timeout=5)
+                          except subprocess.TimeoutExpired:
+                              watchdog['forced_kill'] = True
+                              os.killpg(process.pid, signal.SIGKILL)
+                              process.wait(timeout=5)
+                          watchdog['exit_code'] = process.returncode
+                          (output / 'watchdog.json').write_text(json.dumps(watchdog, indent=2))
+                  if watchdog['timed_out'] or watchdog['forced_kill'] or watchdog['remaining_group_terminated']:
+                      raise SystemExit(f'{name}: process lifetime failed; stop the batch')
+                  result = json.loads((output / 'result.json').read_text())
+                  error = result.get('error', '')
+                  expected_symptom = error.startswith('Counter did not progress:') or error == 'Frozen counter was accepted as growth'
+                  if error and not expected_symptom:
+                      raise SystemExit(f'{name}: unexpected error: {error}')
+                  expected_code = 1 if paired or error else 0
+                  if process.returncode != expected_code or result.get('cleanup') is not True:
+                      raise SystemExit(f'{name}: invalid process outcome')
+                  if (result.get('frontmost_before') is None or
+                      result.get('frontmost_before') != result.get('frontmost_at_stream_end')):
+                      raise SystemExit(f'{name}: missing or changed capture focus record')
+                  if paired and (result.get('diagnostic_only') is not True or
+                                 result.get('passed') is not False or
+                                 result.get('raw_pixel_pair_count', 0) < 4):
+                      raise SystemExit(f'{name}: insufficient paired evidence or invalid diagnostic scope')
+                  latencies = result.get('frame_diagnostics', {}).get('snapshot_latencies_ms', [])
+                  if not latencies or max(latencies) > 3000:
+                      raise SystemExit(f'{name}: snapshot exceeded the unchanged 3-second limit')
+                  summaries.append({'case': name, 'original_error': error,
+                                    'original_capture_passed': result.get('original_capture_passed', result['passed']),
+                                    'raw_pixel_pairs': result.get('raw_pixel_pair_count', 0)})
+                  (root / 'summary.json').write_text(json.dumps({
+                      'diagnostic_only': True, 'capture_passed': False, 'cases': summaries,
+                      'scope': 'sample-buffer conversion boundary only'}, indent=2))
+          PY
+      - name: Upload the original diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: macos-metal-buffer-boundary
+          path: buffer-output/
+          retention-days: 14

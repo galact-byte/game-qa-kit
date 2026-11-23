@@ -355,6 +355,27 @@ final class Frames: NSObject, SCStreamOutput, SCStreamDelegate {
     }
 }
 
+// 仅供诊断：独立复制中央 BGRA 行，避免 Core Image 参与原始字节读取。
+func copyPixelRow(_ pixels: CVPixelBuffer) throws -> Data {
+    let width = CVPixelBufferGetWidth(pixels)
+    let height = CVPixelBufferGetHeight(pixels)
+    let stride = CVPixelBufferGetBytesPerRow(pixels)
+    guard !CVPixelBufferIsPlanar(pixels),
+          CVPixelBufferGetPixelFormatType(pixels) == kCVPixelFormatType_32BGRA,
+          width >= 16, width <= 16384, height > 0, height <= 16384,
+          stride >= width * 4, stride <= 65536 else {
+        throw ProbeError("Raw pixel diagnostic requires a bounded packed BGRA buffer")
+    }
+    guard CVPixelBufferLockBaseAddress(pixels, .readOnly) == kCVReturnSuccess else {
+        throw ProbeError("Raw pixel diagnostic could not lock the buffer")
+    }
+    defer { CVPixelBufferUnlockBaseAddress(pixels, .readOnly) }
+    guard let base = CVPixelBufferGetBaseAddress(pixels) else {
+        throw ProbeError("Raw pixel diagnostic has no base address")
+    }
+    return Data(bytes: base.advanced(by: (height / 2) * stride), count: stride)
+}
+
 func decode(_ image: CGImage) throws -> Int {
     var pixels = [UInt8](repeating: 0, count: image.width * image.height * 4)
     let ok = pixels.withUnsafeMutableBytes { bytes -> Bool in
@@ -497,6 +518,8 @@ struct Probe {
         application.setActivationPolicy(.accessory)
         _ = NSScreen.screens
         let mode = ProcessInfo.processInfo.environment["GAMEQA_CAPTURE_MODE"] ?? "stream"
+        let rawPixelPairs = ProcessInfo.processInfo.environment["GAMEQA_PROBE_RAW_PIXEL_PAIRS"] == "1"
+        var pixelPairIndex = 0
         var result: [String: Any] = ["passed": false, "capture_mode": mode, "architecture": "unknown", "permission_preflight": CGPreflightScreenCaptureAccess(),
             "os": ProcessInfo.processInfo.operatingSystemVersionString, "pid": ProcessInfo.processInfo.processIdentifier,
             "parent_pid": getppid(), "runner_image": ProcessInfo.processInfo.environment["ImageVersion"] ?? "unknown"]
@@ -512,6 +535,9 @@ struct Probe {
         do {
             guard result["architecture"] as? String == "arm64" else { throw ProbeError("Expected native arm64") }
             guard mode == "stream" || mode == "snapshot" else { throw ProbeError("Unknown capture mode") }
+            guard !rawPixelPairs || (mode == "snapshot" && ProcessInfo.processInfo.environment["GAMEQA_PROBE_SAMPLE_BUFFER"] == "1") else {
+                throw ProbeError("Raw pixel pairs require snapshot sample-buffer capture")
+            }
             try saveJSON(result, root.appendingPathComponent("permission-preflight.json"))
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
             result["shareable_query"] = true
@@ -578,11 +604,29 @@ struct Probe {
                         let buffer = try await SCScreenshotManager.captureSampleBuffer(contentFilter: snapshotFilter, configuration: config)
                         frames.recordSample(buffer, started: requestMach, ended: mach_absolute_time())
                         guard let pixels = buffer.imageBuffer else { throw ProbeError("Screenshot sample has no image buffer") }
+                        var before: Data?
+                        if rawPixelPairs { before = try copyPixelRow(pixels) }
                         let ci = CIImage(cvPixelBuffer: pixels)
                         guard let cg = frames.context.createCGImage(ci, from: ci.extent) else {
                             throw ProbeError("Screenshot sample image conversion failed")
                         }
                         image = cg
+                        if let before = before {
+                            pixelPairIndex += 1
+                            guard pixelPairIndex <= 64 else { throw ProbeError("Raw pixel pair limit exceeded") }
+                            let stem = String(format: "buffer-pair-%04d", pixelPairIndex)
+                            try before.write(to: root.appendingPathComponent("\(stem)-before.bgra"))
+                            try savePNG(cg, root.appendingPathComponent("\(stem).png"))
+                            let after = try copyPixelRow(pixels)
+                            try after.write(to: root.appendingPathComponent("\(stem)-after.bgra"))
+                            try saveJSON(["sample_index": pixelPairIndex,
+                                "width": CVPixelBufferGetWidth(pixels), "height": CVPixelBufferGetHeight(pixels),
+                                "row_bytes": CVPixelBufferGetBytesPerRow(pixels),
+                                "sample_row": CVPixelBufferGetHeight(pixels) / 2, "pixel_format": "BGRA",
+                                "before": "\(stem)-before.bgra", "after": "\(stem)-after.bgra",
+                                "converted": "\(stem).png", "request_mach": requestMach,
+                                "recorded_mach": mach_absolute_time()], root.appendingPathComponent("\(stem).json"))
+                        }
                     } else {
                         image = try await SCScreenshotManager.captureImage(contentFilter: snapshotFilter, configuration: config)
                     }
@@ -716,6 +760,12 @@ struct Probe {
                 result["presentation_recovery"] = ["frozen_state": frozen, "after_state": after,
                     "rows": rows, "desktop_counter": try decode(crop), "cover_exit_code": children[1].terminationStatus]
             } catch { result["presentation_recovery_error"] = String(describing: error) }
+        }
+        if rawPixelPairs {
+            result["diagnostic_only"] = true
+            result["original_capture_passed"] = result["passed"]
+            result["passed"] = false
+            result["raw_pixel_pair_count"] = pixelPairIndex
         }
         result["frontmost_at_stream_end"] = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
         result["frame_diagnostics"] = frames.diagnostics()
