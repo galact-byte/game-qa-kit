@@ -63,7 +63,8 @@ def check(report):
                     {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/list', 'params': {}}]
         mcp = subprocess.run([str(base / 'GameQA-MCP.exe')],
             input=''.join(json.dumps(request) + '\n' for request in requests),
-            capture_output=True, text=True, encoding='utf-8', timeout=20, check=True)
+            capture_output=True, text=True, encoding='utf-8', timeout=20, check=True,
+            creationflags=subprocess.CREATE_NO_WINDOW)
         responses = [json.loads(line) for line in mcp.stdout.splitlines() if line.strip()]
         assert len(responses) == 2 and all('result' in entry for entry in responses), responses
         result['mcp_tool_count'] = len(responses[1]['result']['tools'])

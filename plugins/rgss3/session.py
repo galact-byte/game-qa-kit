@@ -70,20 +70,16 @@ class RgssSession:
         pid = self.host.pid if self.host else None
         try:
             if self.bridge:
-                state = self.bridge.status()
-                if state.get('connected'):
-                    self.bridge.pause()
-                    deadline = time.monotonic() + 3
-                    while time.monotonic() < deadline:
-                        state = self.bridge.status()
-                        if state.get('connected') and state.get('paused') is True and state.get('held') == []:
-                            release = True
-                            break
-                        time.sleep(.01)
-                    if release is None:
-                        release = False
-                else:
-                    release, release_error = False, state.get('error') or 'bridge_disconnected_before_release'
+                self.bridge.pause()
+                deadline = time.monotonic() + 3
+                while time.monotonic() < deadline:
+                    state = self.bridge.status()
+                    if state.get('connected') and state.get('paused') is True and state.get('held') == []:
+                        release = True
+                        break
+                    time.sleep(.01)
+                if release is None:
+                    release, release_error = False, state.get('error') or 'release_confirmation_timeout'
         except Exception as exc:
             release, release_error = False, str(exc)
         finally:

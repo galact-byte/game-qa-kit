@@ -292,7 +292,8 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
         @frame+=1
         @ready=true
         guard
-        observe
+        # 发布受阻时先重试心跳，避免每次重试前都叠加一次昂贵截图。
+        observe unless status==false
         if @current
           if @current['phase']=='input'
             @current['remaining']-=1
