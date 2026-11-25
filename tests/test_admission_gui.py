@@ -50,7 +50,8 @@ class AdmissionGuiTests(unittest.TestCase):
     def checkpoint_fixture(self):
         from tests.test_rgss_admission import RgssAdmissionTests
         RgssAdmissionTests.setUp(self)
-        self.seed = self.root / 'checkpoint'
+        # 非规范写法用于覆盖同一目录规范化后的计划与确认展示。
+        self.seed = self.root / 'source' / '..' / 'checkpoint'
         self.seed.mkdir()
         (self.seed / 'Save01.rvdata2').write_bytes(b'branch point')
         self.dialog.source.setText(str(self.source))
@@ -64,9 +65,9 @@ class AdmissionGuiTests(unittest.TestCase):
         self.drain(lambda: not self.dialog.busy)
         self.assertTrue(self.dialog.start.isEnabled())
         plan = self.dialog.plan
-        self.assertEqual(plan['checkpoint']['directory'], str(self.seed))
+        self.assertEqual(plan['checkpoint']['directory'], str(self.seed.resolve()))
         self.assertEqual(set(plan['checkpoint']['files']), {'Save01.rvdata2'})
-        self.assertIn(str(self.seed), self.dialog.detail.toPlainText())
+        self.assertIn(str(self.seed.resolve()), self.dialog.detail.toPlainText())
         self.assertIn('Save01.rvdata2', self.dialog.detail.toPlainText())
         self.assertFalse(Path(plan['destination']).exists())
         self.assertEqual(self.recipe.manifest(self.source), source_before)
@@ -81,7 +82,7 @@ class AdmissionGuiTests(unittest.TestCase):
         with mock.patch.object(QMessageBox, 'question', return_value=QMessageBox.StandardButton.No) as question:
             self.dialog.start.click()
         summary = question.call_args.args[2]
-        self.assertIn(str(self.seed), summary)
+        self.assertIn(str(self.seed.resolve()), summary)
         self.assertIn('Save01.rvdata2', summary)
         self.assertIn('Save07.rvdata2', summary)
         self.manager.prepare.assert_not_called()
@@ -127,7 +128,7 @@ class AdmissionGuiTests(unittest.TestCase):
         self.drain(lambda: not self.dialog.busy)
         self.assertTrue(self.dialog.start.isEnabled())
         self.assertNotIn('checkpoint', self.dialog.plan)
-        self.assertNotIn(str(self.seed), self.dialog.detail.toPlainText())
+        self.assertNotIn(str(self.seed.resolve()), self.dialog.detail.toPlainText())
 
     def test_changed_checkpoint_path_requires_new_check(self):
         self.checkpoint_fixture()
