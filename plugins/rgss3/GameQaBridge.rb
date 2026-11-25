@@ -47,6 +47,19 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
       rescue Errno::EACCES, Errno::EEXIST
         false
       end
+      def mute_audio
+        class << Audio
+          [:bgm_play, :bgs_play, :me_play, :se_play].each do |name|
+            original="gameqa_native_#{name}".to_sym
+            alias_method original, name
+            define_method(name) do |filename, *options|
+              options[0]=0
+              send(original, filename, *options)
+            end
+          end
+        end
+        @audio_muted=true
+      end
       def start
         @root=ENV['GAMEQAKIT_BRIDGE_DIR']
         @meta=read_ini('connection')
@@ -60,6 +73,7 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
         @paused=true; @held={}; @current=nil; @last_request=''; @accepted_pause=''; @observed_pause=''; @last_status=0
         @error=nil; @ready=false; @frame=0
         @observation_seq=0; @observation_error=nil; @last_observation=0
+        mute_audio
         status(true)
         true
       end
@@ -108,7 +122,8 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
                'engine'=>'rpgmaker_vxace','updated_at'=>Time.now.to_f,'frame'=>@frame,'paused'=>@paused,
                'capabilities'=>@isolated && @ready ? ['move','confirm','cancel','wait','release'] : [],'max_input_frames'=>1,
                'buttons'=>KEYS.keys,'screen'=>[Graphics.width,Graphics.height],'held'=>@held.keys,'input_isolation'=>@isolated ? 'private_desktop' : 'unverified',
-               'command_id'=>@current ? @current['request']['id'] : nil,'error'=>@error}.merge(view)
+               'command_id'=>@current ? @current['request']['id'] : nil,'error'=>@error,
+               'audio_muted'=>@audio_muted==true}.merge(view)
         if ENV['GAMEQAKIT_OBSERVATION']=='1'
           value.merge!({'observation_seq'=>@observation_seq,
                         'observation_screenshot'=>@observation_seq>0 ? 'screenshots/observation.png' : nil,

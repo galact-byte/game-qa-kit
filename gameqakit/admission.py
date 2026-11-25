@@ -39,7 +39,7 @@ def validate_destination(source, destination):
     return destination
 
 
-def inspect(path, *, artifacts=None):
+def inspect(path, *, artifacts=None, checkpoint=None):
     no_links(path)
     result = inspect_game(path)
     result.update(schema_version=1, manual_observation=True, launch_readiness='unknown', blockers=[])
@@ -90,7 +90,7 @@ def inspect(path, *, artifacts=None):
         result['blockers'] = rgss.inspect(Path(result['root']), artifacts)
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
         if not result['blockers']:
-            result['profile_id'] = 'rpgmaker-vxace-sdk-rgss301-fixed'
+            result['profile_id'] = rgss.project_profile(result['root'])['profile_id']
     elif result['engine'] == 'wolf_candidate':
         from plugins.wolf import prepare as wolf
         result['blockers'] = wolf.inspect(Path(result['root']), artifacts)
@@ -168,11 +168,21 @@ def inspect(path, *, artifacts=None):
         else:
             block('missing_artifact', '尚未选择已有原生宿主和控制桥。', 'artifacts', '选择已有构建目录，无需重新安装。')
         result['launch_readiness'] = 'blocked' if result['blockers'] else 'ready'
+    if checkpoint is not None:
+        try:
+            if result['engine'] != 'rpgmaker_vxace':
+                raise ValueError('unsupported_checkpoint_engine：首版检查点仅接入已登记 VX Ace 工程')
+            from plugins.rgss3.prepare import checkpoint_snapshot
+            result['checkpoint'] = checkpoint_snapshot(checkpoint, source=result['root'], artifacts=artifacts)
+        except (OSError, ValueError) as exc:
+            block('checkpoint_not_ready', str(exc), 'checkpoint',
+                  '选择独立且只含 Save01.rvdata2 至 Save07.rvdata2 的专用测试检查点目录。')
+            result['launch_readiness'] = 'blocked'
     return result
 
 
-def make_plan(source, destination, *, artifacts):
-    result = inspect(source, artifacts=artifacts)
+def make_plan(source, destination, *, artifacts, checkpoint=None):
+    result = inspect(source, artifacts=artifacts, checkpoint=checkpoint)
     if result['launch_readiness'] != 'ready':
         raise ValueError('; '.join(row['message'] for row in result['blockers']))
     destination = validate_destination(result['root'], destination)
@@ -270,15 +280,30 @@ def make_plan(source, destination, *, artifacts):
     if result['engine'] == 'rpgmaker_vxace':
         from plugins.rgss3 import prepare as rgss
         validate_destination(artifacts, destination)
+        commercial = result['profile_id'] == rgss.COMMERCIAL_PROFILE['profile_id']
         payload = dict(schema_version=1, backend='rgss3', engine=result['engine'], source=str(source),
                        destination=str(destination), artifacts=str(artifacts),
                        source_digests=fingerprint(rgss.source_digests(source)),
-                       artifact_digests=fingerprint(rgss.artifact_digests(artifacts)),
+                       artifact_digests=fingerprint(rgss.artifact_digests(artifacts, commercial=commercial)),
                        data_policy='blank-sdk-progress-private-rgss301', desktop='private',
                        changes=['只修改副本：固定 VX Ace SDK 与已登记 RGSS301，不带原存档',
                                 '仅副本配置改用 RGSS301；在已核查 Main 入口前加载现有 RGSS3 控制桥',
                                 '初始暂停、松键并取得有效引擎首图；不自动输入，不宣称停止仿真',
                                 '结束自有进程并核对原工程与 DLL；新存档留在 QA 副本中'])
+        if commercial:
+            payload.update(profile_id=result['profile_id'], data_policy='blank-commercial-progress-private-rgss300',
+                           changes=['只修改全新副本：固定商业工程与原配 RGSS300，不带原存档或全局进度',
+                                    '安全展开已登记 RGSS3 归档，在已核查实际入口前加载现有桥；DLL 与 INI 保留原字节',
+                                    '独立桌面初始暂停、松键并取得有效首图；不自动输入',
+                                    '结束自有进程并核对原工程与 DLL；新存档只留 QA 副本'])
+        if checkpoint is not None:
+            validate_destination(result['checkpoint']['directory'], destination)
+            payload['checkpoint'] = result['checkpoint']
+            payload['data_policy'] = ('checkpoint-commercial-progress-private-rgss300' if commercial
+                                      else 'checkpoint-sdk-progress-private-rgss301')
+            payload['changes'][0] = ('只修改副本：固定商业工程与原配 RGSS300；仅带摘要所列专用测试检查点' if commercial
+                                     else '只修改副本：固定 VX Ace SDK 与已登记 RGSS301；仅带摘要所列专用测试检查点')
+            payload['changes'].append('准备时核验并复制检查点后再生成启动基线；不写回检查点或原档，9 号档禁止导入')
         return {**payload, 'fingerprint': fingerprint(payload)}
     if result['engine'] == 'wolf_candidate':
         from plugins.wolf import prepare as wolf
@@ -377,7 +402,11 @@ def make_plan(source, destination, *, artifacts):
 def revalidate_plan(plan):
     if plan.get('schema_version') != 1 or plan.get('backend') not in ('native_input', 'unity_mono_legacy', 'unity_mono_input_system', 'unity_mono_rewired', 'unity_il2cpp_input_system', 'rpgmaker_js', 'rgss3', 'wolf', 'godot_authored', 'renpy_authored', 'tyrano_authored', 'emuera_authored', 'kirikiri_authored', 'hsp_authored', 'flash_authored', 'easyrpg_authored', 'artemis_authored', 'gamemaker_authored', 'bakin_fixed'):
         raise ValueError('unsupported_plan')
-    actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'])
+    checkpoint = plan.get('checkpoint')
+    if checkpoint is not None and (not isinstance(checkpoint, dict) or not isinstance(checkpoint.get('directory'), str)):
+        raise ValueError('invalid_checkpoint_plan')
+    actual = make_plan(plan['source'], plan['destination'], artifacts=plan['artifacts'],
+                       checkpoint=checkpoint['directory'] if checkpoint is not None else None)
     if actual != plan:
         raise ValueError('plan_changed：原游戏、构建或操作摘要已变化，请重新检查并确认')
     return actual

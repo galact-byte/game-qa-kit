@@ -18,7 +18,7 @@ class GuardedKagTests(KagBridgeTests):
     def setUpClass(cls):
         super().setUpClass()
         import tempfile
-        test_root = Path('E:/DevData/gameqa-kirikiri/test-artifacts')
+        test_root = Path('E:/DevData/gameqa/gameqa-kirikiri/test-artifacts')
         test_root.mkdir(parents=True, exist_ok=True)
         cls.build_root = Path(tempfile.mkdtemp(prefix='kirikiri-kag-build-', dir=test_root))
         cls.addClassCleanup(shutil.rmtree, cls.build_root)

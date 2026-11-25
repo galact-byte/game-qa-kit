@@ -23,7 +23,7 @@ def prepare_module():
 
 class WolfControlTests(unittest.TestCase):
     def setUp(self):
-        parent = Path('E:/DevData/gameqa-wolf/tmp') if os.name == 'nt' else None
+        parent = Path('E:/DevData/gameqa/gameqa-wolf/tmp') if os.name == 'nt' else None
         if parent:
             parent.mkdir(parents=True, exist_ok=True)
         self.tmp = tempfile.TemporaryDirectory(dir=parent)

@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class WolfStartupTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        parent = Path('E:/DevData/gameqa-wolf/tmp')
+        parent = Path('E:/DevData/gameqa/gameqa-wolf/tmp')
         parent.mkdir(parents=True, exist_ok=True)
         cls.tmp = tempfile.TemporaryDirectory(dir=parent)
         cls.addClassCleanup(cls.tmp.cleanup)
@@ -164,7 +164,7 @@ class WolfSmokeWaitTests(unittest.TestCase):
             self.smoke.wait(denied, 1, self.process)
 
     def test_stage_published_after_transient_read_timeout(self):
-        parent = Path('E:/DevData/gameqa-wolf/tmp')
+        parent = Path('E:/DevData/gameqa/gameqa-wolf/tmp')
         parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=parent) as temporary:
             stage = Path(temporary) / 'plugin-stage.txt'

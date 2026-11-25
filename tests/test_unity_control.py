@@ -21,7 +21,7 @@ class UnityControlTests(unittest.TestCase):
             self.skipTest(str(error))
         if os.name != 'nt':
             self.skipTest('本地回归需要 Windows .NET Framework 运行编译产物')
-        parent = Path('E:/DevData/gameqa-unity/tmp')
+        parent = Path('E:/DevData/gameqa/gameqa-unity/tmp')
         parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='core-', dir=parent) as directory:
             result = subprocess.run([sys.executable, str(build), '--test-core', '--output',
@@ -38,7 +38,7 @@ class UnityControlTests(unittest.TestCase):
         tools = runpy.run_path(str(ROOT / 'plugins/unity/build.py'))
         source = (ROOT / 'plugins/unity/LegacyInput.cs').read_text(encoding='utf-8')
         read = source[source.index('        private static bool Read('):source.index('        public static bool GetKey(')]
-        parent = Path('E:/DevData/gameqa-unity/tmp')
+        parent = Path('E:/DevData/gameqa/gameqa-unity/tmp')
         parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='release-', dir=parent) as directory:
             generated = Path(directory) / 'ReadUnderTest.cs'
@@ -66,7 +66,7 @@ class UnityControlTests(unittest.TestCase):
         # tested without loading Unity or duplicating the polling implementation.
         lease = source[source.index('        private double Lease()'):source.index('        private bool Ready')]
         tick = source[source.index('        private void Tick()'):source.index('        private IEnumerator AfterRender()')]
-        parent = Path('E:/DevData/gameqa-unity/tmp')
+        parent = Path('E:/DevData/gameqa/gameqa-unity/tmp')
         parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='intake-', dir=parent) as directory:
             generated = Path(directory) / 'TickUnderTest.cs'
@@ -94,7 +94,7 @@ class UnityControlTests(unittest.TestCase):
         source = (ROOT / 'plugins/unity/GameQaBridge.cs').read_text(encoding='utf-8')
         recovery = source[source.index('        private void RecoverLoading('):source.index('        private void Install()')]
         render = source[source.index('        private IEnumerator AfterRender()'):source.index('        private byte[] Capture()')]
-        parent = Path('E:/DevData/gameqa-unity/tmp')
+        parent = Path('E:/DevData/gameqa/gameqa-unity/tmp')
         parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='observation-', dir=parent) as directory:
             generated = Path(directory) / 'RenderUnderTest.cs'

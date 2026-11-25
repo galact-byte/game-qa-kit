@@ -37,6 +37,8 @@ description: Use when starting or continuing a game localization playtest, Chine
 | 超时、pending 或结果不明 | 按原 `command_id` 查询 `control_result`；不换编号盲重发。`historical=true` 的旧回执不能指导当前动作 |
 | 人工接管 | `control_pause` 仅表示请求；再查 `control_status`，确认 paused 且 held 为空。恢复 AI 需明确授权并使用新的恢复命令 |
 
+需要从多个专用检查点排队巡检时，先读 [MCP 多分支排队与结果汇总](../../docs/MCP.md#多分支排队与结果汇总)，再按当前工具列表检查可用入口；各支玩法和截图仍按本 Skill 的证据门复核。
+
 Unity 接入先读本仓库 `plugins/unity/README.md` 的版本／后端矩阵，按实际 Mono／IL2CPP 与旧 Input／新 Input System／Rewired 组合使用构建，沿用上述 MCP；发现加载器不等于兼容。商业副本须先核查并记录写入隔离，菜单／剧情通过不代表角色移动或全流程。暂停只接受 connected=true、paused=true、held=[] 的真实确认；同一场景里的菜单变化也必须读图判断。开场／对话可能临时锁定移动，先正常推进到可操作状态，再用位移前后截图与坐标验证，不能只凭回执判通过。未覆盖的设备、API、动态程序集和其他组合另验，不回退桌面输入。
 
 HSP 接入先读 `plugins/hsp/README.md`：当前实证限 Windows x86／官方 HSP 3.7 空白工程与八星帝外置字节码的标题／读取菜单。原内嵌 EXE 不自动加载旁边修改的脚本；先准备已核对保存位置的隔离副本。仍使用上表统一 MCP，按操作后截图核对分页／返回；不把菜单通过扩大为玩法、进度读写或其他版本兼容。

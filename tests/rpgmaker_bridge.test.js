@@ -51,7 +51,8 @@ function fixture(t, version = 'MZ', enabled = true, observation = false, filesys
     }
     const scene = new Scene_Map();
     const renderer = { render() {} };
-    const graphics = { width: 320, height: 240,
+    const graphics = { width: 320, height: 240, _videoVolume: 1,
+        setVideoVolume(value) { this._videoVolume = value; },
         _canvas: { toDataURL() { return 'data:image/png;base64,' + Buffer.from('unit-render').toString('base64'); } } };
     if (version === 'MV') graphics._renderer = renderer;
     else graphics._app = { renderer, stage: scene };
@@ -68,6 +69,21 @@ function fixture(t, version = 'MZ', enabled = true, observation = false, filesys
     const context = {
         require(name) { return name === 'fs' ? filesystem : require(name); },
         Buffer, console, Input: input, TouchInput: touch, Graphics: graphics, SceneManager: manager,
+        AudioManager: {
+            bgmVolume: 80, bgsVolume: 70, meVolume: 60, seVolume: 50,
+            updateBufferParameters(buffer, configVolume, audio) {
+                if (buffer && audio) {
+                    buffer.volume = configVolume * (audio.volume || 0) / 10000;
+                    buffer.pitch = (audio.pitch || 0) / 100;
+                    buffer.pan = (audio.pan || 0) / 100;
+                }
+            },
+        },
+        Video: version === 'MV' ? undefined : {
+            _volume: 1, _element: null,
+            initialize() { this._volume = 1; this._element = {volume: this._volume}; },
+            setVolume(value) { this._volume = value; if (this._element) this._element.volume = value; },
+        },
         $gamePlayer: { x: 0, y: 0, direction() { return 6; }, isMoving() { return moving; } },
         $gameMap: { mapId() { return 1; } },
         Utils: { RPGMAKER_NAME: version },
@@ -255,6 +271,54 @@ test('engine button declarations do not allow PS1 square on MV or MZ', t => {
         assert.deepEqual(f.status().held, []);
     }
 });
+
+for (const version of ['MV', 'MZ']) {
+    test(`${version} managed audio stays silent without changing user volume settings`, t => {
+        const f = fixture(t, version);
+        const manager = f.context.AudioManager;
+        const audio = {volume: 90, pitch: 120, pan: -25};
+        for (const channel of ['bgm', 'bgs', 'me', 'se']) {
+            const buffer = {};
+            manager.updateBufferParameters(buffer, manager[`${channel}Volume`], audio);
+            assert.deepEqual(buffer, {volume: 0, pitch: 1.2, pan: -0.25});
+        }
+        assert.deepEqual(audio, {volume: 90, pitch: 120, pan: -25});
+        assert.deepEqual(['bgm', 'bgs', 'me', 'se'].map(c => manager[`${c}Volume`]), [80, 70, 60, 50]);
+        manager.updateBufferParameters(null, 100, audio);
+        manager.updateBufferParameters({}, 100, null);
+        assert.equal(f.status().audio_muted, true);
+    });
+
+    test(`${version} managed video starts silent and cannot be unmuted by an event`, t => {
+        const f = fixture(t, version);
+        if (version === 'MV') {
+            assert.equal(f.context.Graphics._videoVolume, 0);
+            f.context.Graphics.setVideoVolume(1);
+            assert.equal(f.context.Graphics._videoVolume, 0);
+        } else {
+            f.context.Video.initialize();
+            assert.equal(f.context.Video._element.volume, 0);
+            f.context.Video.setVolume(1);
+            assert.equal(f.context.Video._element.volume, 0);
+        }
+    });
+
+    test(`${version} without a managed bridge keeps ordinary audio and video volumes`, t => {
+        const f = fixture(t, version, false);
+        const buffer = {};
+        f.context.AudioManager.updateBufferParameters(buffer, 80, {volume: 90, pitch: 100, pan: 0});
+        assert.equal(buffer.volume, 0.72);
+        if (version === 'MV') {
+            f.context.Graphics.setVideoVolume(0.8);
+            assert.equal(f.context.Graphics._videoVolume, 0.8);
+        } else {
+            f.context.Video.initialize();
+            f.context.Video.setVolume(0.8);
+            assert.equal(f.context.Video._element.volume, 0.8);
+        }
+        assert.equal(fs.existsSync(path.join(f.root, 'status.json')), false);
+    });
+}
 
 test('plugin absent environment does not hook manual input', t => {
     const f = fixture(t, 'MZ', false);

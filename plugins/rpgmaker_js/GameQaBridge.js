@@ -18,6 +18,24 @@
         meta.engine !== engine || !engine ||
         path.resolve(meta.exe_path).toLowerCase() !== path.resolve(process.execPath).toLowerCase()) return;
     window.__gameQaBridgeInstalled = true;
+    // 只约束测试实例的输出，保留音量配置、音高、声像和播放流程。
+    const updateBufferParameters = AudioManager.updateBufferParameters;
+    AudioManager.updateBufferParameters = function (buffer, configVolume, audio) {
+        return updateBufferParameters.call(this, buffer, 0, audio);
+    };
+    const video = engine === 'rpgmaker_mv' ? Graphics : Video;
+    const volumeMethod = engine === 'rpgmaker_mv' ? 'setVideoVolume' : 'setVolume';
+    const setVideoVolume = video[volumeMethod];
+    video[volumeMethod] = function () { return setVideoVolume.call(this, 0); };
+    video[volumeMethod]();
+    if (engine === 'rpgmaker_mz') {
+        const initializeVideo = Video.initialize;
+        Video.initialize = function () {
+            const result = initializeVideo.apply(this, arguments);
+            this.setVolume(0);
+            return result;
+        };
+    }
     fs.mkdirSync(path.join(root, 'results'), { recursive: true });
     fs.mkdirSync(path.join(root, 'screenshots'), { recursive: true });
     const buttons = ['up', 'down', 'left', 'right', 'ok', 'cancel', 'shift', 'pageup', 'pagedown'];
@@ -84,7 +102,7 @@
         if (!force && Date.now() - lastStatus < 200) return;
         if (write('status.json', {
             protocol: 1, session_id: meta.session_id, pid: meta.pid, exe_path: meta.exe_path,
-            engine, plugin_pid: process.pid, updated_at: Date.now() / 1000, frame, paused,
+            engine, plugin_pid: process.pid, updated_at: Date.now() / 1000, frame, paused, audio_muted: true,
             capabilities: rendererHooked ? ['move', 'confirm', 'cancel', 'wait', 'press', 'release', 'click'] : [],
             buttons: buttons.slice(),
             screen: [Graphics.width || 0, Graphics.height || 0],

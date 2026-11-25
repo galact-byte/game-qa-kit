@@ -89,18 +89,49 @@ gdi32.GetDIBits.argtypes = [HDC, HBITMAP, wintypes.UINT, wintypes.UINT,
                             ctypes.c_void_p, ctypes.POINTER(BITMAPINFO), wintypes.UINT]
 
 
+def _process_path(handle) -> str:
+    buf = ctypes.create_unicode_buffer(32768)
+    size = wintypes.DWORD(32768)
+    if not kernel32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size)):
+        return ''
+    return buf.value
+
+
 def _pid_path(pid: int) -> str:
     h = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
     if not h:
         return ""
     try:
-        buf = ctypes.create_unicode_buffer(32768)
-        size = wintypes.DWORD(32768)
-        if not kernel32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
-            return ""
-        return buf.value
+        return _process_path(h)
     finally:
         kernel32.CloseHandle(h)
+
+
+kernel32.TerminateProcess.argtypes = [HANDLE, wintypes.UINT]
+kernel32.TerminateProcess.restype = wintypes.BOOL
+kernel32.WaitForSingleObject.argtypes = [HANDLE, wintypes.DWORD]
+kernel32.WaitForSingleObject.restype = wintypes.DWORD
+
+
+def terminate_process(pid: int, exe_path: str):
+    """在同一句柄上核验并终止，避免查路径后按 PID 重新打开进程。"""
+    if type(pid) is not int or not 0 < pid < 2 ** 32 or not Path(exe_path).is_absolute():
+        raise ValueError('终止进程需要有效 PID 和绝对程序路径')
+    handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | 0x100000 | 1, False, pid)
+    if not handle:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        if kernel32.WaitForSingleObject(handle, 0) != 258:
+            raise RuntimeError('目标进程已退出或状态不可核验，拒绝结束其他实例')
+        actual = _process_path(handle)
+        if not actual or not _same_path(actual, exe_path):
+            raise RuntimeError('目标 PID 的程序路径已失效，拒绝结束其他实例')
+        if not kernel32.TerminateProcess(handle, 1):
+            raise ctypes.WinError(ctypes.get_last_error())
+        if kernel32.WaitForSingleObject(handle, 2000) != 0:
+            raise RuntimeError('终止请求已发送，但尚未确认目标退出')
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def _pid_name(pid: int) -> str:

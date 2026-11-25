@@ -20,7 +20,7 @@ class UnityDiagnosticsTests(unittest.TestCase):
         source = ROOT / 'plugins/unity/PhaseDiagnostics.cs'
         self.assertTrue(source.is_file(), '缺少独立于 Unity 主线程的有界阶段诊断')
         tools = runpy.run_path(str(ROOT / 'plugins/unity/build.py'))
-        parent = Path('E:/DevData/gameqa-admission/tmp')
+        parent = Path('E:/DevData/gameqa/gameqa-admission/tmp')
         parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='diagnostics-', dir=parent) as directory:
             output = Path(directory) / 'DiagnosticsTests.exe'

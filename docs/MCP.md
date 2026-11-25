@@ -54,6 +54,47 @@
 
 启动游戏的 GUI、CLI 或 MCP 连接需要保持运行。其他客户端可以明确连接、观察、暂停并申请唯一动作权，结束游戏仍需回到创建它的入口。后台绑定后，旧桌面输入、存档恢复等旁路会被阻断；解绑或失联也不会自动回退原配置。人工盯屏会话与后台游戏会话分别管理。
 
+`game_inspect` 可选 `checkpoint`：专用测试存档目录，支持已登记 VX Ace SDK 工程及固定 RGSS300 商业归档工程；商业配置保留原配 DLL，仍核对完整工程与脚本摘要。检查通过后，返回的 `plan.checkpoint` 包含目录及逐文件 SHA-256，并计入计划指纹；将完整计划传给 `game_prepare(plan=..., request_id=..., confirm=true)`。确认后输入变化必须重新检查，不能删改计划字段绕过核验。只接受 `Save01.rvdata2` 至 `Save07.rvdata2`，准备时先复制核对再生成启动基线；原档和检查点不回写。目录限制、数据保留与当前范围见[检查点说明](GAME-ADMISSION.md#从专用测试检查点准备实验)。
+
+## 多分支排队与结果汇总
+
+源码及本地 Windows 冻结候选 MCP 提供批次入口，每支使用独立副本、受管会话和 MCP 子进程；创建批次的连接需保持运行。先用 `tools/list` 确认当前版本提供这些工具，已发布便携包需重新构建才能包含本次新增入口。固定 RGSS300 备用样本已分别通过源码和冻结入口的三支排队短流程（最多两支活动），覆盖两种 1 号检查点读取、移动、回收后启动候补与 CLI 只读报告；冻结入口还验证了取消、创建者 EOF 与异常退出时候补不启动，异常退出的离线报告保留 `interrupted_unverified`。当前结果仅限本地候选及固定样本，其他构建、目标路线容量和长期运行仍需分别验证。
+
+| 工具 | 参数与作用 |
+| --- | --- |
+| `batch_inspect` | `branches`、`max_active`、`report_directory`；只读生成完整计划，目录须全新且互不重叠 |
+| `batch_start` | `plan`、`confirm=true`；启动计划，按输入顺序保留有限活动名额 |
+| `batch_status` | 无参数时查询并推进本连接批次；可选 `directory` 只读已落盘报告 |
+| `batch_finish` | `branch_id`、`outcome`、`evidence`、可选 `note`、`confirm=true`；声明结论并请求停止该支 |
+| `batch_cancel` | 取消本连接批次；阻止候补启动，并请求停止自有活动分支 |
+
+`branches` 中每项有唯一 `id`、游戏原目录 `path`、组件目录 `artifacts`、新副本目录 `destination`，可选专用测试存档目录 `checkpoint`。例如：
+
+```json
+{
+  "branches": [
+    {"id":"route-a","path":"E:/Games/Example","artifacts":"E:/QA/components","destination":"E:/QA/run-a","checkpoint":"E:/QA/point-a"},
+    {"id":"route-b","path":"E:/Games/Example","artifacts":"E:/QA/components","destination":"E:/QA/run-b","checkpoint":"E:/QA/point-b"}
+  ],
+  "max_active": 1,
+  "report_directory": "E:/QA/report-001"
+}
+```
+
+将 `batch_inspect` 返回的完整计划交给 `batch_start`，不要重写指纹或分支字段。`max_active=1` 顺序执行；更大的值只是所选活动名额，须符合目标游戏的已验容量。定期调用 `batch_status` 才会推进准备、启动和后续候补，关闭连接后不会恢复队列。
+
+每支到 `ready` 后只表示已启动并暂停输入；从返回的 `session` 取得其目录，另用显式 `game_bind` 和既有 `control_*` 测试。调度器本身不发送游戏动作，也不自动读档或审图。人工盯屏按原流程继续。完成后调用 `batch_finish`，`outcome` 仅接受 `passed`、`failed`、`unverified`；`evidence` 为已落盘文件路径列表，声明 `passed` 必须提供证据。系统记录文件大小和 SHA-256，不替代测试者判断。
+
+完成声明后先等待该支 worker 退出和回收确认，再释放名额。回收失败、松键未确认、目标未退出或原件核验失败会阻断后续启动；回收期间证据变化会转为 `unverified`，原声明保留。批次 `completed` 表示各支已结束，仍需查看 `counts` 与各支结论；就绪、候补和取消都不算通过。
+
+汇总保存在报告目录的 `summary.json`，各支完整计划在 `plan.json`，子进程错误日志在 `peers/<id>/mcp-stderr.log`。另一连接或命令行可以只读回看；落盘的活动状态显示 `interrupted_unverified`，不据此取得控制、结束或续跑权。
+
+```bash
+python -m gameqakit.cli batch report E:/QA/report-001
+```
+
+本次新增调度入口已用替身进程验证生命周期；固定备用游戏此前四支短时实机结果单独保留。真实游戏通过本批次入口的玩法、冻结包、长期运行与同负载收益尚未验收，范围见[路线图](ROADMAP.md#多分支检查点与并行测试分阶段推进)。
+
 ## 推荐流程
 
 1. `profile` 核对目标，`win` 查看窗口。
@@ -64,6 +105,8 @@
 6. `watch_report` 汇总人工标记、自动疑点和普通留图时间线。
 
 原有 `capture`、`mark`、存档工具和输入工具继续可用。
+
+`kill_game(confirm=true)` 要求当前配置具有明确 PID 和程序绝对路径；停止前在同一进程句柄上核对路径与存活状态，只结束该目标，身份失效或权限不足会报错，不按程序名批量结束。旧配置只有进程名时，请先重新选择目标。`load(name=..., confirm=true)` 在写入存档及恢复前备份之前检查同名游戏进程；仍有进程运行或无法确认时拒绝恢复，隐藏或无窗口进程也包含在内。另一份同名游戏同样会阻止这一旧恢复入口，暂不支持并行恢复。这些入口保护的替身与文件准备测试不等同游戏实机并行验收。
 
 ## 盯屏工具参数
 

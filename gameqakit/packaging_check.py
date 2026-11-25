@@ -22,8 +22,9 @@ def check(report):
         assert profile.profiles_dir() == base / 'profiles'
         result['default_data'] = str(profile.GameProfile(name='portable-check', proc='Game').data_path)
         assert Path(result['default_data']) == base / 'data/portable-check'
-        modules = ('gameqakit.engines', 'gameqakit.game_worker', 'plugins.unity.prepare',
-                   'plugins.rgss3.prepare', 'plugins.rpgmaker_js.prepare', 'plugins.native_input.session',
+        modules = ('gameqakit.engines', 'gameqakit.game_worker', 'gameqakit.background',
+                   'gameqakit.background_agent', 'plugins.unity.prepare',
+                   'plugins.rgss3.prepare', 'plugins.rgss3.archive', 'plugins.rpgmaker_js.prepare', 'plugins.native_input.session',
                    'plugins.godot.session', 'plugins.renpy.session', 'plugins.tyrano.session',
                    'plugins.emuera.session', 'plugins.kirikiri.session', 'plugins.kirikiri.capture_worker',
                    'plugins.hsp.session', 'plugins.flash.session', 'plugins.easyrpg.session',

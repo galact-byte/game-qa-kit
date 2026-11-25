@@ -41,7 +41,7 @@ class HspControlTests(unittest.TestCase):
         vcvars = Path('E:/vsCode/VSBuildTools/VC/Auxiliary/Build/vcvars32.bat')
         if os.name != 'nt' or not vcvars.is_file():
             self.skipTest('需要本地 Windows MSVC x86 工具链')
-        parent = Path('E:/DevData/gameqa-hsp/tmp')
+        parent = Path('E:/DevData/gameqa/gameqa-hsp/tmp')
         parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='core-', dir=parent) as work:
             result = subprocess.run([sys.executable, str(ROOT / 'plugins/hsp/build.py'),

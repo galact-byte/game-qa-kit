@@ -31,7 +31,7 @@ class DuckStationTests(unittest.TestCase):
         compiler = Path('E:/vsCode/VSBuildTools/VC/Auxiliary/Build/vcvars64.bat')
         if os.name != 'nt' or not compiler.is_file():
             self.skipTest('需要已安装的 Windows MSVC x64')
-        parent = Path('E:/DevData/gameqa-ps1/tmp')
+        parent = Path('E:/DevData/gameqa/gameqa-ps1/tmp')
         parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='core-', dir=parent) as directory:
             result = subprocess.run(

@@ -28,6 +28,8 @@ from gameqakit import dedup, watch as _watch, saves as _saves, sessions  # noqa:
 from gameqakit.platform_support import window_backend as win32, info as platform_info  # noqa: E402
 if sys.platform == 'win32':
     from gameqakit import inputs
+    from gameqakit.background import Manager as BackgroundManager
+    _BACKGROUND = BackgroundManager()
 
 SERVER_NAME = "gameqakit"
 SERVER_VERSION = "0.2.1"
@@ -37,6 +39,8 @@ _PROFILE = None
 from gameqakit.game_session import Binding, Manager
 _BINDING = Binding()
 _MANAGER = Manager()
+from gameqakit.branch_queue import BatchQueue
+_BATCH = BatchQueue()
 
 
 def P():
@@ -102,6 +106,32 @@ def t_capture(a):
     if a.get("dedupe"):
         res["dedupe"] = dedup.dedupe_frame(out, p.state_dir)
     return res
+
+
+def t_background_start(a):
+    hwnd, pid = a.get('hwnd'), a.get('pid')
+    if hwnd is None and pid is None:
+        p = _profile.load_profile(a['profile']) if a.get('profile') else P()
+        hwnd = win32.find_profile_window(p)
+        pid = win32.window_pid(hwnd)
+    elif hwnd is None:
+        path = win32._pid_path(pid)
+        if not path:
+            raise ValueError('无法读取指定 PID 的程序路径')
+        hwnd = win32.find_window(Path(path).name, exe_path=path, pid=pid)
+    elif pid is None:
+        pid = win32.window_pid(hwnd)
+    return _BACKGROUND.start(hwnd, pid, elevate=a.get('elevate', True))
+
+
+def t_background_capture(a):
+    import uuid
+    out = a.get('out') or str(Path('E:/DevData/gameqa/gameqa-background') / ('shot-' + uuid.uuid4().hex + '.png'))
+    return _BACKGROUND.capture(Path(out))
+
+
+def t_background_input(a):
+    return _BACKGROUND.input({key: value for key, value in a.items() if key != 'confirm'})
 
 
 def t_watch_mark(a):
@@ -179,13 +209,10 @@ def t_save(a):
 
 def t_load(a):
     p = P()
-    running = _saves.is_game_running(p.proc)
+    if _saves.is_game_running(p.proc):
+        raise RuntimeError('检测到同名游戏进程仍在运行，拒绝恢复存档；请先在游戏内保存并停止目标')
     src = _saves.restore_save(a["name"], _savedata(p), p.save_globs, p.saves_dir)
-    res = {"ok": True, "restored_from": str(src), "into": str(_savedata(p)), "game_running": running}
-    if running:
-        res["warning"] = ("游戏进程仍在运行！运行中不重读磁盘，恢复不生效、屏上仍是旧内存状态。"
-                          "正确：kill_game→重启 exe→游戏内 AUTO LOAD→截图核对。")
-    return res
+    return {"ok": True, "restored_from": str(src), "into": str(_savedata(p)), "game_running": False}
 
 
 def t_list_saves(_a):
@@ -194,9 +221,10 @@ def t_list_saves(_a):
 
 def t_kill_game(_a):
     p = P()
-    if p.exe_path:
-        return _saves.kill_game(p.proc, pid=win32.window_pid(win32.find_profile_window(p)))
-    return _saves.kill_game(p.proc)
+    if not p.exe_path:
+        raise ValueError('结束进程需要精确程序路径，请先重新选择目标')
+    return _saves.kill_game(p.proc, pid=win32.window_pid(win32.find_profile_window(p)),
+                            exe_path=p.exe_path)
 
 
 def t_processes(_a):
@@ -213,10 +241,30 @@ def t_engine_inspect(a):
 
 def t_game_inspect(a):
     from gameqakit.admission import inspect, make_plan
-    result = inspect(a['path'], artifacts=a.get('artifacts'))
+    options = {'artifacts': a.get('artifacts')}
+    if a.get('checkpoint') is not None:
+        options['checkpoint'] = a['checkpoint']
+    result = inspect(a['path'], **options)
     if a.get('destination') and result['launch_readiness'] == 'ready':
-        result['plan'] = make_plan(a['path'], a['destination'], artifacts=a.get('artifacts'))
+        result['plan'] = make_plan(a['path'], a['destination'], **options)
     return result
+
+
+def t_batch_inspect(a):
+    from gameqakit.branch_queue import make_plan
+    return make_plan(a['branches'], max_active=a['max_active'], report_directory=a['report_directory'])
+
+
+def t_batch_status(a):
+    from gameqakit.branch_queue import read_report
+    directory = a.get('directory')
+    if directory and (_BATCH.plan is None or Path(directory).resolve() != Path(_BATCH.plan['report_directory']).resolve()):
+        return read_report(directory)
+    return _BATCH.status()
+
+
+def t_batch_finish(a):
+    return _BATCH.finish(a['branch_id'], outcome=a['outcome'], evidence=a.get('evidence', []), note=a.get('note', ''))
 
 
 def t_game_prepare(a):
@@ -291,16 +339,66 @@ def t_control_resume(a):
 PROFILE_NOTE = "按激活 profile 操作（GAMEQAKIT_PROFILE）。"
 CONFIRM = {"confirm": {"type": "boolean", "description": "危险操作必须显式传 true 才执行"}}
 DANGEROUS_TOOLS = {"click", "key", "load", "kill_game", "control_action", "control_resume",
-                   'game_prepare', 'game_start', 'game_stop'}
+                   'batch_start', 'batch_finish',
+                   'game_prepare', 'game_start', 'game_stop', 'background_start', 'background_input'}
 BRIDGE_FIELDS = {"directory": {"type": "string", "description": "插件会话目录；默认 profile 的 state/control，不是游戏目录"}}
 COMMAND_FIELDS = {**BRIDGE_FIELDS, "command_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"},
                   "timeout": {"type": "number", "minimum": 0.05, "maximum": 15},
                   "include_image": {"type": "boolean", "description": "回传已校验的操作后 PNG；过大时仅返回归档路径"}}
 
 TOOLS = {
+    'batch_inspect': ('只读检查各分支并生成含检查点、独立目的地、并发上限及报告目录的批次摘要。'
+                      '不启动游戏、不发送动作；所有输出目录必须全新且互不重叠。',
+                      _obj({'branches': {'type': 'array', 'minItems': 1, 'items': _obj({
+                                'id': {'type': 'string', 'pattern': '^[A-Za-z0-9_-]{1,64}$'},
+                                'path': {'type': 'string'}, 'destination': {'type': 'string'},
+                                'artifacts': {'type': 'string'}, 'checkpoint': {'type': 'string'}},
+                                ['id', 'path', 'destination', 'artifacts'])},
+                            'max_active': {'type': 'integer', 'minimum': 1},
+                            'report_directory': {'type': 'string'}},
+                           ['branches', 'max_active', 'report_directory']), t_batch_inspect),
+    'batch_start': ('确认摘要后按并发上限排队启动；每支由独立 MCP 创建者持有。'
+                    '须保持本 MCP 存活并轮询 batch_status 推进；就绪不代表测试通过。',
+                    _obj({**CONFIRM, 'plan': {'type': 'object'}}, ['plan', 'confirm']),
+                    lambda a: _BATCH.start(a['plan'], confirm=a.get('confirm'))),
+    'batch_status': ('轮询本 MCP 批次，推进准备、启动和回收确认后排下一支；不发游戏动作。'
+                     'directory 指向其他批次时只读磁盘汇总，不恢复创建者或停止权。',
+                     _obj({'directory': {'type': 'string'}}), t_batch_status),
+    'batch_finish': ('记录指定分支的测试者结论、证据文件及 SHA256，然后请求停止。'
+                     '通过须带证据，且回收确认后才计通过；既有结论不能覆盖。',
+                     _obj({**CONFIRM, 'branch_id': {'type': 'string'},
+                           'outcome': {'type': 'string', 'enum': ['passed', 'failed', 'unverified']},
+                           'evidence': {'type': 'array', 'items': {'type': 'string'}},
+                           'note': {'type': 'string'}}, ['branch_id', 'outcome', 'confirm']), t_batch_finish),
+    'batch_cancel': ('取消本 MCP 的排队，停止自有活动分支；继续轮询确认回收。'
+                     '不操作其他批次，不将未知或回收失败计作通过。', _obj({}), lambda a: _BATCH.cancel()),
+    'background_start': ('启动仅绑定一个 HWND/PID 的后台窗口代理；默认会请求一次 UAC，须本人同意，不绕过。'
+                         '不置前台、不移动系统鼠标、不注入；HWND/PID 或 profile 均可，未配置 profile 时请显式指定目标。需 confirm=true。',
+                         _obj({**CONFIRM, 'hwnd': {'type': 'integer', 'minimum': 1},
+                               'pid': {'type': 'integer', 'minimum': 1}, 'profile': {'type': 'string'},
+                               'elevate': {'type': 'boolean', 'default': True}}), t_background_start),
+    'background_status': ('查询当前后台代理、绑定身份和就绪状态；不发送游戏输入。',
+                          _obj({}), lambda a: _BACKGROUND.status()),
+    'background_capture': ('通过已绑定代理后台截取未最小化窗口的客户区；遮挡无需移开。PrintWindow 不支持时明确失败，无前台回退。'
+                           '返回 PNG 路径、尺寸及摘要；out 须为尚不存在的绝对 PNG 路径。',
+                           _obj({'out': {'type': 'string'}}), t_background_capture),
+    'background_input': ('向已绑定窗口 PostMessage 后台鼠标消息，不动系统鼠标、不置前台。'
+                         '支持单击、长按、分段拖动和滚轮；动作间至少 600ms。投递成功不表示游戏响应。'
+                         'command_id 用于去重，超时只用同编号查原结果，不盲目重发。需 confirm=true。',
+                         _obj({**CONFIRM, 'kind': {'type': 'string', 'enum': ['click', 'drag', 'wheel']},
+                               'cx': {'type': 'integer'}, 'cy': {'type': 'integer'},
+                               'end_cx': {'type': 'integer'}, 'end_cy': {'type': 'integer'},
+                               'steps': {'type': 'integer', 'minimum': 2, 'maximum': 12},
+                               'hold_ms': {'type': 'integer', 'minimum': 600, 'maximum': 10000, 'default': 600},
+                               'interval_ms': {'type': 'integer', 'minimum': 600, 'maximum': 1000, 'default': 600},
+                               'delta': {'type': 'integer', 'minimum': -1200, 'maximum': 1200},
+                               'command_id': {'type': 'string', 'pattern': '^[A-Za-z0-9_-]{1,64}$'}},
+                              ['kind', 'cx', 'cy', 'command_id']), t_background_input),
+    'background_stop': ('停止本 MCP 的后台代理并尝试向绑定窗口松开；不结束游戏。MCP 退出或目标退出也会回收代理。',
+                        _obj({}), lambda a: _BACKGROUND.stop()),
     'game_inspect': ('只读检查指定游戏的后台接入条件和阻碍，不启动或输入；提供 destination 时附操作摘要供审阅。',
                      _obj({'path': {'type': 'string'}, 'artifacts': {'type': 'string'},
-                           'destination': {'type': 'string'}}, ['path']), t_game_inspect),
+                           'destination': {'type': 'string'}, 'checkpoint': {'type': 'string'}}, ['path']), t_game_inspect),
     'game_prepare': ('确认操作摘要后异步准备全新受管副本。同一 request_id 查询原结果，不重新执行。',
                      _obj({**CONFIRM, 'plan': {'type': 'object'}, 'request_id': {'type': 'string'}},
                           ['plan', 'request_id', 'confirm']), t_game_prepare),
@@ -381,12 +479,13 @@ def _available_tools():
     if sys.platform == 'win32':
         return TOOLS
     common = {'platform_info', 'profile', 'save', 'list_saves', 'watch_report',
-              'watch_status', 'watch_events', 'engine_inspect'}
+              'watch_status', 'watch_events', 'engine_inspect', 'batch_inspect', 'batch_status'}
     features = platform_info()['features']
     if features['window_capture']:
         common |= {'win', 'capture', 'mark', 'watch_start', 'watch_stop', 'processes'}
     if features['godot_managed']:
         common |= {'game_inspect', 'game_prepare', 'game_start', 'game_stop', 'game_bind',
+                   'batch_start', 'batch_finish', 'batch_cancel',
                    'game_unbind', 'game_status', 'control_status', 'control_action',
                    'control_result', 'control_pause', 'control_resume'}
     return {name: tool for name, tool in TOOLS.items() if name in common}
@@ -460,9 +559,16 @@ def main():
         _serve()
     finally:
         try:
-            _MANAGER.close()
+            _BATCH.close()
         finally:
-            _BINDING.close()
+            try:
+                _MANAGER.close()
+            finally:
+                try:
+                    _BINDING.close()
+                finally:
+                    if sys.platform == 'win32':
+                        _BACKGROUND.close()
 
 
 if __name__ == "__main__":

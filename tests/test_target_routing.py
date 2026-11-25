@@ -62,11 +62,9 @@ class TargetRoutingTests(unittest.TestCase):
         self.assertTrue(result["foreground_confirmed"])
 
     def test_kill_selected_profile_targets_pid_not_all_game_executables(self):
-        def run(command, **_kwargs):
-            correct = command == ["taskkill", "/F", "/PID", "11"]
-            return subprocess.CompletedProcess(command, 0 if correct else 5, stdout="", stderr="")
-        with mock.patch.object(saves.subprocess, "run", side_effect=run):
+        with mock.patch.object(win32, 'terminate_process') as terminate:
             result = self.call("kill_game", {"confirm": True})
+        terminate.assert_called_once_with(11, self.p.exe_path)
         self.assertTrue(result["killed"])
         self.assertEqual(result["pid"], 11)
 

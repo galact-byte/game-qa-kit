@@ -42,16 +42,19 @@ def _game(args):
     def output(value):
         print(json.dumps(value, ensure_ascii=False), flush=True)
 
+    options = {'artifacts': getattr(args, 'artifacts', None)}
+    if getattr(args, 'checkpoint', None) is not None:
+        options['checkpoint'] = args.checkpoint
     if args.operation == 'inspect':
-        result = (admission.make_plan(args.path, args.destination, artifacts=args.artifacts)
-                  if args.destination else admission.inspect(args.path, artifacts=args.artifacts))
+        result = (admission.make_plan(args.path, args.destination, **options)
+                  if args.destination else admission.inspect(args.path, **options))
         output(result)
         return 0
     if args.operation == 'status':
         output(Manager().status(args.path))
         return 0
     require_windows('受管游戏启动')
-    plan = admission.make_plan(args.path, args.destination, artifacts=args.artifacts)
+    plan = admission.make_plan(args.path, args.destination, **options)
     if plan['fingerprint'] != args.fingerprint:
         raise ValueError('摘要已变化，请重新运行 game inspect 并确认')
     manager = Manager()
@@ -110,16 +113,28 @@ def main(argv=None):
     inspect.add_argument('path')
     inspect.add_argument('--artifacts', help='已有原生宿主和控制桥目录')
     inspect.add_argument('--destination', help='本次全新会话目录')
+    inspect.add_argument('--checkpoint', help='专用 VX Ace 测试检查点目录，仅接受 1～7 号档')
     status = operations.add_parser('status', help='只读查询，不能恢复停止权')
     status.add_argument('path', help='会话目录')
     start = operations.add_parser('start', help='准备并启动；保持运行，Ctrl+C 结束自有会话')
     start.add_argument('path')
     start.add_argument('--destination', required=True)
     start.add_argument('--artifacts', required=True)
+    start.add_argument('--checkpoint', help='与检查摘要一致的专用 VX Ace 测试检查点目录')
     start.add_argument('--fingerprint', required=True, help='此前 game inspect 返回的摘要指纹')
     start.add_argument('--confirm', required=True, action='store_true', help='确认此前检查的操作摘要')
 
+    pb = sub.add_parser('batch', help='分支批次的只读结果汇总')
+    batch_operations = pb.add_subparsers(dest='operation', required=True)
+    batch_report = batch_operations.add_parser('report', help='读取批次汇总，不恢复创建者或控制权')
+    batch_report.add_argument('path', help='批次报告目录')
+
     args = ap.parse_args(argv)
+
+    if args.cmd == 'batch':
+        from .branch_queue import read_report
+        print(json.dumps(read_report(args.path), ensure_ascii=False))
+        return 0
 
     if args.cmd == 'game':
         return _game(args)

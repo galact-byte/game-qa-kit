@@ -27,7 +27,7 @@ def authored_archive(files):
 
 class UnicodePatchTests(unittest.TestCase):
     def setUp(self):
-        test_root = Path('E:/DevData/gameqa-kirikiri/test-artifacts')
+        test_root = Path('E:/DevData/gameqa/gameqa-kirikiri/test-artifacts')
         test_root.mkdir(parents=True, exist_ok=True)
         self.temp = tempfile.TemporaryDirectory(dir=test_root)
         self.addCleanup(self.temp.cleanup)

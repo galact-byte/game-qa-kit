@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class WolfIpcTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        parent = Path('E:/DevData/gameqa-wolf/tmp')
+        parent = Path('E:/DevData/gameqa/gameqa-wolf/tmp')
         parent.mkdir(parents=True, exist_ok=True)
         cls.tmp = tempfile.TemporaryDirectory(dir=parent)
         cls.root = Path(cls.tmp.name)

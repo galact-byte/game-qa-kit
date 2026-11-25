@@ -42,7 +42,21 @@ class UnitySession:
         target.mkdir(exist_ok=True)
         self.link.parent.mkdir(parents=True, exist_ok=True)
         # Unity 使用系统 LocalLow；只有本次随机产品标识联接到 QA 根，游戏数据留在会话内。
-        _winapi.CreateJunction(str(target), str(self.link))
+        # CreateJunction may leave an empty directory after a transient sharing violation.
+        for attempt in range(3):
+            no_links(self.link)
+            try:
+                _winapi.CreateJunction(str(target), str(self.link))
+                break
+            except OSError as error:
+                if getattr(error, 'winerror', None) != 32:
+                    raise
+                no_links(self.link)
+                if self.link.exists():
+                    self.link.rmdir()
+                if attempt == 2:
+                    raise
+                time.sleep(.05)
         self.link_created = True
         if not self.link.is_junction() or self.link.resolve() != target.resolve():
             raise RuntimeError('private_persistent_redirect_failed')

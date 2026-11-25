@@ -1,4 +1,4 @@
-"""固定 VX Ace SDK 的独立桌面受管生命周期。"""
+"""固定 VX Ace 工程的独立桌面受管生命周期。"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -29,7 +29,8 @@ class RgssSession:
     def start(self, cancelled=lambda: False):
         if self.baseline is None or self.host is not None:
             raise RuntimeError('启动前需要本创建者完成准备，且不能重复启动')
-        if fingerprint(recipe.artifact_digests(self.plan['artifacts'])) != self.plan['artifact_digests']:
+        if fingerprint(recipe.artifact_digests(self.plan['artifacts'], commercial=(
+                self.plan.get('profile_id') == recipe.COMMERCIAL_PROFILE['profile_id']))) != self.plan['artifact_digests']:
             raise RuntimeError('artifact_changed')
         if recipe.manifest(self.root / 'runtime') != self.baseline:
             raise RuntimeError('runtime_changed_before_start')
@@ -95,12 +96,24 @@ class RgssSession:
             write_json(self.root / 'source-after.json', after)
             source_ok = after == read_json(self.root / 'source-before.json')
             try:
-                after = recipe.artifact_digests(self.plan['artifacts'])
+                after = recipe.artifact_digests(self.plan['artifacts'], commercial=(
+                    self.plan.get('profile_id') == recipe.COMMERCIAL_PROFILE['profile_id']))
             except (OSError, ValueError) as exc:
                 after = {'error': str(exc)}
             write_json(self.root / 'runtime-source-after.json', after)
             runtime_source_ok = after == read_json(self.root / 'runtime-source-before.json')
-        safe = exited and release is not False and source_ok and runtime_source_ok
+        checkpoint_ok = True
+        if self.plan.get('checkpoint') is not None:
+            checkpoint_ok = False
+            try:
+                after = recipe.checkpoint_snapshot(self.plan['checkpoint']['directory'],
+                    source=self.plan['source'], artifacts=self.plan['artifacts'])
+            except (OSError, ValueError) as exc:
+                after = {'error': str(exc)}
+            write_json(self.root / 'checkpoint-after.json', after)
+            if (self.root / 'checkpoint-before.json').exists():
+                checkpoint_ok = after == read_json(self.root / 'checkpoint-before.json')
+        safe = exited and release is not False and source_ok and runtime_source_ok and checkpoint_ok
         runtime = self.root / 'runtime'
         retained, changed = runtime.exists(), []
         if retained:
@@ -116,5 +129,7 @@ class RgssSession:
                   'release_confirmed': release, 'release_error': release_error, 'source_unchanged': source_ok,
                   'runtime_source_unchanged': runtime_source_ok, 'runtime_retained': retained,
                   'runtime_changed': changed[:20]}
+        if self.plan.get('checkpoint') is not None:
+            result['checkpoint_unchanged'] = checkpoint_ok
         write_json(self.root / 'cleanup.json', result)
         return result

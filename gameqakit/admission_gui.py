@@ -41,7 +41,7 @@ class AdmissionDialog(QDialog):
         self.sig = _Signals(self)
         self.sig.result.connect(self._result)
         self.setWindowTitle('AI 后台接入')
-        self.resize(760, 680)
+        self.resize(760, 736)
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
         hint = QLabel('选择游戏与 QA 数据目录，先检查本次操作范围，再确认启动。游戏初始只暂停就绪。')
@@ -51,8 +51,10 @@ class AdmissionDialog(QDialog):
         self.source = QLineEdit(preferences.get('source', ''))
         self.qa_root = QLineEdit(preferences.get('qa_root', ''))
         self.artifacts = QLineEdit(preferences.get('artifacts', os.environ.get('GAMEQAKIT_NATIVE_ARTIFACTS', '')))
+        self.checkpoint = QLineEdit()
         self.path_buttons = []
-        for text, field in [('游戏目录', self.source), ('QA 数据目录', self.qa_root), ('后台组件目录', self.artifacts)]:
+        for text, field in [('游戏目录', self.source), ('QA 数据目录', self.qa_root),
+                            ('后台组件目录', self.artifacts), ('测试检查点', self.checkpoint)]:
             field.setAccessibleName(text)
             row = QHBoxLayout()
             row.addWidget(field)
@@ -66,6 +68,10 @@ class AdmissionDialog(QDialog):
             field.textChanged.connect(self._invalidate)
         self.qa_root.setPlaceholderText('选择专门保存测试副本与证据的位置')
         self.artifacts.setPlaceholderText('已有 native-host.exe 与 native-input.dll 所在目录')
+        self.checkpoint.setPlaceholderText('可选：VX Ace 专用 1—7 号测试档目录；留空不导入')
+        self.checkpoint.setToolTip('选择独立检查点目录，仅导入 Save01.rvdata2 至 Save07.rvdata2。'
+                                   '不会写回检查点或原游戏；含 9 号档等额外文件时拒绝导入。')
+        self.source.textChanged.connect(self.checkpoint.clear)
         layout.addLayout(form)
         existing = QHBoxLayout()
         self.existing = QComboBox()
@@ -140,7 +146,7 @@ class AdmissionDialog(QDialog):
     def _controls(self):
         available = not self.busy and not self.closing
         editable = available and self.directory is None and not self.connected_external
-        for field in (self.source, self.qa_root, self.artifacts, *self.path_buttons):
+        for field in (self.source, self.qa_root, self.artifacts, self.checkpoint, *self.path_buttons):
             field.setEnabled(editable)
         self.check.setEnabled(editable)
         self.start.setEnabled(editable and self.plan is not None)
@@ -168,21 +174,31 @@ class AdmissionDialog(QDialog):
             self.state.setText('请选择游戏目录和 QA 数据目录。')
             return
         source, qa_root, artifacts = (field.text().strip() for field in (self.source, self.qa_root, self.artifacts))
+        checkpoint = self.checkpoint.text().strip() or None
         destination = Path(qa_root).absolute() / ('session-' + datetime.now().strftime('%Y%m%d-%H%M%S-%f'))
         self.plan = None
         self.state.setText('正在只读检查…')
         def inspect():
-            result = admission.inspect(source, artifacts=artifacts or None)
+            result = admission.inspect(source, artifacts=artifacts or None, checkpoint=checkpoint)
             if result['launch_readiness'] == 'ready':
-                result['plan'] = admission.make_plan(source, destination, artifacts=artifacts)
+                result['plan'] = admission.make_plan(source, destination, artifacts=artifacts, checkpoint=checkpoint)
             admission.save_preferences(qa_root, source=source, artifacts=artifacts)
             return result
         self._run('check', inspect)
 
+    def _plan_summary(self):
+        rows = list(self.plan['changes'])
+        checkpoint = self.plan.get('checkpoint')
+        if checkpoint:
+            rows.extend(['测试检查点：' + checkpoint['directory'],
+                         '导入测试档：' + '、'.join(sorted(checkpoint['files']))])
+        rows.append('本次会话：' + self.plan['destination'])
+        return rows
+
     def _start(self):
         if self.plan is None or self.busy:
             return
-        summary = '\n'.join(self.plan['changes']) + '\n\n本次会话：' + self.plan['destination']
+        summary = '\n\n'.join(self._plan_summary())
         answer = QMessageBox.question(self, '确认本次后台接入', summary,
                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                       QMessageBox.StandardButton.No)
@@ -266,8 +282,7 @@ class AdmissionDialog(QDialog):
             self.plan = result.get('plan')
             rows = [row['message'] + '\n下一步：' + row['recovery'] for row in result.get('blockers', [])]
             if self.plan:
-                rows.extend(self.plan['changes'])
-                rows.append('会话目录：' + self.plan['destination'])
+                rows.extend(self._plan_summary())
             self.detail.setPlainText('\n\n'.join(rows))
             self.state.setText('检查通过，请审阅操作范围。' if self.plan else '后台接入条件尚不满足；仍可使用人工盯屏。')
         else:

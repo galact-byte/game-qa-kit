@@ -9,8 +9,10 @@
 """
 from __future__ import annotations
 
+import csv
 import datetime as _dt
 import hashlib
+import io
 import json
 import shutil
 import subprocess
@@ -120,24 +122,30 @@ def list_saves(saves_dir: Path) -> list[dict]:
 
 
 def is_game_running(proc: str) -> bool:
+    """包括无窗口、隐藏与独立桌面进程；查询失败时拒绝恢复。"""
     require_windows('游戏进程状态检查')
-    try:
-        find_window(proc)
-        return True
-    except RuntimeError:
-        return False
+    name = proc if proc.lower().endswith('.exe') else proc + '.exe'
+    result = subprocess.run(['tasklist', '/FO', 'CSV', '/NH'], capture_output=True,
+                            text=True, encoding='oem', timeout=5)
+    if result.returncode:
+        raise RuntimeError('无法确认游戏是否已退出，拒绝恢复存档')
+    rows = list(csv.reader(io.StringIO(result.stdout or '')))
+    if not rows or any(len(row) < 2 or not row[1].isdigit() for row in rows):
+        raise RuntimeError('进程清单无效，无法确认游戏是否已退出')
+    return any(row[0].casefold() == name.casefold() for row in rows)
 
 
-def kill_game(proc: str, pid: int | None = None) -> dict:
-    """可靠终止游戏进程（subprocess 列参，避开 Git Bash 对 $ 变量的提前展开坑）。"""
+def kill_game(proc: str, pid: int | None = None, *, exe_path: str | None = None) -> dict:
+    """只结束经路径核验的单一进程；从不按名称广播或回退。"""
     require_windows('终止游戏进程')
-    name = proc if proc.lower().endswith(".exe") else proc + ".exe"
-    if pid is not None and (type(pid) is not int or pid <= 0):
-        raise ValueError("目标 PID 必须是正整数")
-    was = True if pid is not None else is_game_running(proc)
-    target = ["/PID", str(pid)] if pid is not None else ["/IM", name]
-    r = subprocess.run(["taskkill", "/F", *target], capture_output=True, text=True)
-    return {"ok": True, "process": name, "pid": pid, "was_running": was,
-            "killed": bool(was and r.returncode == 0), "returncode": r.returncode,
-            "stdout": (r.stdout or "").strip(), "stderr": (r.stderr or "").strip(),
-            "reminder": "改档流程：先游戏内存档→kill_game→确认磁盘快照→重启 exe→游戏内 AUTO LOAD→截图核对"}
+    if type(pid) is not int or not 0 < pid < 2 ** 32:
+        raise ValueError('目标 PID 必须是正整数')
+    if not exe_path or not Path(exe_path).is_absolute():
+        raise ValueError('结束进程需要精确程序路径，请重新选择目标')
+    name = proc if proc.lower().endswith('.exe') else proc + '.exe'
+    if Path(exe_path).name.casefold() != name.casefold():
+        raise ValueError('目标程序名称与路径不一致')
+    window_backend.terminate_process(pid, exe_path)
+    return {'ok': True, 'process': name, 'pid': pid, 'was_running': True,
+            'killed': True, 'returncode': 0, 'stdout': '', 'stderr': '',
+            'reminder': '改档流程：先游戏内存档→kill_game→确认磁盘快照→重启 exe→游戏内 AUTO LOAD→截图核对'}

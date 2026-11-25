@@ -47,6 +47,162 @@ class AdmissionGuiTests(unittest.TestCase):
             self.drain(lambda: not self.dialog.busy)
         return plan
 
+    def checkpoint_fixture(self):
+        from tests.test_rgss_admission import RgssAdmissionTests
+        RgssAdmissionTests.setUp(self)
+        self.seed = self.root / 'checkpoint'
+        self.seed.mkdir()
+        (self.seed / 'Save01.rvdata2').write_bytes(b'branch point')
+        self.dialog.source.setText(str(self.source))
+        self.dialog.artifacts.setText(str(self.artifacts))
+        self.dialog.checkpoint.setText(str(self.seed))
+        return self.recipe.manifest(self.source), self.recipe.manifest(self.seed)
+
+    def test_selected_checkpoint_reaches_real_plan_and_review_without_copy(self):
+        source_before, seed_before = self.checkpoint_fixture()
+        self.dialog.check.click()
+        self.drain(lambda: not self.dialog.busy)
+        self.assertTrue(self.dialog.start.isEnabled())
+        plan = self.dialog.plan
+        self.assertEqual(plan['checkpoint']['directory'], str(self.seed))
+        self.assertEqual(set(plan['checkpoint']['files']), {'Save01.rvdata2'})
+        self.assertIn(str(self.seed), self.dialog.detail.toPlainText())
+        self.assertIn('Save01.rvdata2', self.dialog.detail.toPlainText())
+        self.assertFalse(Path(plan['destination']).exists())
+        self.assertEqual(self.recipe.manifest(self.source), source_before)
+        self.assertEqual(self.recipe.manifest(self.seed), seed_before)
+        self.manager.prepare.assert_not_called()
+
+    def test_confirmation_identifies_checkpoint_and_imported_slots(self):
+        self.checkpoint_fixture()
+        (self.seed / 'Save07.rvdata2').write_bytes(b'last test slot')
+        self.dialog.check.click()
+        self.drain(lambda: not self.dialog.busy)
+        with mock.patch.object(QMessageBox, 'question', return_value=QMessageBox.StandardButton.No) as question:
+            self.dialog.start.click()
+        summary = question.call_args.args[2]
+        self.assertIn(str(self.seed), summary)
+        self.assertIn('Save01.rvdata2', summary)
+        self.assertIn('Save07.rvdata2', summary)
+        self.manager.prepare.assert_not_called()
+
+    def test_confirmed_checkpoint_plan_is_forwarded_to_managed_preparation(self):
+        self.checkpoint_fixture()
+        self.dialog.timer.stop()
+        self.dialog.check.click()
+        self.drain(lambda: not self.dialog.busy)
+        plan = self.dialog.plan
+        self.manager.prepare.return_value = {'state': 'preparing'}
+        with mock.patch.object(QMessageBox, 'question', return_value=QMessageBox.StandardButton.Yes):
+            self.dialog.start.click()
+            self.drain(lambda: not self.dialog.busy)
+        self.manager.prepare.assert_called_once_with(plan, request_id=self.dialog.request + '-prepare', confirm=True)
+        self.assertIn('checkpoint', self.manager.prepare.call_args.args[0])
+        self.manager.start.assert_not_called()
+
+    def test_checkpoint_changed_after_check_is_rejected_before_copy(self):
+        from gameqakit import admission
+        self.checkpoint_fixture()
+        self.dialog.timer.stop()
+        self.dialog.check.click()
+        self.drain(lambda: not self.dialog.busy)
+        destination = Path(self.dialog.plan['destination'])
+        self.manager.prepare.side_effect = lambda plan, **options: admission.revalidate_plan(plan)
+        (self.seed / 'Save01.rvdata2').write_bytes(b'changed since inspection')
+        with mock.patch.object(QMessageBox, 'question', return_value=QMessageBox.StandardButton.Yes):
+            self.dialog.start.click()
+            self.drain(lambda: not self.dialog.busy)
+        self.assertIn('操作失败', self.dialog.state.text())
+        self.assertFalse(destination.exists())
+        self.manager.start.assert_not_called()
+
+    def test_clearing_checkpoint_invalidates_plan_and_rechecks_without_import(self):
+        self.checkpoint_fixture()
+        self.dialog.check.click()
+        self.drain(lambda: not self.dialog.busy)
+        self.assertIn('checkpoint', self.dialog.plan)
+        self.dialog.checkpoint.clear()
+        self.assertFalse(self.dialog.start.isEnabled())
+        self.dialog.check.click()
+        self.drain(lambda: not self.dialog.busy)
+        self.assertTrue(self.dialog.start.isEnabled())
+        self.assertNotIn('checkpoint', self.dialog.plan)
+        self.assertNotIn(str(self.seed), self.dialog.detail.toPlainText())
+
+    def test_changed_checkpoint_path_requires_new_check(self):
+        self.checkpoint_fixture()
+        self.dialog.check.click()
+        self.drain(lambda: not self.dialog.busy)
+        self.dialog.checkpoint.setText(str(self.root / 'different-checkpoint'))
+        self.assertIsNone(self.dialog.plan)
+        self.assertFalse(self.dialog.start.isEnabled())
+        self.dialog.check.click()
+        self.drain(lambda: not self.dialog.busy)
+        self.assertIsNone(self.dialog.plan)
+        self.assertFalse(self.dialog.start.isEnabled())
+        self.assertIn('专用测试存档目录', self.dialog.detail.toPlainText())
+        self.manager.prepare.assert_not_called()
+
+    def test_manual_slot_in_checkpoint_is_blocked_by_real_validator(self):
+        self.checkpoint_fixture()
+        (self.seed / 'Save09.rvdata2').write_bytes(b'manual slot fixture')
+        self.dialog.check.click()
+        self.drain(lambda: not self.dialog.busy)
+        self.assertIsNone(self.dialog.plan)
+        self.assertFalse(self.dialog.start.isEnabled())
+        self.assertIn('Save07.rvdata2', self.dialog.detail.toPlainText())
+        self.manager.prepare.assert_not_called()
+
+    def test_checkpoint_folder_picker_preserves_plan_on_cancel(self):
+        self.checkpoint_fixture()
+        self.dialog.check.click()
+        self.drain(lambda: not self.dialog.busy)
+        plan = self.dialog.plan
+        picker = next(button for button in self.dialog.path_buttons
+                      if button.accessibleName() == '选择测试检查点')
+        with mock.patch('gameqakit.admission_gui.QFileDialog.getExistingDirectory', return_value=''):
+            picker.click()
+        self.assertEqual(self.dialog.checkpoint.text(), str(self.seed))
+        self.assertIs(self.dialog.plan, plan)
+        with mock.patch('gameqakit.admission_gui.QFileDialog.getExistingDirectory', return_value=str(self.root / 'other')):
+            picker.click()
+        self.assertIsNone(self.dialog.plan)
+        self.assertFalse(self.dialog.start.isEnabled())
+
+    def test_switching_game_discards_previous_checkpoint(self):
+        self.checkpoint_fixture()
+        self.dialog.source.setText(str(self.root / 'different-game'))
+        self.assertEqual(self.dialog.checkpoint.text(), '')
+        self.assertFalse(self.dialog.start.isEnabled())
+
+    def test_checkpoint_is_not_remembered_and_is_locked_during_operations(self):
+        import threading
+        self.checkpoint_fixture()
+        entered, release = threading.Event(), threading.Event()
+        self.addCleanup(release.set)
+        from gameqakit import admission
+        inspect = admission.inspect
+        def slow_inspect(*args, **kwargs):
+            entered.set()
+            release.wait(2)
+            return inspect(*args, **kwargs)
+        with mock.patch('gameqakit.admission.inspect', side_effect=slow_inspect):
+            self.dialog.check.click()
+            self.drain(entered.is_set)
+            self.assertFalse(self.dialog.checkpoint.isEnabled())
+            self.assertTrue(all(not button.isEnabled() for button in self.dialog.path_buttons))
+            release.set()
+            self.drain(lambda: not self.dialog.busy)
+        self.assertTrue(self.dialog.checkpoint.isEnabled())
+        dialog = AdmissionDialog()
+        self.addCleanup(dialog.deleteLater)
+        self.assertEqual(dialog.source.text(), str(self.source))
+        self.assertEqual(dialog.checkpoint.text(), '')
+        self.dialog._display_external({'bound': True, 'connected': True, 'paused': True, 'held': []})
+        self.dialog.connected_external = True
+        self.dialog._controls()
+        self.assertFalse(self.dialog.checkpoint.isEnabled())
+
     def test_blockers_show_recovery_without_start(self):
         result = {'launch_readiness': 'blocked', 'blockers': [{'message': '缺少组件', 'recovery': '请选择已有构建目录'}]}
         with mock.patch('gameqakit.admission.inspect', return_value=result):
