@@ -425,7 +425,7 @@ class AdmissionGuiTests(unittest.TestCase):
         self.assertTrue(self.dialog.open_report.isEnabled())
         with mock.patch('gameqakit.admission_gui.QDesktopServices.openUrl', return_value=True) as open_url:
             self.dialog.open_report.click()
-        open_url.assert_called_once_with(QUrl.fromLocalFile(str(report)))
+        open_url.assert_called_once_with(QUrl.fromLocalFile(str(report.resolve())))
         self.manager.start.assert_not_called()
         self.manager.stop.assert_not_called()
 

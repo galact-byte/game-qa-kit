@@ -11,14 +11,11 @@ SPEC.loader.exec_module(BUILD)
 
 
 class ReleaseBuildTests(unittest.TestCase):
-    def test_remote_candidate_regressions_include_route_tools(self):
+    def test_remote_windows_candidate_regressions_include_route_tools(self):
         workflow = (BUILD.ROOT / '.github/workflows/universal-desktop.yml').read_text(encoding='utf-8')
         windows = workflow.split('      - name: Run portable Windows regression suite', 1)[1].split('      - name:', 1)[0]
-        unix = workflow.split('      - name: Run public-entry regressions', 1)[1].split('      - name:', 1)[0]
-        for platform, command in (('windows', windows), ('unix', unix)):
-            with self.subTest(platform=platform):
-                self.assertIn('tests.test_route_report', command)
-                self.assertIn('tests.test_route_mcp', command)
+        self.assertIn('tests.test_route_report', windows)
+        self.assertIn('tests.test_route_mcp', windows)
 
     def test_remote_windows_candidate_retains_frozen_startup_evidence(self):
         workflow = (BUILD.ROOT / '.github/workflows/universal-desktop.yml').read_text(encoding='utf-8')

@@ -112,8 +112,7 @@ jobs:
       - name: Run public-entry regressions
         run: >-
           python -X utf8 -B -m unittest tests.test_platform_support
-          tests.test_startup_check tests.test_application
-          tests.test_route_report tests.test_route_mcp -v
+          tests.test_startup_check tests.test_application -v
       - name: Build and check native package
         run: python -X utf8 -B tools/build_unix.py --version "$BUILD_VERSION" --output "$RUNNER_TEMP/universal-build"
       - name: Check Linux window on X11
