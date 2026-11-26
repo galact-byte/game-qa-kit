@@ -21,7 +21,7 @@
 | --- | --- |
 | `background_start` | `confirm=true`；指定 `hwnd`、`pid` 或 `profile`。只有 HWND 时解析 PID；只有 PID 时按该进程的完整路径定位唯一窗口；没有显式目标时使用当前 profile。`elevate=true` 为默认值，调用标准 UAC；`false` 只供同权限自写窗口测试。返回 `agent_pid` 与待就绪状态 |
 | `background_status` | 无参数；查询 `running`、`ready`、绑定身份、`size`、`integrity_rids` 和后端。退出后保留 `agent_pid`、目标身份及 `exit_code`；非零退出或读取退出码失败时附 `error`。等待 `ready=true` 才进行截图／输入 |
-| `background_capture` | 可选 `out`，必须为尚不存在的绝对 PNG 路径；省略时写到 `E:/DevData/gameqa/gameqa-background/`。返回 `out`、`size`、`sha256`；PrintWindow 失败或黑图明确报错，不回退桌面截图 |
+| `background_capture` | 可选 `out`，必须为尚不存在的绝对 PNG 路径；省略时写到工具的默认截图目录，以返回的 `out` 为准。返回 `out`、`size`、`sha256`；PrintWindow 失败或黑图明确报错，不回退桌面截图 |
 | `background_input` | `confirm=true`、`command_id`、`kind`、`cx`、`cy` 必填；坐标使用截图对应的目标客户区像素。返回 `messages_posted`；`game_responded=null`，响应必须另行观察 |
 | `background_stop` | 无参数；停止当前 MCP 创建的代理，尝试向绑定窗口投递松开，不结束游戏。`release_posted` 仅表示消息投递，不能当作目标已读取松开 |
 
@@ -42,7 +42,7 @@
 调用 `background_start` 后，本人同意系统 UAC，再用 `background_status` 等待就绪。接着调用 `background_capture`，例如：
 
 ```json
-{"out":"E:/DevData/gameqa-background/first.png"}
+{"out":"E:/GameQAData/first.png"}
 ```
 
 只有已经验证会消费消息的窗口才适合继续 `background_input`。以下为自写窗口点击示例，不表示明日方舟支持：
@@ -72,7 +72,7 @@
 
 ## 开发验证与限制
 
-相关测试位于 `tests/test_background.py`、`tests/background_fixture.py` 与 `tests/test_background_integration.py`。真实窗口集成测试应在独立诊断桌面运行，避免正常键鼠操作影响前台／光标判定。测试覆盖截图、DPI、消息消费、长按与拖动、滚轮坐标、去重、其他进程拒绝、最小化拒绝，以及目标或父进程退出后的回收；入口测试覆盖工具注册、确认要求和非 Windows 隐藏。
+相关测试位于 `tests/test_background.py`、`tests/background_fixture.py` 与 `tests/test_background_integration.py`。窗口消息与截图可在独立诊断桌面验证。若 Windows 两次都拒绝读取系统光标，测试会单列跳过光标检查，不算作光标未移动的证据。要验证该项，请在可读取光标的活动桌面运行，测试期间不要移动鼠标或切换窗口；该项比较操作前后两个采样点，不是连续监测。测试覆盖截图、DPI、消息消费、长按与拖动、滚轮坐标、去重、其他进程拒绝、最小化拒绝，以及目标或父进程退出后的回收；入口测试覆盖工具注册、确认要求和非 Windows 隐藏。
 
 固定自写窗口的冻结 MCP 已验证点击消费、同编号不重放及代理回收，商业游戏后台输入未通过。旧的 1280×720 商业游戏截图存在 DPI 虚拟化裁切，不能作为完整窗口证据；后续 1600×900 完整截图仍未显示按钮响应。自写窗口结果不能外推商业游戏。
 

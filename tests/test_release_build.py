@@ -11,6 +11,21 @@ SPEC.loader.exec_module(BUILD)
 
 
 class ReleaseBuildTests(unittest.TestCase):
+    def test_remote_candidate_regressions_include_route_tools(self):
+        workflow = (BUILD.ROOT / '.github/workflows/universal-desktop.yml').read_text(encoding='utf-8')
+        windows = workflow.split('      - name: Run portable Windows regression suite', 1)[1].split('      - name:', 1)[0]
+        unix = workflow.split('      - name: Run public-entry regressions', 1)[1].split('      - name:', 1)[0]
+        for platform, command in (('windows', windows), ('unix', unix)):
+            with self.subTest(platform=platform):
+                self.assertIn('tests.test_route_report', command)
+                self.assertIn('tests.test_route_mcp', command)
+
+    def test_remote_windows_candidate_retains_frozen_startup_evidence(self):
+        workflow = (BUILD.ROOT / '.github/workflows/universal-desktop.yml').read_text(encoding='utf-8')
+        upload = workflow.split('      - name: Upload Windows candidate without publishing', 1)[1].split('  build:', 1)[0]
+        self.assertIn('/worker-self-test.json', upload)
+        self.assertIn('/portable-gui.png', upload)
+
     def test_invalid_version_is_rejected_before_creating_files_or_spawning(self):
         with tempfile.TemporaryDirectory() as root, mock.patch.object(BUILD.subprocess, 'run') as run:
             output = Path(root) / 'new-build'

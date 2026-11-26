@@ -7,13 +7,14 @@ from pathlib import Path
 import threading
 import uuid
 
-from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import QObject, Qt, QTimer, QUrl, pyqtSignal
+from PyQt6.QtGui import QDesktopServices, QPixmap
 from PyQt6.QtWidgets import (QComboBox, QDialog, QFileDialog, QFormLayout, QGridLayout, QHBoxLayout, QLabel,
                              QLineEdit, QMessageBox, QPlainTextEdit, QPushButton, QVBoxLayout)
 
 from . import admission
 from .game_session import Binding, Manager
+from .route_report import latest_report
 
 
 class _Signals(QObject):
@@ -35,6 +36,7 @@ class AdmissionDialog(QDialog):
             self.preference_error = str(exc)
         self.busy = self.closing = self.closed = False
         self.plan = self.directory = None
+        self.report_root = None
         self.started = False
         self.request = uuid.uuid4().hex
         self.last_state = self.last_image = None
@@ -111,6 +113,17 @@ class AdmissionDialog(QDialog):
         self.state.setWordWrap(True)
         self.state.setAccessibleName('后台会话状态')
         layout.addWidget(self.state)
+        reports = QHBoxLayout()
+        self.open_report = QPushButton('查看测试结果')
+        self.open_report.setAccessibleName('查看当前会话路线测试结果')
+        self.open_report.setMinimumHeight(44)
+        self.open_report.setToolTip('打开最近的本地路线报告；已结束的会话也可从“查找会话”中选择。')
+        self.open_report.clicked.connect(self._open_report)
+        reports.addWidget(self.open_report)
+        report_hint = QLabel('AI 执行路线后，在这里查看停止位置、逐步画面与目标判定。')
+        report_hint.setWordWrap(True)
+        reports.addWidget(report_hint, 1)
+        layout.addLayout(reports)
         self.detail = QPlainTextEdit()
         self.detail.setReadOnly(True)
         self.detail.setAccessibleName('接入检查与操作记录')
@@ -141,7 +154,21 @@ class AdmissionDialog(QDialog):
 
     def _invalidate(self):
         self.plan = None
+        if self.directory is None and not self.connected_external:
+            self.report_root = None
         self._controls()
+
+    def _report_session(self):
+        selected = self.existing.currentData() or {}
+        return self.directory or self.report_root or selected.get('directory')
+
+    def _open_report(self):
+        path = latest_report(self._report_session())
+        if path is None:
+            self.state.setText('尚无路线测试结果，请让已连接的 AI 开始路线记录。')
+        elif not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
+            self.state.setText('无法打开测试结果，请用浏览器打开下方报告路径。')
+            self.detail.appendPlainText(str(path))
 
     def _controls(self):
         available = not self.busy and not self.closing
@@ -158,6 +185,7 @@ class AdmissionDialog(QDialog):
         self.open_bridge.setEnabled(editable)
         self.pause.setEnabled(available and self.connected_external)
         self.disconnect.setEnabled(available and self.connected_external)
+        self.open_report.setEnabled(available and latest_report(self._report_session()) is not None)
 
     def _run(self, operation, action):
         self.busy = True
@@ -205,6 +233,7 @@ class AdmissionDialog(QDialog):
         if answer != QMessageBox.StandardButton.Yes:
             return
         self.directory = self.plan['destination']
+        self.report_root = self.directory
         self._run('prepare', lambda: self.manager.prepare(self.plan, request_id=self.request + '-prepare', confirm=True))
 
     def _stop(self):
@@ -269,6 +298,8 @@ class AdmissionDialog(QDialog):
             self.state.setText(f"找到 {len(result['sessions'])} 个会话记录；连接时会重新核对目标身份。")
         elif operation == 'connect':
             self.connected_external = True
+            if result.get('directory'):
+                self.report_root = Path(result['directory']).parent
             self.plan = None
             self._display_external(result)
         elif operation == 'disconnect':
@@ -294,6 +325,7 @@ class AdmissionDialog(QDialog):
     def _poll(self):
         if self.busy or self.closing:
             return
+        self._controls()
         if self.connected_external:
             try:
                 self._display_external(self.binding.status())

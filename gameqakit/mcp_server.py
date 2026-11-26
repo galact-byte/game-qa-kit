@@ -41,6 +41,7 @@ _BINDING = Binding()
 _MANAGER = Manager()
 from gameqakit.branch_queue import BatchQueue
 _BATCH = BatchQueue()
+_ROUTE = None
 
 
 def P():
@@ -312,6 +313,7 @@ def t_control_status(a):
 
 
 def t_control_action(a):
+    _require_recorded_step()
     options = {key: a[key] for key in ("frames", "duration_ms", "direction", "button", "x", "y", "loading_mode") if key in a}
     if _BINDING.engaged:
         return _BINDING.execute('action', a, action=a['action'], command_id=a.get('command_id'),
@@ -331,15 +333,60 @@ def t_control_pause(a):
 
 
 def t_control_resume(a):
+    _require_recorded_step()
     if _BINDING.engaged:
         return _BINDING.execute('resume', a, command_id=a.get('command_id'), timeout=a.get('timeout', 5))
     return _bridge(a).resume(command_id=a.get("command_id"), timeout=a.get("timeout", 5))
 
 
+def _require_recorded_step():
+    if _ROUTE is not None and _ROUTE.data['state'] != 'finished':
+        raise RuntimeError('当前路线正在记录或已阻断；请使用 route_step，不能发送未记录的动作')
+
+
+def t_route_begin(a):
+    global _ROUTE
+    if _ROUTE is not None and _ROUTE.data['state'] != 'finished':
+        if _ROUTE.data['goal'] == a['goal']:
+            return _ROUTE.status()
+        raise RuntimeError('请先结束当前路线记录，再开始其他目标')
+    from gameqakit.route_report import RouteRun
+    _ROUTE = RouteRun(_BINDING, a['goal'])
+    return _ROUTE.status()
+
+
+def _route():
+    if _ROUTE is None:
+        raise RuntimeError('请先绑定测试实例并调用 route_begin 开始路线记录')
+    return _ROUTE
+
+
+def t_route_status(_a):
+    return _ROUTE.status() if _ROUTE is not None else {'state': 'idle'}
+
+
+def t_route_step(a):
+    options = {key: a[key] for key in ('frames', 'duration_ms', 'direction', 'button', 'x', 'y', 'loading_mode') if key in a}
+    route = _route()
+    row = route.step(a['step_id'], a['label'], a['action'], timeout=a.get('timeout', 5), **options)
+    if row.get('image'):
+        row['screenshot'] = str(route.directory / row['image'])
+    return row
+
+
+def t_route_finish(a):
+    route = _route()
+    try:
+        cleanup = _MANAGER.status(route.root)
+    except (OSError, ValueError, RuntimeError) as exc:
+        cleanup = {'state': 'unverified', 'cleanup_verified': False, 'error': str(exc)}
+    return route.finish(a.get('outcome', 'unverified'), a.get('note', ''), cleanup=cleanup)
+
+
 PROFILE_NOTE = "按激活 profile 操作（GAMEQAKIT_PROFILE）。"
 CONFIRM = {"confirm": {"type": "boolean", "description": "危险操作必须显式传 true 才执行"}}
 DANGEROUS_TOOLS = {"click", "key", "load", "kill_game", "control_action", "control_resume",
-                   'batch_start', 'batch_finish',
+                   'batch_start', 'batch_finish', 'route_begin', 'route_step', 'route_finish',
                    'game_prepare', 'game_start', 'game_stop', 'background_start', 'background_input'}
 BRIDGE_FIELDS = {"directory": {"type": "string", "description": "插件会话目录；默认 profile 的 state/control，不是游戏目录"}}
 COMMAND_FIELDS = {**BRIDGE_FIELDS, "command_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"},
@@ -474,6 +521,24 @@ TOOLS = {
 }
 
 
+TOOLS.update({
+    'route_begin': ('开始一次具名后台路线记录，需要已显式绑定且持有控制权；不自动在游戏中读档。'
+                    '记录保存在测试副本内，普通控制动作改用 route_step。需 confirm=true。',
+                    _obj({**CONFIRM, 'goal': {'type': 'string', 'minLength': 1, 'maxLength': 500}}, ['goal']), t_route_begin),
+    'route_step': ('执行一个具名步骤：恢复、单个现有桥动作、留图、确认暂停松键。'
+                   '同一 step_id 重复调用只返回原结果；失败或未知结果阻断后续步骤，不重发。'
+                   '默认回传截图；每步看图再决定后续动作。需 confirm=true。',
+                   _obj({**{key: value for key, value in TOOLS['control_action'][1]['properties'].items()
+                             if key not in ('directory', 'command_id')},
+                         'step_id': {'type': 'string', 'pattern': '^[A-Za-z0-9_-]{1,64}$'},
+                         'label': {'type': 'string', 'minLength': 1, 'maxLength': 200}},
+                        ['step_id', 'label', 'action']), t_route_step),
+    'route_status': ('查询本轮步骤、停止原因与可读结果页，不发送输入。', _obj({}), t_route_status),
+    'route_finish': ('结束记录并写 AI 复核结论，动作成功不等于目标达成；passed/failed 必须有复核说明。'
+                     '不会结束游戏：先由创建者 game_stop 并 game_status 确认回收，再调用本工具。需 confirm=true。',
+                     _obj({**CONFIRM, 'outcome': {'type': 'string', 'enum': ['passed', 'failed', 'unverified']},
+                           'note': {'type': 'string', 'maxLength': 4000}}), t_route_finish),
+})
 TOOLS['platform_info'] = ('查询当前平台、架构及本版本可用功能。', _obj({}), lambda _a: platform_info())
 def _available_tools():
     if sys.platform == 'win32':
@@ -487,7 +552,8 @@ def _available_tools():
         common |= {'game_inspect', 'game_prepare', 'game_start', 'game_stop', 'game_bind',
                    'batch_start', 'batch_finish', 'batch_cancel',
                    'game_unbind', 'game_status', 'control_status', 'control_action',
-                   'control_result', 'control_pause', 'control_resume'}
+                   'control_result', 'control_pause', 'control_resume',
+                   'route_begin', 'route_step', 'route_status', 'route_finish'}
     return {name: tool for name, tool in TOOLS.items() if name in common}
 
 
@@ -516,9 +582,10 @@ def handle(method, params):
             raise ValueError(f"危险操作 {name} 需显式确认：请加 confirm=true（会改存档或向游戏发送输入）。")
         result = TOOLS[name][2](args)
         content = []
-        if (name in {"control_action", "control_resume", "control_result"}
-                and args.get("include_image") is True
-                and (result.get("status") == "done" or result.get("in_progress") is True)
+        if (name in {"control_action", "control_resume", "control_result", "route_step"}
+                and args.get("include_image", name == 'route_step') is True
+                and (result.get("status") == "done" or result.get("in_progress") is True
+                     or (name == 'route_step' and result.get('state') == 'done'))
                 and result.get("screenshot")):
             import base64
             shot = Path(result["screenshot"])
@@ -565,10 +632,14 @@ def main():
                 _MANAGER.close()
             finally:
                 try:
-                    _BINDING.close()
+                    if _ROUTE is not None and _ROUTE.data['state'] != 'finished':
+                        t_route_finish({'outcome': 'unverified', 'note': 'MCP 连接结束，路线未完成复核。'})
                 finally:
-                    if sys.platform == 'win32':
-                        _BACKGROUND.close()
+                    try:
+                        _BINDING.close()
+                    finally:
+                        if sys.platform == 'win32':
+                            _BACKGROUND.close()
 
 
 if __name__ == "__main__":

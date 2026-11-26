@@ -58,7 +58,7 @@ class GuiTests(unittest.TestCase):
     def test_gui_starts_shared_session_and_shows_real_counters(self):
         self.app.e_interval.setText("0.05")
         self.app._toggle_watch()
-        self.pump_until(lambda: self.app._watch_running)
+        self.pump_until(lambda: self.app._watch_running and self.app.card_watch.isEnabled())
         status = sessions.watch_status(self.p)
         self.assertTrue(status["running"])
         self.pump_until(lambda: "采集" in self.app.lb_stats.text())
@@ -116,9 +116,11 @@ class GuiTests(unittest.TestCase):
         self.app.card_watch.setFocus()
         self.app.e_interval.setText("0.05")
         QTest.keyClick(self.app.card_watch, Qt.Key.Key_Return)
-        self.pump_until(lambda: self.app._watch_running)
+        # 轮询可早于启动回执；只有卡片恢复可用后才能发下一次键盘动作。
+        self.pump_until(lambda: self.app._watch_running and self.app.card_watch.isEnabled())
         QTest.keyClick(self.app.card_watch, Qt.Key.Key_Space)
         self.pump_until(lambda: not self.app._watch_running)
+        self.assertFalse(sessions.watch_status(self.p)["running"])
 
     def test_suspect_dialog_displays_evidence_and_empty_state(self):
         directory = self.p.watch_dir / "example"

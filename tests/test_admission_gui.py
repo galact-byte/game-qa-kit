@@ -414,6 +414,49 @@ class AdmissionGuiTests(unittest.TestCase):
             release.set()
             self.drain(lambda: self.manager.close.call_count == 1 and not self.dialog.busy)
 
+    def test_route_report_button_opens_only_selected_session_local_html(self):
+        from PyQt6.QtCore import QUrl
+        root = Path(self.tmp.name) / 'qa' / 'session-report'
+        report = root / 'route-reports' / 'run-1' / 'report.html'
+        report.parent.mkdir(parents=True)
+        report.write_text('<!doctype html><title>测试结果</title>', encoding='utf-8')
+        self.dialog.report_root = root
+        self.dialog._controls()
+        self.assertTrue(self.dialog.open_report.isEnabled())
+        with mock.patch('gameqakit.admission_gui.QDesktopServices.openUrl', return_value=True) as open_url:
+            self.dialog.open_report.click()
+        open_url.assert_called_once_with(QUrl.fromLocalFile(str(report)))
+        self.manager.start.assert_not_called()
+        self.manager.stop.assert_not_called()
+
+    def test_report_entry_survives_disconnect_and_requires_a_real_report(self):
+        root = Path(self.tmp.name) / 'session-report'
+        self.dialog.report_root = root
+        self.dialog._controls()
+        self.assertFalse(self.dialog.open_report.isEnabled())
+        report = root / 'route-reports' / 'run-1' / 'report.html'
+        report.parent.mkdir(parents=True)
+        report.write_text('<title>测试结果</title>', encoding='utf-8')
+        self.dialog._result('disconnect', {}, '')
+        self.assertTrue(self.dialog.open_report.isEnabled())
+        with mock.patch('gameqakit.admission_gui.QDesktopServices.openUrl', return_value=False):
+            self.dialog.open_report.click()
+        self.assertIn('无法打开', self.dialog.state.text())
+        report.unlink()
+        self.dialog._open_report()
+        self.assertIn('尚无', self.dialog.state.text())
+
+    def test_existing_stopped_session_report_is_available_without_binding(self):
+        root = Path(self.tmp.name) / 'stopped-session'
+        report = root / 'route-reports' / 'run-1' / 'report.html'
+        report.parent.mkdir(parents=True)
+        report.write_text('<title>测试结果</title>', encoding='utf-8')
+        self.dialog.existing.addItem('已结束的测试', {'directory': str(root), 'state': 'stopped'})
+        self.dialog._controls()
+        self.assertTrue(self.dialog.open_report.isEnabled())
+        self.assertFalse(self.dialog.connected_external)
+        self.assertIsNone(self.dialog.binding.client)
+
 
 if __name__ == '__main__':
     unittest.main()

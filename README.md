@@ -66,6 +66,8 @@ macOS 包采用临时签名，尚未获得开发者签名或公证。Linux x64 �
 
 需要 AI 操作游戏时，从主程序的「AI 后台接入」开始：选择游戏与所需组件，检查准备摘要，确认后启动测试副本。接入步骤见 [游戏接入说明](docs/GAME-ADMISSION.md)。
 
+尚未发布的源码／本地预览另提供[具名路线与结果页](docs/ROUTE-TESTING.md)：让已连接的 AI 从测试进度走一段指定路线，留下每步画面、停止位置与复核结论，再从「查看测试结果」打开。它不内置 AI，也不自动规划或通关；动作执行成功和玩法目标达成分别记录。
+
 ## 游戏兼容范围
 
 截图能否在后台正常更新，取决于游戏和窗口状态。最小化或后台停帧可能导致采集失败。
@@ -93,7 +95,7 @@ python -m gameqakit.gui
 
 ## 文档
 
-- [MCP 接入指南](docs/MCP.md) · [游戏接入说明](docs/GAME-ADMISSION.md)
+- [MCP 接入指南](docs/MCP.md) · [游戏接入说明](docs/GAME-ADMISSION.md) · [路线测试](docs/ROUTE-TESTING.md)
 - [引擎覆盖表](docs/ENGINE-COVERAGE.md) · [后台控制说明](docs/BACKGROUND-CONTROL.md)
 - [开发与测试](docs/DEVELOPMENT.md) · [Windows 打包](docs/PACKAGING.md)
 - [迭代路线](docs/ROADMAP.md) · [修改记录](CHANGES.md)

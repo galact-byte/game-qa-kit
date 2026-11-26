@@ -296,9 +296,17 @@ class BackgroundIntegrationTests(unittest.TestCase):
         from PIL import Image, ImageChops
         from gameqakit import win32
         u = win32.user32
-        point = W.POINT()
-        u.GetCursorPos(ctypes.byref(point))
-        before = (point.x, point.y, int(u.GetForegroundWindow() or 0))
+        def cursor_position():
+            point = W.POINT()
+            if u.GetCursorPos(ctypes.byref(point)):
+                return point.x, point.y
+            error = ctypes.get_last_error()
+            if error == 5:  # 独立诊断桌面可能无权读取输入桌面的光标。
+                return None
+            raise ctypes.WinError(error)
+
+        before_cursor = cursor_position()
+        before_window = u.GetForegroundWindow()
         first = self.manager.capture(self.root / 'before.png')
         result = self.manager.input({'kind': 'click', 'cx': 50, 'cy': 60, 'command_id': 'one'})
         duplicate = self.manager.input({'kind': 'click', 'cx': 50, 'cy': 60, 'command_id': 'one'})
@@ -310,8 +318,12 @@ class BackgroundIntegrationTests(unittest.TestCase):
         drag = self.manager.input({'kind': 'drag', 'cx': 10, 'cy': 20, 'end_cx': 90,
                                    'end_cy': 100, 'steps': 2, 'command_id': 'two'})
         self.assertTrue(drag['messages_posted'])
-        u.GetCursorPos(ctypes.byref(point))
-        self.assertEqual((point.x, point.y, int(u.GetForegroundWindow() or 0)), before)
+        after_cursor = cursor_position()
+        self.assertEqual(u.GetForegroundWindow(), before_window)
+        with self.subTest(check='system_cursor'):
+            if before_cursor is None and after_cursor is None:
+                self.skipTest('GetCursorPos 两次均拒绝访问，系统光标位置未验证')
+            self.assertEqual(after_cursor, before_cursor)
         self.assertTrue(self.manager.status()['ready'])
         self.manager.stop()
         self.assertFalse(self.manager.status()['running'])

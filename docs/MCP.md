@@ -143,6 +143,10 @@ python -m gameqakit.cli batch report E:/QA/report-001
 - `click`、`key`、`load`、`kill_game` 保持原有 `confirm=true` 要求。确认字段不是替代用户授权的手段。
 - 恢复存档前先保留游戏内进度与备份；运行中的游戏通常不会自动重读磁盘存档。
 
+## 具名路线与可读结果（尚未发布）
+
+源码／本地预览新增 `route_begin`、`route_step`、`route_status`、`route_finish`，把已绑定会话内的目标、步骤、对应画面与停止原因保存成可携带结果页。记录期间普通动作必须走 `route_step`，失败或结果未知后阻断后续步骤；结束记录不代替 `game_stop`，动作成功不代表玩法目标达成。参数、正常收尾顺序和面向使用者的示例见[路线测试](ROUTE-TESTING.md)。先检查实际工具列表，旧发布包不包含这些入口。
+
 ## 引擎检查与统一后台控制（实验）
 
 新控制工具只连接已接入的引擎桥，缺少插件或能力时明确报错，不退回桌面输入。接入与实证边界见 [后台控制实验](BACKGROUND-CONTROL.md)。

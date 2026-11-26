@@ -33,7 +33,12 @@ begin
   load ENV['GAMEQAKIT_PLUGIN_FILE']
   class << File
     alias_method :heartbeat_native_rename, :rename
+    attr_accessor :reject_heartbeat_once
     def rename(source,target)
+      if reject_heartbeat_once && target.to_s.end_with?('status.json')
+        self.reject_heartbeat_once=false
+        raise Errno::EACCES, 'one rejected heartbeat'
+      end
       if target.to_s.end_with?('status.json') && File.exist?('fault.trigger') &&
           ENV['HEARTBEAT_SCENARIO']=='brief-rejections'
         @denied ||= 0
@@ -60,6 +65,19 @@ begin
         heartbeat_native_observe
       end
     end
+  end
+  if ENV['HEARTBEAT_SCENARIO']=='brief-rejections'
+    deltas=[:rejected,:throttled,:published].map do |mode|
+      File.reject_heartbeat_once=(mode==:rejected)
+      GameQaBridge.instance_variable_set(:@last_status,mode==:throttled ? Time.now.to_f : 0)
+      GameQaBridge.instance_variable_set(:@last_observation,0)
+      before=GameQaBridge.instance_variable_get(:@observation_seq)
+      GameQaBridge.after_render
+      raise 'heartbeat rejection was not exercised' if File.reject_heartbeat_once
+      GameQaBridge.instance_variable_get(:@observation_seq)-before
+    end
+    File.open('gate-deltas.part','wb') {|f| f.write(deltas.join(','))}
+    File.rename('gate-deltas.part','gate-deltas.txt')
   end
   loop do
     Input.update
@@ -125,11 +143,17 @@ def main():
         deadline = time.monotonic() + 8
         while time.monotonic() < deadline:
             state = client.status()
-            if state.get('connected') and state.get('observation_seq', 0) > 0:
+            gate_ready = args.scenario != 'brief-rejections' or (runtime / 'gate-deltas.txt').is_file()
+            if gate_ready and state.get('connected') and state.get('observation_seq', 0) > 0:
                 break
             time.sleep(.01)
         else:
             raise RuntimeError('synthetic_startup_failed:' + str(state))
+        if args.scenario == 'brief-rejections':
+            deltas = [int(n) for n in (runtime / 'gate-deltas.txt').read_text(encoding='ascii').split(',')]
+            report['observations_by_heartbeat'] = dict(zip(('rejected', 'throttled', 'published'), deltas))
+            if deltas != [0, 1, 1]:
+                raise AssertionError(f'心跳拒绝／节流／发布当帧新增观察图应为 [0, 1, 1]，实际 {deltas}')
         client.resume(command_id='before-fault', timeout=3)
         if args.scenario == 'locked-status':
             locked = (bridge / 'status.json').open('rb')

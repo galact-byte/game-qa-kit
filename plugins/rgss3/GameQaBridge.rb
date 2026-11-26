@@ -129,7 +129,9 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
                         'observation_screenshot'=>@observation_seq>0 ? 'screenshots/observation.png' : nil,
                         'observation_error'=>@observation_error})
         end
-        @last_status=Time.now.to_f if write('status.json',value)
+        return false unless write('status.json',value)
+        @last_status=Time.now.to_f
+        true
       end
       def release
         @held={}
@@ -292,8 +294,8 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
         @frame+=1
         @ready=true
         guard
-        # 发布受阻时先重试心跳，避免每次重试前都叠加一次昂贵截图。
-        observe unless status==false
+        # 动作已有专属操作后图；不在推进动作时叠加观察图的像素遍历。
+        observe if status!=false && !@current
         if @current
           if @current['phase']=='input'
             @current['remaining']-=1
@@ -303,6 +305,7 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
             if @current['settle']<=0 && ready?
               request=@current['request']
               unless @current['consumed']; fail('input_not_consumed',request); return; end
+              return unless status(true)
               screenshot=capture(request['id'])
               value={'protocol'=>1,'session_id'=>@meta['session_id'],'id'=>request['id'],'ok'=>true,'consumed'=>true,
                      'frame'=>@frame,'capture_frame'=>@frame,'screenshot'=>screenshot,'paused'=>@paused}.merge(view)
