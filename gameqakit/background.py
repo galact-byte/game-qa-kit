@@ -77,6 +77,8 @@ class Manager:
         self.agent_pid = None
         self.target = None
         self.child = None
+        self.diagnostics = None
+        self.last_exit = None
 
     def start(self, hwnd, pid, *, elevate=True):
         from . import background_agent as native
@@ -89,9 +91,12 @@ class Manager:
                 return self.status()
             raise RuntimeError('代理已绑定其他目标，请先 background_stop')
         self.close()
+        self.last_exit = None
+        self.diagnostics = None
+        self.agent_pid = self.target = None
         native.check_window(hwnd, pid)
         self.pipe = r'\\.\pipe\gameqa-bg-' + uuid.uuid4().hex
-        self.handle, self.agent_pid, self.child = native.launch(self.pipe, hwnd, pid, elevate)
+        self.handle, self.agent_pid, self.child, self.diagnostics = native.launch(self.pipe, hwnd, pid, elevate)
         self.target = (hwnd, pid)
         return {'running': True, 'ready': False, 'hwnd': hwnd, 'pid': pid, 'agent_pid': self.agent_pid,
                 'uac': 'requested' if elevate else 'not_requested',
@@ -106,14 +111,37 @@ class Manager:
             raise RuntimeError(result['error'])
         return result
 
+    def _exited_status(self):
+        from . import background_agent as native
+        if self.last_exit is None:
+            result = {'running': False, 'ready': False, 'agent_pid': self.agent_pid}
+            if self.target:
+                result.update(hwnd=self.target[0], pid=self.target[1])
+            try:
+                result['exit_code'] = native.exit_code(self.handle)
+            except OSError as error:
+                result['error'] = '无法读取后台代理退出码：' + str(error)
+            else:
+                if result['exit_code'] != 0:
+                    detail = self.diagnostics.text() if self.diagnostics else ''
+                    result['error'] = detail or f"后台代理已退出（退出码 {result['exit_code']}）；未取得代理错误文本"
+                elif self.diagnostics:
+                    self.diagnostics.text()
+            self.last_exit = result
+        return dict(self.last_exit)
+
     def status(self):
         from . import background_agent as native
-        if not self.handle or not native.alive(self.handle):
-            return {'running': False, 'ready': False}
+        if not self.handle:
+            return dict(self.last_exit or {'running': False, 'ready': False})
+        if not native.alive(self.handle):
+            return self._exited_status()
         try:
             return self._request({'op': 'status'})
         except (OSError, TimeoutError, RuntimeError) as error:
-            return {'running': native.alive(self.handle), 'ready': False, 'error': str(error)}
+            if not native.alive(self.handle):
+                return self._exited_status()
+            return {'running': True, 'ready': False, 'error': str(error)}
 
     def input(self, action):
         ident = action.get('command_id')
@@ -148,6 +176,7 @@ class Manager:
             return result
         finally:
             if self.handle and not native.alive(self.handle):
+                self._exited_status()
                 native.k.CloseHandle(self.handle)
                 self.handle = None
             if self.child:

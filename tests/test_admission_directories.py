@@ -16,7 +16,7 @@ class AdmissionDirectoryTests(unittest.TestCase):
 
     def test_preferences_round_trip_in_selected_root_with_separate_locator(self):
         locator = self.root / 'local-config/location.txt'
-        qa = self.root / 'qa'
+        qa = self.root / 'qa-build'
         with mock.patch('gameqakit.admission.preference_locator', return_value=locator):
             self.assertEqual(admission.load_preferences(), {})
             admission.save_preferences(qa, source=str(self.root / 'game'), artifacts='build')
@@ -25,7 +25,7 @@ class AdmissionDirectoryTests(unittest.TestCase):
         self.assertEqual(result['source'], str(self.root / 'game'))
         self.assertEqual(result['artifacts'], 'build')
         self.assertTrue((qa / 'admission-preferences.json').is_file())
-        self.assertNotIn('build', locator.read_text(encoding='utf-8'))
+        self.assertEqual(locator.read_text(encoding='utf-8'), str(qa))
 
     def test_preferences_refuse_source_overlap_and_unknown_commands(self):
         locator = self.root / 'location.txt'

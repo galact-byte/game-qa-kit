@@ -10,7 +10,7 @@ def main():
     from gameqakit.branch_queue import BatchQueue
     from gameqakit.mcp_client import McpProcess
     from gameqakit.process_job import OwnedProcess
-    from gameqakit.sessions import write_json
+    from gameqakit.sessions import read_json, write_json
 
     # 只替换游戏/SDK 边界；本入口只位于 tests，生产入口没有测试开关。
     def revalidate(plan):
@@ -24,15 +24,22 @@ def main():
     admission.revalidate_plan = revalidate
 
     class Bridge:
-        @staticmethod
-        def status():
-            return {'connected': True, 'paused': True, 'held': []}
+        def __init__(self, root):
+            self.root = root
+
+        def status(self):
+            control = self.root / 'fixture-control.json'
+            state = {'connected': True, 'paused': True, 'held': []}
+            if control.exists():
+                state.update(read_json(control))
+                write_json(self.root / 'fixture-observed.json', state)
+            return state
 
     class Session:
         def __init__(self, plan):
             self.plan, self.root = plan, Path(plan['destination'])
             self.host = None
-            self.bridge = Bridge()
+            self.bridge = Bridge(self.root)
 
         def prepare(self):
             revalidate(self.plan)
@@ -54,8 +61,10 @@ def main():
         def stop(self):
             if self.host is not None:
                 self.host.close()
+            control = self.root / 'fixture-control.json'
+            release_confirmed = read_json(control).get('release_confirmed', True) if control.exists() else True
             return {'state': 'stopped', 'target_exited': True,
-                    'release_confirmed': True,
+                    'release_confirmed': release_confirmed,
                     'source_unchanged': admission.file_digest(Path(self.plan['source']) / 'original.txt') == self.plan['source_sha256']}
 
     if sys.argv[1] == 'worker':

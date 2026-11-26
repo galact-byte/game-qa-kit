@@ -100,6 +100,34 @@ def alive(handle):
     return bool(k.GetExitCodeProcess(handle, C.byref(value))) and value.value == 259
 
 
+def exit_code(handle):
+    value = W.DWORD()
+    if not k.GetExitCodeProcess(handle, C.byref(value)):
+        raise fail()
+    return value.value
+
+
+class StderrTail:
+    def __init__(self, stream):
+        self.stream = stream
+        self.tail = b''
+        self.lock = threading.Lock()
+        self.thread = threading.Thread(target=self._drain, daemon=True)
+        self.thread.start()
+
+    def _drain(self):
+        # 持续排空，避免失败输出填满管道；只保留最后 16 KiB，不落盘。
+        with self.stream:
+            while chunk := self.stream.read1(4096):
+                with self.lock:
+                    self.tail = (self.tail + chunk)[-16384:]
+
+    def text(self):
+        self.thread.join(timeout=.5)
+        with self.lock:
+            return self.tail.decode('utf-8', errors='replace').strip()
+
+
 def process(pid):
     handle = k.OpenProcess(0x101000, False, pid)
     if not handle:
@@ -171,11 +199,19 @@ def launch(pipe, hwnd, pid, elevate):
                 raise RuntimeError('老师取消了 UAC 同意，后台代理未启动')
             raise fail()
         _signature(k, 'GetProcessId', [W.HANDLE], W.DWORD)
-        return info.process, int(k.GetProcessId(info.process)), None
+        return info.process, int(k.GetProcessId(info.process)), None, None
     child = subprocess.Popen([str(executable), *args], cwd=directory,
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL, creationflags=0x08000000)
-    return process(child.pid), child.pid, child
+                             stderr=subprocess.PIPE, creationflags=0x08000000)
+    diagnostics = StderrTail(child.stderr)
+    try:
+        handle = process(child.pid)
+    except BaseException:
+        child.terminate()
+        child.wait()
+        diagnostics.text()
+        raise
+    return handle, child.pid, child, diagnostics
 
 
 def _read(handle, size, deadline):
@@ -396,6 +432,9 @@ class Agent:
 
 
 def main():
+    if sys.stderr is not None:
+        # 冻结进程可能沿用系统代码页，父进程的诊断通道固定按 UTF-8 读取。
+        sys.stderr.reconfigure(encoding='utf-8', errors='backslashreplace')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pipe', required=True)
     parser.add_argument('--hwnd', type=int, required=True)

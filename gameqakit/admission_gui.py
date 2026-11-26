@@ -306,6 +306,7 @@ class AdmissionDialog(QDialog):
         try:
             result = self.manager.status(self.directory)
             self._display(result)
+            self._controls()
             if result['state'] == 'prepared' and not self.started:
                 self.started = True
                 self._run('start', lambda: self.manager.start(self.directory, request_id=self.request + '-start',

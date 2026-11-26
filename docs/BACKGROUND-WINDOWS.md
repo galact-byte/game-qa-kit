@@ -20,7 +20,7 @@
 | 工具 | 参数／返回 |
 | --- | --- |
 | `background_start` | `confirm=true`；指定 `hwnd`、`pid` 或 `profile`。只有 HWND 时解析 PID；只有 PID 时按该进程的完整路径定位唯一窗口；没有显式目标时使用当前 profile。`elevate=true` 为默认值，调用标准 UAC；`false` 只供同权限自写窗口测试。返回 `agent_pid` 与待就绪状态 |
-| `background_status` | 无参数；查询 `running`、`ready`、绑定身份、`size`、`integrity_rids` 和后端。等待 `ready=true` 才进行截图／输入 |
+| `background_status` | 无参数；查询 `running`、`ready`、绑定身份、`size`、`integrity_rids` 和后端。退出后保留 `agent_pid`、目标身份及 `exit_code`；非零退出或读取退出码失败时附 `error`。等待 `ready=true` 才进行截图／输入 |
 | `background_capture` | 可选 `out`，必须为尚不存在的绝对 PNG 路径；省略时写到 `E:/DevData/gameqa/gameqa-background/`。返回 `out`、`size`、`sha256`；PrintWindow 失败或黑图明确报错，不回退桌面截图 |
 | `background_input` | `confirm=true`、`command_id`、`kind`、`cx`、`cy` 必填；坐标使用截图对应的目标客户区像素。返回 `messages_posted`；`game_responded=null`，响应必须另行观察 |
 | `background_stop` | 无参数；停止当前 MCP 创建的代理，尝试向绑定窗口投递松开，不结束游戏。`release_posted` 仅表示消息投递，不能当作目标已读取松开 |
@@ -52,6 +52,14 @@
 ```
 
 结束时调用 `background_stop`。MCP 退出或目标进程退出也会回收代理；不通过 UAC 时不启动代理。更新源码后需要重连 MCP；Windows 本地候选已验证冻结代理入口，尚未正式发布。
+
+## 启动失败诊断
+
+`background_start` 返回 `running=true, ready=false` 仅表示已异步启动，不表示代理初始化完成。若随后退出，`background_status` 会保留退出码、代理与目标身份；重复查询和停止后仍可回读，新启动清除上次诊断。
+
+非提权代理持续排空 stderr，仅在当前 MCP 内存保留最后 16 KiB，并以 UTF-8 解码、替换无效字节；不新增日志落盘。提权代理仍只回传退出码及通用错误说明，不为诊断新增特权文件写入通道。错误中若出现“只允许同用户的启动进程和目标游戏”，应核查启动方、代理和目标的用户身份，不应绕过同用户 SID、管道 DACL 或创建者检查。
+
+指定 Sandboxie 配置已有同箱截图记录，但未覆盖后台输入或所有沙箱配置；本次只改善启动失败回报，不表示新增 Sandboxie 通用支持。运行中的 MCP 不会自动加载新实现，更新后需正常重新连接。
 
 ## 权限与生命周期
 

@@ -374,6 +374,18 @@ class AdmissionGuiTests(unittest.TestCase):
         self.assertIsNone(self.dialog.last_image)
         self.assertIn('失效', self.dialog.preview.text())
 
+    def test_polled_terminal_state_disables_stop_without_a_new_image(self):
+        self.dialog.timer.stop()
+        self.dialog.directory = 'owned-session'
+        for state in ('stopped', 'failed', 'cleanup_failed', 'cancelled'):
+            with self.subTest(state=state):
+                self.dialog._result('stop', {'state': 'stopping', 'can_stop': True}, '')
+                self.assertTrue(self.dialog.stop.isEnabled())
+                self.manager.status.return_value = {'state': state, 'can_stop': True}
+                self.dialog._poll()
+                self.assertEqual(self.dialog.last_state, state)
+                self.assertFalse(self.dialog.stop.isEnabled())
+
     def test_creator_status_failure_clears_old_preview(self):
         from PIL import Image
         image = Path(self.tmp.name) / 'image.png'

@@ -71,6 +71,138 @@ class BackgroundPolicyTests(unittest.TestCase):
 
 
 @unittest.skipUnless(os.name == 'nt', '需要 Windows 进程句柄')
+class BackgroundStartupDiagnosticTests(unittest.TestCase):
+    def setUp(self):
+        self.b = module()
+        from gameqakit import background_agent
+        self.native = background_agent
+        self.manager = self.b.Manager()
+        self.addCleanup(self.manager.close)
+
+    def failed_start(self):
+        with mock.patch.object(self.native, 'check_window', return_value=(1, 1)):
+            self.manager.start(1, 4294967295, elevate=False)
+        end = time.monotonic() + 10
+        while time.monotonic() < end:
+            state = self.manager.status()
+            if not state['running']:
+                return state
+            time.sleep(.03)
+        self.fail('初始化失败的代理未退出')
+
+    def test_failed_initialization_retains_error_after_stop(self):
+        state = self.failed_start()
+        self.assertFalse(state['ready'])
+        self.assertNotEqual(state.get('exit_code', 0), 0)
+        self.assertIn('OSError', state.get('error', ''))
+        self.assertEqual(state.get('pid'), 4294967295)
+        self.assertEqual(state, self.manager.status())
+        self.manager.stop()
+        self.assertEqual(state, self.manager.status())
+
+    def test_status_reports_exit_during_request(self):
+        state = self.failed_start()
+        self.manager.last_exit = None
+        with mock.patch.object(self.native, 'alive', side_effect=[True, False]), \
+                mock.patch.object(self.manager, '_request', side_effect=TimeoutError('pipe closed')):
+            raced = self.manager.status()
+        self.assertEqual(raced, state)
+
+    def test_exit_code_read_failure_is_retained(self):
+        self.failed_start()
+        self.manager.last_exit = None
+        with mock.patch.object(self.native, 'exit_code', side_effect=OSError('exit-code-unavailable'), create=True):
+            state = self.manager.status()
+        self.assertFalse(state['running'])
+        self.assertIn('exit-code-unavailable', state.get('error', ''))
+        self.assertNotIn('exit_code', state)
+        self.manager.stop()
+        self.assertEqual(state, self.manager.status())
+
+    def test_exit_without_stderr_reports_reason(self):
+        import subprocess
+        import sys
+        child = subprocess.Popen([sys.executable, '-B', '-c', 'raise SystemExit(7)'])
+        self.addCleanup(child.wait)
+        handle = self.native.process(child.pid)
+        child.wait(timeout=5)
+        self.manager.handle = handle
+        self.manager.agent_pid = child.pid
+        self.manager.target = (1, 123)
+        state = self.manager.status()
+        self.assertEqual(state.get('exit_code'), 7)
+        self.assertTrue(state.get('error'))
+        self.assertEqual(state.get('agent_pid'), child.pid)
+
+    def test_sid_rejection_survives_real_agent_exit(self):
+        import subprocess
+        import sys
+        popen = subprocess.Popen
+        script = ('import sys;from unittest import mock;'
+                  'from gameqakit import background_agent as n;'
+                  'sys.argv=["background_agent",*sys.argv[1:]];'
+                  'p=mock.patch.object(n,"user_sid",side_effect=["S-1-5-21-1","S-1-5-21-2"]);'
+                  'p.start();n.main()')
+        with mock.patch.object(self.native, 'check_window', return_value=(1, 1)), \
+                mock.patch.object(self.native.subprocess, 'Popen', side_effect=lambda argv, **kw:
+                                  popen([sys.executable, '-B', '-X', 'utf8', '-c', script,
+                                         *argv[argv.index('--pipe'):]], **kw)):
+            self.manager.start(1, os.getpid(), elevate=False)
+        end = time.monotonic() + 10
+        while self.native.alive(self.manager.handle) and time.monotonic() < end:
+            time.sleep(.03)
+        state = self.manager.status()
+        self.assertFalse(state['running'])
+        self.assertEqual(state.get('exit_code'), 1)
+        self.assertIn('只允许同用户的启动进程和目标游戏', state.get('error', ''))
+
+    def test_agent_errors_use_utf8_even_with_legacy_stderr(self):
+        import subprocess
+        import sys
+        popen = subprocess.Popen
+        script = ('import sys;from unittest import mock;'
+                  'from gameqakit import background_agent as n;'
+                  'sys.stderr.reconfigure(encoding="cp936");'
+                  'sys.argv=["background_agent",*sys.argv[1:]];'
+                  'p=mock.patch.object(n,"user_sid",side_effect=["S-1-5-21-1","S-1-5-21-2"]);'
+                  'p.start();n.main()')
+        with mock.patch.object(self.native, 'check_window', return_value=(1, 1)), \
+                mock.patch.object(self.native.subprocess, 'Popen', side_effect=lambda argv, **kw:
+                                  popen([sys.executable, '-B', '-c', script,
+                                         *argv[argv.index('--pipe'):]], **kw)):
+            self.manager.start(1, os.getpid(), elevate=False)
+        end = time.monotonic() + 10
+        while self.native.alive(self.manager.handle) and time.monotonic() < end:
+            time.sleep(.03)
+        state = self.manager.status()
+        self.assertFalse(state['running'])
+        self.assertEqual(state.get('exit_code'), 1)
+        self.assertIn('只允许同用户的启动进程和目标游戏', state.get('error', ''))
+        self.assertNotIn('\ufffd', state['error'])
+
+    def test_large_stderr_is_drained_and_tail_bounded(self):
+        import subprocess
+        import sys
+        popen = subprocess.Popen
+        script = 'import sys;sys.stderr.write("x" * 131072 + "\\nRuntimeError: tail-marker\\n");sys.exit(9)'
+        with mock.patch.object(self.native.subprocess, 'Popen',
+                               side_effect=lambda argv, **kw: popen([sys.executable, '-B', '-c', script], **kw)):
+            state = self.failed_start()
+        self.assertEqual(state.get('exit_code'), 9)
+        self.assertIn('RuntimeError: tail-marker', state.get('error', ''))
+        self.assertLessEqual(len(state['error'].encode('utf-8')), 17000)
+
+    def test_fresh_manager_is_idle(self):
+        self.assertEqual(self.manager.status(), {'running': False, 'ready': False})
+
+    def test_sid_mismatch_rejects_before_window_access(self):
+        with mock.patch.object(self.native, 'user_sid', side_effect=['S-1-5-21-1', 'S-1-5-21-2']), \
+                mock.patch.object(self.native, 'check_window', side_effect=AssertionError('不应访问窗口')):
+            with self.assertRaisesRegex(RuntimeError, '同用户'):
+                self.native.Agent(1, os.getpid(), os.getpid())
+
+
+@unittest.skipUnless(os.name == 'nt', '需要 Windows 进程句柄')
 class BackgroundLifecycleTests(unittest.TestCase):
     def test_stop_reaps_child_when_exit_code_precedes_poll_completion(self):
         import subprocess
@@ -137,6 +269,21 @@ class BackgroundIntegrationTests(unittest.TestCase):
                 return
             time.sleep(.03)
         self.fail('后台通路等待超时')
+
+    def test_restart_clears_previous_startup_failure(self):
+        from gameqakit import background_agent as native
+        self.manager.stop()
+        with mock.patch.object(native, 'check_window', return_value=(1, 1)):
+            self.manager.start(1, 4294967295, elevate=False)
+        self.until(lambda: not self.manager.status()['running'])
+        self.assertTrue(self.manager.status().get('error'))
+        self.manager.start(self.target['hwnd'], self.target['pid'], elevate=False)
+        self.until(lambda: self.manager.status().get('ready'))
+        self.assertNotIn('error', self.manager.status())
+        self.manager.stop()
+        state = self.manager.status()
+        self.assertEqual(state.get('exit_code'), 0)
+        self.assertNotIn('error', state)
 
     def test_capture_preserves_full_dpi_aware_client_pixels(self):
         result = self.manager.capture(self.root / 'dpi.png')
@@ -208,9 +355,14 @@ class BackgroundIntegrationTests(unittest.TestCase):
         import sys
         import json
         from gameqakit import background_agent as native
-        code = ('import sys,json,time;from gameqakit.background import Manager;'
-                'from pathlib import Path;m=Manager();m.start(int(sys.argv[1]),int(sys.argv[2]),elevate=False);'
-                'time.sleep(.3);Path(sys.argv[3]).write_text(json.dumps(m.status()));')
+        code = ('import sys,json,time\nfrom gameqakit.background import Manager\n'
+                'from pathlib import Path\nm=Manager()\n'
+                'started=m.start(int(sys.argv[1]),int(sys.argv[2]),elevate=False)\n'
+                'deadline=time.monotonic()+5\n'
+                'while not (state:=m.status()).get("ready"):\n'
+                ' assert state.get("running") and time.monotonic()<deadline,state\n'
+                ' time.sleep(.02)\n'
+                'Path(sys.argv[3]).write_text(json.dumps(started))\n')
         info = self.root / 'child-status.json'
         child = subprocess.run([sys.executable, '-B', '-c', code, str(self.target['hwnd']),
                                 str(self.target['pid']), str(info)], cwd=BASE, capture_output=True, timeout=8)

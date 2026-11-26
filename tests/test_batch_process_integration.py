@@ -10,7 +10,7 @@ import psutil
 
 from gameqakit import admission
 from gameqakit.mcp_client import McpProcess
-from gameqakit.sessions import read_json
+from gameqakit.sessions import read_json, write_json
 
 FIXTURE = Path(__file__).with_name('batch_fixture.py')
 
@@ -137,6 +137,84 @@ class BatchProcessIntegrationTests(unittest.TestCase):
         self.assertIn('fixture launch failed', report['branches'][0]['session']['error'])
         self.remember_branch(report, 1)
         self.assertTrue(client.close())
+
+    def start_fault_batch(self):
+        client, _ = self.setup_batch(limit=2, count=3)
+        report = self.until_state(client, 0, 'ready')
+        report = self.until_state(client, 1, 'ready')
+        self.remember_branch(report, 0)
+        first = self.identities[-3:]
+        self.remember_branch(report, 1)
+        healthy = self.identities[-3:]
+        return client, report, first, healthy
+
+    def test_lease_pause_keeps_slot_until_explicit_finish(self):
+        client, _, first, healthy = self.start_fault_batch()
+        fault = self.root / 'branch-0' / 'fixture-control.json'
+        write_json(fault, {'paused': True, 'error': 'lease_expired'})
+        observed = self.root / 'branch-0' / 'fixture-observed.json'
+        self.assertTrue(self.wait(lambda: observed.exists()
+                                  and read_json(observed).get('error') == 'lease_expired'))
+        self.assertEqual(read_json(observed)['held'], [])
+        report = client.call('batch_status', {})
+        self.assertEqual(report['branches'][0]['state'], 'ready')
+        self.assertEqual(report['branches'][2]['state'], 'queued')
+        self.assertFalse((self.root / 'branch-2').exists())
+        self.assertTrue(all(self.alive(p) for p in first + healthy))
+        client.call('batch_finish', dict(branch_id='0', outcome='unverified',
+                                        evidence=[], confirm=True))
+        report = self.until_state(client, 2, 'ready')
+        self.remember_branch(report, 2)
+        self.assertEqual(report['branches'][0]['state'], 'unverified')
+        self.assertTrue(report['branches'][0]['cleanup_verified'])
+        self.assertTrue(all(not self.alive(p) for p in first))
+        self.assertTrue(all(self.alive(p) for p in healthy))
+        self.assertEqual(report['branches'][1]['state'], 'ready')
+
+    def test_capture_failure_reaps_branch_before_starting_replacement(self):
+        client, _, first, healthy = self.start_fault_batch()
+        write_json(self.root / 'branch-0' / 'fixture-control.json',
+                   {'observation_error': 'capture unavailable'})
+        report = self.until_state(client, 2, 'ready')
+        self.remember_branch(report, 2)
+        failed = report['branches'][0]
+        self.assertEqual(failed['state'], 'failed')
+        self.assertIn('observation_failed', failed['session']['error'])
+        self.assertTrue(failed['cleanup_verified'])
+        self.assertTrue(failed['session']['release_confirmed'])
+        self.assertTrue(failed['session']['target_exited'])
+        self.assertFalse(failed['session']['worker_alive'])
+        self.assertTrue(all(not self.alive(p) for p in first))
+        self.assertTrue(all(self.alive(p) for p in healthy))
+        self.assertEqual(report['branches'][1]['state'], 'ready')
+        self.assertTrue((self.root / 'branch-0' / 'session.json').is_file())
+
+    def test_capture_failure_without_release_confirmation_blocks_replacement(self):
+        client, _, first, healthy = self.start_fault_batch()
+        write_json(self.root / 'branch-0' / 'fixture-control.json',
+                   {'observation_error': 'capture unavailable', 'release_confirmed': False})
+        report = self.until_state(client, 0, 'cleanup_failed')
+        self.assertEqual(report['state'], 'blocked')
+        failed = report['branches'][0]
+        self.assertFalse(failed['cleanup_verified'])
+        self.assertIn('observation_failed', failed['session']['error'])
+        self.assertFalse(failed['session']['release_confirmed'])
+        self.assertTrue(failed['session']['target_exited'])
+        self.assertFalse(failed['session']['worker_alive'])
+        self.assertTrue(all(not self.alive(p) for p in first))
+        self.assertTrue(all(self.alive(p) for p in healthy))
+        self.assertEqual(report['branches'][1]['state'], 'ready')
+        self.assertEqual(report['branches'][2]['state'], 'queued')
+        self.assertFalse((self.root / 'branch-2').exists())
+        client.call('batch_finish', dict(branch_id='1', outcome='unverified',
+                                        evidence=[], confirm=True))
+        report = self.until_state(client, 1, 'unverified')
+        self.assertEqual(report['state'], 'blocked')
+        self.assertTrue(report['branches'][1]['cleanup_verified'])
+        self.assertTrue(all(not self.alive(p) for p in healthy))
+        self.assertEqual(report['branches'][2]['state'], 'queued')
+        self.assertFalse((self.root / 'branch-2').exists())
+        self.assertTrue((self.root / 'branch-0' / 'session.json').is_file())
 
     def test_abrupt_creator_exit_reaps_owned_process_tree_and_report_stays_unverified(self):
         client, _ = self.setup_batch(count=1)

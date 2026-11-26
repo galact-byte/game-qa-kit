@@ -163,6 +163,11 @@ class UnityAdmissionTests(unittest.TestCase):
             patch = mock.patch('plugins.unity.session.' + target, return_value=value)
             patch.start()
             self.addCleanup(patch.stop)
+        # 先建立真实存档联接；首图时钟只度量就绪循环，不计文件系统重试。
+        session.connect_persistent()
+        patch = mock.patch.object(session, 'connect_persistent')
+        patch.start()
+        self.addCleanup(patch.stop)
         patch = mock.patch('plugins.unity.session.time', clock)
         patch.start()
         self.addCleanup(patch.stop)
