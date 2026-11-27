@@ -22,11 +22,26 @@ static void boundary(fs::path path){
         auto parent=path.parent_path();if(parent==path)break;path=parent;
     }
 }
-static kirikiri_guard::State snapshot(HANDLE process,DWORD address){
+static kirikiri_guard::State snapshot(HANDLE process,const kirikiri_guard::StateChannel& channel){
+    const auto& shared=channel.shared();
+    require(kirikiri_guard::state_identity(shared,process),"guard_state_identity_failed");
     kirikiri_guard::State value{};SIZE_T got=0;
-    require(ReadProcessMemory(process,reinterpret_cast<void*>(address),&value,sizeof(value),&got)&&got==sizeof(value),"guard_state_read_failed");
+    require(ReadProcessMemory(GetCurrentProcess(),&shared.value,&value,sizeof(value),&got)&&got==sizeof(value),"guard_state_read_failed");
     require(value.magic==0x4b514731 && value.pid==GetProcessId(process),"guard_state_identity_failed");
     return value;
+}
+static void terminal(const kirikiri_guard::State& state,DWORD policy,const fs::path& bridge){
+    require(state.ready==1 && state.shell_experiment==policy && state.denied>=0 && state.shell_denied>=0 &&
+        state.shell_create_denied>=0 && state.cng_denied>=0 && state.api[47]==0 && state.path[511]==0 &&
+        state.shell_counter[127]==0 && ((state.denied==0 && state.reporting==0) ||
+        (state.denied>0 && state.reporting==2 && state.api[0]!=0)),"guard_state_incomplete");
+    std::ofstream out(bridge/L"guard-final.json");
+    out<<"{\"complete\":true,\"protocol\":1,\"pid\":"<<state.pid<<",\"ready\":true,\"denial_policy\":"<<state.shell_experiment
+       <<",\"denied\":"<<state.denied<<",\"reporting\":"<<state.reporting<<",\"api\":"<<native_input::quote(state.api)
+       <<",\"path\":"<<native_input::quote(utf8(state.path))<<",\"control\":"<<state.control
+       <<",\"shell_counter\":"<<native_input::quote(utf8(state.shell_counter))<<",\"shell_denied\":"<<state.shell_denied
+       <<",\"shell_create_denied\":"<<state.shell_create_denied<<",\"cng_denied\":"<<state.cng_denied<<"}";
+    out.flush();require(bool(out),"guard_terminal_record_failed");
 }
 int wmain(int argc,wchar_t** argv){
     PROCESS_INFORMATION pi{};HANDLE job=nullptr;fs::path root;bool supervised=false;
@@ -65,6 +80,8 @@ int wmain(int argc,wchar_t** argv){
 #endif
         require(CreateProcessW(exe.c_str(),command.data(),nullptr,nullptr,FALSE,CREATE_SUSPENDED|DEBUG_ONLY_THIS_PROCESS,nullptr,game.c_str(),&si,&pi)!=FALSE,"target_create_failed");
         require(AssignProcessToJobObject(job,pi.hProcess)!=FALSE,"job_assign_failed");
+        kirikiri_guard::StateChannel channel;
+        const auto state_section=channel.create(pi.hProcess);
         const auto bytes=(dll.wstring().size()+1)*sizeof(wchar_t);SIZE_T written=0;
         auto memory=VirtualAllocEx(pi.hProcess,nullptr,bytes,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE);
         require(memory&&WriteProcessMemory(pi.hProcess,memory,dll.c_str(),bytes,&written)&&written==bytes,"dll_argument_failed");
@@ -73,9 +90,10 @@ int wmain(int argc,wchar_t** argv){
         auto local=LoadLibraryExW(dll.c_str(),nullptr,DONT_RESOLVE_DLL_REFERENCES);require(local!=nullptr,"local_guard_map_failed");
         const auto entry=GetProcAddress(local,"_StartKiriKiri@4");require(entry!=nullptr,"guard_export_missing");
         const auto offset=reinterpret_cast<DWORD>(entry)-reinterpret_cast<DWORD>(local);FreeLibrary(local);
-        const auto state_address=remote(pi.hProcess,reinterpret_cast<void*>(module+offset),nullptr,false,bridge);
-        require(state_address!=0,"guard_start_failed");
-        auto state=snapshot(pi.hProcess,state_address);
+        const auto protocol=remote(pi.hProcess,reinterpret_cast<void*>(module+offset),state_section,false,bridge);
+        require(protocol==kirikiri_guard::state_protocol,"guard_state_protocol_mismatch");
+        auto state=snapshot(pi.hProcess,channel);
+        const auto policy=state.shell_experiment;
 #ifdef GAMEQA_KIRIKIRI_COMMERCIAL_COMPAT
         require(state.shell_experiment==2,"commercial_compat_guard_required");
 #elif defined(GAMEQA_OWNED_IMAGE)
@@ -94,15 +112,14 @@ int wmain(int argc,wchar_t** argv){
             require(!fs::exists(root/L"stop"),"stopped_before_resume");Sleep(10);
         }
         require(hash(exe)==expected&&hash(dll)==utf8(argv[3]),"input_changed_before_resume");
-        state=snapshot(pi.hProcess,state_address);
+        state=snapshot(pi.hProcess,channel);
         if(state.ready!=1||state.denied)
             throw std::runtime_error(std::string("guard_changed_before_resume:")+state.api+":"+utf8(state.path)+":"+std::to_string(state.control));
         const auto resume_process=reinterpret_cast<NTSTATUS (NTAPI*)(HANDLE)>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"NtResumeProcess"));
         require(resume_process && resume_process(pi.hProcess)>=0,"process_resume_failed");
         require(ResumeThread(pi.hThread)==1,"primary_resume_failed");CloseHandle(pi.hThread);pi.hThread=nullptr;
         std::string reason="target_exit";LONG shell_reported=-1, shell_create_reported=-1, cng_reported=-1;
-        while(WaitForSingleObject(pi.hProcess,25)==WAIT_TIMEOUT){
-            state=snapshot(pi.hProcess,state_address);
+        auto report=[&](){
             if(state.shell_denied!=shell_reported){
                 std::ofstream out(bridge/L"nonfatal-rejections.json");
                 out<<"{\"api\":\"NtOpenSection(write)\",\"path\":"<<native_input::quote(utf8(state.shell_counter))
@@ -121,17 +138,27 @@ int wmain(int argc,wchar_t** argv){
                    <<"\"status\":\"0xc0000022\",\"fatal\":false,\"count\":"<<state.cng_denied<<"}";
                 require(bool(out),"guard_record_failed");cng_reported=state.cng_denied;
             }
-            if(state.ready!=1||state.denied){
-                reason="write_guard_denied";
-                {std::ofstream out(bridge/L"guard-denial.json");out<<"{\"denied\":"<<state.denied<<",\"api\":"<<native_input::quote(state.api)<<",\"path\":"<<native_input::quote(utf8(state.path))<<",\"control\":"<<state.control<<"}";}
-                break;
+            if(state.denied){
+                std::ofstream out(bridge/L"guard-denial.json");out<<"{\"denied\":"<<state.denied<<",\"api\":"<<native_input::quote(state.api)<<",\"path\":"<<native_input::quote(utf8(state.path))<<",\"control\":"<<state.control<<"}";
+                out.flush();require(bool(out),"guard_record_failed");
             }
+        };
+        DWORD wait=WAIT_TIMEOUT;
+        while((wait=WaitForSingleObject(pi.hProcess,25))==WAIT_TIMEOUT){
+            state=snapshot(pi.hProcess,channel);
+            report();
+            if(state.ready!=1||state.denied){reason="write_guard_denied";break;}
             if(fs::exists(root/L"stop")){reason="stopped";break;}
         }
-        DWORD target_exit=STILL_ACTIVE;GetExitCodeProcess(pi.hProcess,&target_exit);
+        require(wait==WAIT_TIMEOUT || wait==WAIT_OBJECT_0,"target_wait_failed");
+        DWORD target_exit=STILL_ACTIVE;require(GetExitCodeProcess(pi.hProcess,&target_exit)!=FALSE,"target_exit_query_failed");
         require(TerminateJobObject(job,82)!=FALSE,"job_terminate_failed");require(WaitForSingleObject(pi.hProcess,3000)==WAIT_OBJECT_0,"target_reap_failed");
+        state=snapshot(pi.hProcess,channel);
+        terminal(state,policy,bridge);
+        report();
+        if(state.denied)reason="write_guard_denied";
         if(reason=="target_exit" && target_exit!=0)reason="target_failed";
-        {std::ofstream out(root/L"host-result.json");out<<"{\"reason\":"<<native_input::quote(reason)<<",\"target_exit\":"<<target_exit<<",\"target_alive\":false}";}
+        {std::ofstream out(root/L"host-result.json");out<<"{\"reason\":"<<native_input::quote(reason)<<",\"target_exit\":"<<target_exit<<",\"target_alive\":false,\"guard_terminal\":true}";out.flush();require(bool(out),"host_result_write_failed");}
         CloseHandle(pi.hProcess);CloseHandle(job);return reason=="write_guard_denied"||reason=="target_failed"?2:0;
     }catch(const std::exception& error){
         if(job)TerminateJobObject(job,83);else if(pi.hProcess)TerminateProcess(pi.hProcess,83);

@@ -13,6 +13,7 @@ BASE = Path(__file__).resolve().parents[2]
 def build(output, *, mode, vcvars=Path('E:/vsCode/VSBuildTools/VC/Auxiliary/Build/vcvars32.bat'), fixture_target=None,
           shell_counter_experiment=False, commercial_compat=False):
     source = {'guard-tests': 'tests/kirikiri_native/GuardTests.cpp',
+              'state-tests': 'tests/kirikiri_native/StateChannelTests.cpp',
               'guard': 'plugins/kirikiri/GuardBridge.cpp',
               'startup-target': 'tests/kirikiri_native/StartupTarget.cpp',
               'startup-dll': 'tests/kirikiri_native/StartupDll.cpp',

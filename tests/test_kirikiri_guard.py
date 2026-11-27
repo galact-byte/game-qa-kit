@@ -1,4 +1,4 @@
-"""原生边界以真实 Win32 调用验证；生成物放在显式 E 盘目录。"""
+"""原生边界以真实 Win32 调用验证；生成物遵循临时目录配置。"""
 import importlib
 import json
 import os
@@ -13,6 +13,21 @@ BASE = Path(__file__).resolve().parents[1]
 
 @unittest.skipUnless(os.name == 'nt', '需要 Windows 原生文件 API')
 class KiriKiriGuardTests(unittest.TestCase):
+    def test_state_channel_rejects_stale_protocol_identity_and_releases_handles(self):
+        build = importlib.import_module('plugins.kirikiri.build')
+        root = Path(tempfile.mkdtemp(prefix='kirikiri-state-'))
+        executable = build.build(root / 'StateChannelTests.exe', mode='state-tests')
+        result = subprocess.run([str(executable)], capture_output=True, timeout=15)
+        (root / 'stdout.txt').write_bytes(result.stdout + result.stderr)
+        self.assertEqual(result.returncode, 0, str(root) + '\n' + result.stdout.decode(errors='replace'))
+        report = json.loads(result.stdout)
+        self.assertTrue(report['protocol_identity'])
+        self.assertTrue(report['version_length_pid_creation_rejected'])
+        self.assertTrue(report['shared_updates'])
+        self.assertTrue(report['non_inherited_handle'])
+        self.assertEqual(report['cycles'], 32)
+        self.assertEqual(report['handles_before'], report['handles_after'])
+
     def test_real_file_handle_and_mapping_boundaries(self):
         self.run_boundary_case(experiment=False)
 
@@ -25,9 +40,7 @@ class KiriKiriGuardTests(unittest.TestCase):
     def run_boundary_case(self, *, experiment, commercial=False):
         self.assertTrue((BASE / 'plugins/kirikiri/Guard.hpp').is_file(), 'KiriKiri 专用写入守卫尚未实现')
         build = importlib.import_module('plugins.kirikiri.build')
-        test_root = Path('E:/DevData/gameqa/gameqa-kirikiri/test-artifacts')
-        test_root.mkdir(parents=True, exist_ok=True)
-        root = Path(tempfile.mkdtemp(prefix='kirikiri-guard-', dir=test_root))
+        root = Path(tempfile.mkdtemp(prefix='kirikiri-guard-'))
         for folder in ('run/savedata', 'run/appdata', 'run/localappdata', 'run/tmp', 'run/bridge', 'run/game', 'outside'):
             (root / folder).mkdir(parents=True, exist_ok=True)
         sentinel = root / 'outside/sentinel.bin'

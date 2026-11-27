@@ -1,5 +1,6 @@
 """真实 stdio 子进程的路由、EOF、超时和关闭行为。"""
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -48,6 +49,28 @@ class McpProcessTests(unittest.TestCase):
         self.assertNotEqual(first['pid'], second['pid'])
         self.assertEqual(first['arguments'], {'branch': '甲', 'frames': 3})
         self.assertEqual(second['arguments'], {'branch': '乙', 'duration_ms': 20})
+
+    @unittest.skipUnless(os.name == 'nt', '需要 Windows 控制台 API')
+    def test_stdio_peer_has_valid_pipes_without_allocating_a_console_host(self):
+        # 无窗口控制台仍有异步退出的 conhost；stdio MCP 不需要控制台。
+        code = r'''
+import ctypes, json, sys
+for line in sys.stdin:
+    msg = json.loads(line)
+    value = {'console_cp': ctypes.windll.kernel32.GetConsoleCP(),
+             'arguments': msg['params']['arguments']}
+    print(json.dumps({'id':msg['id'], 'result':{'content':[
+        {'type':'text','text':json.dumps(value)}]}}), flush=True)
+'''
+        folder = self.root / 'console-free'
+        folder.mkdir()
+        peer = McpProcess(folder, command=[sys.executable, '-u', '-B', '-c', code])
+        self.addCleanup(peer.close)
+        value = peer.call('fixture', {'text': '管道中文'})
+        self.assertEqual(value['arguments'], {'text': '管道中文'})
+        self.assertEqual(value['console_cp'], 0, 'MCP 管道不应分配控制台及其宿主')
+        self.assertTrue(peer.close())
+        self.assertEqual(peer.process.returncode, 0)
 
     def test_rpc_error_is_not_a_successful_result(self):
         with self.assertRaisesRegex(RuntimeError, 'fixture rejection'):

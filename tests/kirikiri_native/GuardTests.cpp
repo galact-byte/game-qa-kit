@@ -35,9 +35,9 @@ int wmain(int argc,wchar_t** argv) {
     auto section_case=[&](const std::string& label,std::wstring path,ACCESS_MASK access,bool fatal,HANDLE base=nullptr) {
         UNICODE_STRING text{};text.Buffer=path.data();text.Length=static_cast<USHORT>(path.size()*2);text.MaximumLength=text.Length;
         OBJECT_ATTRIBUTES attrs{};attrs.Length=sizeof(attrs);attrs.RootDirectory=base;attrs.ObjectName=&text;
-        HANDLE handle=nullptr;const auto previous=state.denied;
+        HANDLE handle=nullptr;const auto previous=state().denied;
         const auto status=ntopen_section(&handle,access,&attrs);
-        result[label]=status==denied_status && handle==nullptr && state.denied==previous+(fatal?1:0);
+        result[label]=status==denied_status && handle==nullptr && state().denied==previous+(fatal?1:0);
         if(handle) CloseHandle(handle);
     };
     const auto counter=directory+L"\\windows_shell_global_counters";
@@ -47,13 +47,13 @@ int wmain(int argc,wchar_t** argv) {
     constexpr bool experiment=false;
 #endif
 #ifdef GAMEQA_KIRIKIRI_COMMERCIAL_COMPAT
-    result["commercial_policy_identity"]=state.shell_experiment==2;
+    result["commercial_policy_identity"]=state().shell_experiment==2;
 #endif
     const auto ntcontrol=reinterpret_cast<Control>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"NtDeviceIoControlFile"));
     auto control_case=[&](const char* label,HANDLE file,ULONG code,bool fatal) {
-        IO_STATUS_BLOCK io{};unsigned char output[32]{};const auto previous=state.denied;
+        IO_STATUS_BLOCK io{};unsigned char output[32]{};const auto previous=state().denied;
         const auto status=ntcontrol(file,nullptr,nullptr,nullptr,&io,code,nullptr,0,output,sizeof(output));
-        result[label]=status==denied_status && state.denied==previous+(fatal?1:0);
+        result[label]=status==denied_status && state().denied==previous+(fatal?1:0);
         for(auto byte:output) result[label]=result[label] && byte==0;
     };
     control_case("cng_exact_denial_policy",cng,0x390008,!experiment);
@@ -75,9 +75,9 @@ int wmain(int argc,wchar_t** argv) {
         UNICODE_STRING text{};text.Buffer=path.data();text.Length=static_cast<USHORT>(path.size()*2);text.MaximumLength=text.Length;
         OBJECT_ATTRIBUTES attrs{};attrs.Length=sizeof(attrs);attrs.RootDirectory=base;attrs.ObjectName=&text;
         LARGE_INTEGER size{};size.QuadPart=4096;
-        HANDLE handle=nullptr;const auto previous=state.denied;
+        HANDLE handle=nullptr;const auto previous=state().denied;
         const auto status=ntcreate_section(&handle,access,&attrs,&size,PAGE_READONLY,SEC_COMMIT,file);
-        result[label]=status==denied_status && handle==nullptr && state.denied==previous+(fatal?1:0);
+        result[label]=status==denied_status && handle==nullptr && state().denied==previous+(fatal?1:0);
         if(handle) CloseHandle(handle);
     };
     create_case("directinput_create_denial_policy",direct_input,0xf0007,true);
@@ -90,9 +90,9 @@ int wmain(int argc,wchar_t** argv) {
     create_case("section_create_less_access_is_fatal",counter,6,true);
     create_case("section_create_other_session_is_fatal",L"\\Sessions\\"+std::to_wstring(session+1)+L"\\BaseNamedObjects\\windows_shell_global_counters",0xf0007,true);
     create_case("section_create_file_backed_is_fatal",counter,0xf0007,true,nullptr,external);
-    const auto fatal_before_mapping=state.denied;
+    const auto fatal_before_mapping=state().denied;
     const auto named=CreateFileMappingW(INVALID_HANDLE_VALUE,nullptr,PAGE_READWRITE,0,4096,L"Local\\gameqa-authored-denied-section");
-    result["named_section_creation_is_fatal"]=named==nullptr && state.denied==fatal_before_mapping+1;
+    result["named_section_creation_is_fatal"]=named==nullptr && state().denied==fatal_before_mapping+1;
     if(named) CloseHandle(named);
     CloseHandle(directory_handle);
     { Pins pins;result["normal_parent_pinned"]=pin_path(folder/L"savedata/normal.bin",pins); }

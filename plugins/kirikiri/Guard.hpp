@@ -1,29 +1,26 @@
 #pragma once
 #include "../native_input/WriteGuard.hpp"
 #include <array>
+#include "GuardState.hpp"
 
 // Fixed x86 target policy. Unknown mutation classes fail closed.
 namespace kirikiri_guard {
 namespace fs = std::filesystem;
 constexpr NTSTATUS denied_status = static_cast<NTSTATUS>(0xc0000022u);
 constexpr ACCESS_MASK writes = 0x520d0116u;
-struct State {
-    DWORD magic=0x4b514731, pid=GetCurrentProcessId(); volatile LONG denied=0; DWORD ready=0;
-    // 0: strict; 1: authored fixture experiment; 2: explicit commercial compatibility.
-    DWORD shell_experiment=0; volatile LONG shell_denied=0, shell_create_denied=0, cng_denied=0; wchar_t shell_counter[128]{};
-    volatile LONG reporting=0;char api[48]{};wchar_t path[512]{};DWORD control=0;
-};
-inline State state;
+inline State local_state;
+inline State* active_state=&local_state;
+inline State& state(){return *active_state;}
 inline fs::path root;
 inline std::wstring volume,drive;
 inline std::vector<std::pair<unsigned char*,std::array<unsigned char,5>>> hooks;
 inline NTSTATUS deny(const char* api="mutation",const std::wstring& path=L"",DWORD control=0) {
-    if(InterlockedCompareExchange(&state.reporting,1,0)==0) {
-        strncpy_s(state.api,api,_TRUNCATE);wcsncpy_s(state.path,path.c_str(),_TRUNCATE);
-        state.control=control;
-        MemoryBarrier();InterlockedExchange(&state.reporting,2);
+    if(InterlockedCompareExchange(&state().reporting,1,0)==0) {
+        strncpy_s(state().api,api,_TRUNCATE);wcsncpy_s(state().path,path.c_str(),_TRUNCATE);
+        state().control=control;
+        MemoryBarrier();InterlockedExchange(&state().reporting,2);
     }
-    InterlockedIncrement(&state.denied);
+    InterlockedIncrement(&state().denied);
     return denied_status;
 }
 struct Pins {
@@ -168,8 +165,8 @@ inline NTSTATUS NTAPI section(PHANDLE result,ACCESS_MASK access,POBJECT_ATTRIBUT
         if(object->ObjectName->Length&1) return deny("NtCreateSection(invalid)");
         const auto path=base.empty()?name:base+L"\\"+name;
         // Both explicit policies refuse this request without creating an object.
-        if(state.shell_experiment && !file && access==0xf0007 && !path.empty() && path==state.shell_counter) {
-            InterlockedIncrement(&state.shell_create_denied);
+        if(state().shell_experiment && !file && access==0xf0007 && !path.empty() && path==state().shell_counter) {
+            InterlockedIncrement(&state().shell_create_denied);
             return denied_status;
         }
         return deny("NtCreateSection(named)",path,access);
@@ -186,8 +183,8 @@ inline NTSTATUS NTAPI section_open(PHANDLE result,ACCESS_MASK access,POBJECT_ATT
         if(object && object->ObjectName && (object->ObjectName->Length&1)) return deny("NtOpenSection(invalid)");
         const auto path=base.empty()?name:base+L"\\"+name;
         // The exact observed request stays denied; only batch termination is waived.
-        if(state.shell_experiment && access==6 && !path.empty() && path==state.shell_counter) {
-            InterlockedIncrement(&state.shell_denied);
+        if(state().shell_experiment && access==6 && !path.empty() && path==state().shell_counter) {
+            InterlockedIncrement(&state().shell_denied);
             return denied_status;
         }
         return deny("NtOpenSection(write)",path,access);
@@ -222,8 +219,8 @@ inline NTSTATUS NTAPI device_control_hook(HANDLE file,HANDLE event,PVOID apc,PVO
     // Limit this exception to the OS console endpoint and these two observed codes.
     if((code==0x500016 || code==0x500023) && name==L"\\Device\\ConDrv")
         return device_control(file,event,apc,context,io,code,input,input_size,output,output_size);
-    if(state.shell_experiment && name==L"\\Device\\CNG" && code==0x390008) {
-        InterlockedIncrement(&state.cng_denied);
+    if(state().shell_experiment && name==L"\\Device\\CNG" && code==0x390008) {
+        InterlockedIncrement(&state().cng_denied);
         return denied_status;
     }
     return deny("NtDeviceIoControlFile",name,code);
@@ -260,11 +257,11 @@ inline void install(const fs::path& folder) {
     DWORD session=0;
     if(!ProcessIdToSessionId(GetCurrentProcessId(),&session)) throw std::runtime_error("guard_session_query_failed");
     const auto counter=L"\\Sessions\\"+std::to_wstring(session)+L"\\BaseNamedObjects\\windows_shell_global_counters";
-    wcsncpy_s(state.shell_counter,counter.c_str(),_TRUNCATE);
+    wcsncpy_s(state().shell_counter,counter.c_str(),_TRUNCATE);
 #ifdef GAMEQA_KIRIKIRI_COMMERCIAL_COMPAT
-    state.shell_experiment=2;
+    state().shell_experiment=2;
 #elif defined(GAMEQA_SHELL_DENIAL_EXPERIMENT)
-    state.shell_experiment=1;
+    state().shell_experiment=1;
 #endif
     if(!hooks.empty()) throw std::runtime_error("guard_already_installed");
     create_file=reinterpret_cast<CreateFile>(hook("NtCreateFile",reinterpret_cast<void*>(&create)));
@@ -290,6 +287,6 @@ inline void install(const fs::path& folder) {
         {"NtCreateProcessEx",reinterpret_cast<void*>(&deny9)}, {"NtCreatePagingFile",reinterpret_cast<void*>(&deny4)}
     };
     for(const auto& item:denied) hook(item.first,item.second);
-    state.ready=1;
+    MemoryBarrier();InterlockedExchange(reinterpret_cast<volatile LONG*>(&state().ready),1);
 }
 }

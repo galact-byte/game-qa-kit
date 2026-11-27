@@ -43,7 +43,7 @@ class StartupGuardTests(unittest.TestCase):
         self.fail('超时；证据目录：' + str(self.root))
 
     def run_case(self, name, mode=None, *, expected=None, resume=True, terminate_host=False, guard_hash=None, guard=None,
-                 host=None, rejected=False):
+                 host=None, rejected=False, markers=()):
         guard = guard or self.guard
         digest = hashlib.sha256(guard.read_bytes()).hexdigest()
         root = self.root / name
@@ -54,6 +54,8 @@ class StartupGuardTests(unittest.TestCase):
         shutil.copyfile(self.init_dll, root / 'game/AuthoredInit.dll')
         if mode:
             (root / mode).touch()
+        for marker in markers:
+            (root / marker).touch()
         with DesktopProcess([str(host or self.host), str(root), str(guard), guard_hash or digest], cwd=root) as owner:
             owner.run()
             self.wait(lambda: (root / 'process.json').exists() or not owner.alive())
@@ -97,6 +99,22 @@ class StartupGuardTests(unittest.TestCase):
             from gameqakit.win32 import _pid_path
             self.wait(lambda: _pid_path(info['pid']) == '')
             self.assertEqual(_pid_path(info['pid']), '')
+            if resume and not terminate_host:
+                import ctypes
+                from ctypes import wintypes
+                from gameqakit.desktop import k
+                code = wintypes.DWORD()
+                self.assertTrue(k.GetExitCodeProcess(owner.process, ctypes.byref(code)))
+                receipt = json.loads((root / 'host-result.json').read_text())
+                expected_code = 1 if receipt['reason'] == 'host_failed' else (
+                    2 if receipt['reason'] in ('write_guard_denied', 'target_failed') else 0)
+                self.assertEqual(code.value, expected_code, str(root))
+                if expected_code != 1:
+                    terminal = json.loads((root / 'bridge/guard-final.json').read_text())
+                    self.assertTrue(terminal['complete'])
+                    self.assertTrue(receipt['guard_terminal'])
+                    self.assertEqual(terminal['pid'], info['pid'])
+                    self.assertFalse(receipt['target_alive'])
         self.assertEqual((self.sentinel.read_bytes(), self.sentinel.stat().st_mtime_ns), self.original)
 
     def test_compat_host_rejects_fixture_guard_before_resume(self):
@@ -213,6 +231,44 @@ class StartupGuardTests(unittest.TestCase):
         self.assertEqual(result['error'], 'guard_state_read_failed')
         self.assertEqual(result['target_exit'], 0)
         self.assertFalse(result['target_alive'])
+
+    def test_natural_exit_between_wait_and_read_retains_complete_terminal_state(self):
+        self.run_case('terminal-after-wait', 'attempt-shell-create', host=self.snapshot_fault_host,
+                      expected='target_exit', markers=('exit-after-wait',))
+        root = self.root / 'terminal-after-wait'
+        terminal = json.loads((root / 'bridge/guard-final.json').read_text())
+        self.assertTrue(terminal['complete'])
+        self.assertEqual(terminal['pid'], json.loads((root / 'process.json').read_text())['pid'])
+        self.assertEqual(terminal['shell_create_denied'], 1)
+        self.assertEqual(terminal['denied'], 0)
+        self.assertEqual(terminal['reporting'], 0)
+        record = json.loads((root / 'bridge/nonfatal-creation-rejections.json').read_text())
+        self.assertEqual(record['count'], 1)
+        self.assertEqual(record['status'], '0xc0000022')
+
+    def test_invalid_terminal_identity_is_not_replaced_by_previous_snapshot(self):
+        self.run_case('terminal-identity', 'exit-target', host=self.snapshot_fault_host,
+                      expected='host_failed', markers=('invalid-terminal-identity',))
+        root = self.root / 'terminal-identity'
+        self.assertEqual(json.loads((root / 'host-result.json').read_text())['error'],
+                         'guard_state_identity_failed')
+        self.assertFalse((root / 'bridge/guard-final.json').exists())
+
+    def test_unfinished_terminal_report_is_not_accepted(self):
+        self.run_case('terminal-incomplete', 'exit-target', host=self.snapshot_fault_host,
+                      expected='host_failed', markers=('incomplete-terminal-report',))
+        root = self.root / 'terminal-incomplete'
+        self.assertEqual(json.loads((root / 'host-result.json').read_text())['error'],
+                         'guard_state_incomplete')
+        self.assertFalse((root / 'bridge/guard-final.json').exists())
+
+    def test_terminal_denial_cannot_have_missing_report(self):
+        self.run_case('terminal-missing-report', 'exit-target', host=self.snapshot_fault_host,
+                      expected='host_failed', markers=('missing-terminal-report',))
+        root = self.root / 'terminal-missing-report'
+        self.assertEqual(json.loads((root / 'host-result.json').read_text())['error'],
+                         'guard_state_incomplete')
+        self.assertFalse((root / 'bridge/guard-final.json').exists())
 
     def test_normal_target_exit_reaps_job(self):
         self.run_case('exits', 'exit-target', expected='target_exit')

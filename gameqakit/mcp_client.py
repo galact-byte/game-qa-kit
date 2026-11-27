@@ -30,7 +30,8 @@ class McpProcess:
             self.process = subprocess.Popen(command, cwd=str(cwd), env=env, stdin=subprocess.PIPE,
                                             stdout=subprocess.PIPE, stderr=self._log, text=True,
                                             encoding='utf-8', bufsize=1,
-                                            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+                                            # MCP 仅用显式管道；无窗口控制台仍会产生异步退出的 conhost。
+                                            creationflags=subprocess.DETACHED_PROCESS if os.name == 'nt' else 0)
         except BaseException:
             self._log.close()
             raise
