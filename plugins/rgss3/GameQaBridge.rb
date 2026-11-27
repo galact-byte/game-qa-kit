@@ -1,6 +1,7 @@
 # RGSS3 实验桥：仅独立桌面，单帧输入；不猜测原生长按重复时序。
 if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
   module GameQaBridge
+    class CaptureInterrupted < StandardError; end
     KEYS = {'up'=>:UP, 'down'=>:DOWN, 'left'=>:LEFT, 'right'=>:RIGHT,
             'ok'=>:C, 'cancel'=>:B, 'shift'=>:A, 'pageup'=>:L, 'pagedown'=>:R}
     class << self
@@ -229,7 +230,13 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
         @current['consumed']=true if value!=0 && @current
         value
       end
+      # 只在主线程实际处理像素时续报；发布被拒则让出本帧，不伪造后台心跳。
+      def capture_progress(generation,command)
+        guard
+        raise CaptureInterrupted if generation!=@observed_pause || !command.equal?(@current) || status==false
+      end
       def capture(id)
+        generation,command=@observed_pause,@current
         bitmap=Graphics.snap_to_bitmap
         width=bitmap.width; height=bitmap.height; stride=(width*3+3)/4*4
         relative='screenshots/'+id+'.bmp'; target=File.join(@root,relative)
@@ -237,6 +244,7 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
           f.write('BM'+[54+stride*height,0,54].pack('V3'))
           f.write([40,width,-height,1,24,0,stride*height,0,0,0,0].pack('VllvvVVllVV'))
           height.times do |y|
+            capture_progress(generation,command) if y%16==0
             pixels=[]
             width.times do |x|
               color=bitmap.get_pixel(x,y); pixels << color.blue.to_i << color.green.to_i << color.red.to_i
@@ -244,6 +252,7 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
             f.write(pixels.pack('C*')); f.write("\0"*(stride-width*3))
           end
         end
+        capture_progress(generation,command)
         File.rename(target+'.part',target)
         relative
       ensure
@@ -253,11 +262,13 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
         [data.bytesize].pack('N')+type+data+[Zlib.crc32(type+data)].pack('N')
       end
       def capture_png(id)
+        generation,command=@observed_pause,@current
         bitmap=Graphics.snap_to_bitmap
         width=bitmap.width; height=bitmap.height
         raise 'invalid_observation_size' if width<=2 || height<=2 || width*height>16777216
         rows=[]
         height.times do |y|
+          capture_progress(generation,command) if y%16==0
           pixels=[0]
           width.times do |x|
             color=bitmap.get_pixel(x,y)
@@ -271,6 +282,7 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
         relative='screenshots/'+id+'.png'; target=File.join(@root,relative)
         File.open(target+'.part','wb') {|f|f.write(body)}
         File.rename(target+'.part',target)
+        capture_progress(generation,command)
         relative
       ensure
         bitmap.dispose if bitmap
@@ -286,6 +298,8 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
         end
         @observation_seq+=1
         @last_observation=Time.now.to_f
+      rescue CaptureInterrupted
+        nil
       rescue StandardError => error
         @observation_error=error.message
         raise
@@ -307,6 +321,8 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
               unless @current['consumed']; fail('input_not_consumed',request); return; end
               return unless status(true)
               screenshot=capture(request['id'])
+              guard
+              return unless @current
               value={'protocol'=>1,'session_id'=>@meta['session_id'],'id'=>request['id'],'ok'=>true,'consumed'=>true,
                      'frame'=>@frame,'capture_frame'=>@frame,'screenshot'=>screenshot,'paused'=>@paused}.merge(view)
               @current=nil if write('results/'+request['id']+'.json',value)
@@ -315,6 +331,8 @@ if ENV['GAMEQAKIT_BRIDGE_DIR'] && ENV['GAMEQAKIT_SESSION_ID']
           end
         end
         status
+      rescue CaptureInterrupted
+        nil
       rescue StandardError => error
         write('plugin-error.json',{'error'=>error.message,'backtrace'=>error.backtrace})
         fail(error.message)
